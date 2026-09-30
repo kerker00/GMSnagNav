@@ -66,10 +66,10 @@ unwraps or force tries).
 
 ```sh
 # Format in place
-swift format --in-place --recursive Package.swift Sources Tests
+swift format --in-place --recursive Package.swift Sources Tests Examples
 
 # Check without changing files (this is what CI runs)
-swift format lint --strict --recursive Package.swift Sources Tests
+swift format lint --strict --recursive Package.swift Sources Tests Examples
 ```
 
 ## Code of Conduct

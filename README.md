@@ -52,6 +52,12 @@ dependencies: [
 
 > No release has been tagged yet. Until then, depend on a specific commit.
 
+## Demo app
+
+[`Examples/SnagNavDemo`](Examples/SnagNavDemo) is a multiplatform app for macOS and iOS that shows
+how to add GMSnagNav with Swift Package Manager and how to use each feature. It grows with the
+package.
+
 ## Acknowledgements
 
 GMSnagNav is written from scratch. These projects shaped its design with their ideas and lessons

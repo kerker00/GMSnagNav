@@ -93,15 +93,19 @@ private struct SelectionActions<Element: Identifiable>: ViewModifier {
   let behavior: OutlineBehavior<Element>
 
   func body(content: Content) -> some View {
-    if behavior.primaryAction == nil && behavior.contextMenu == nil {
-      content
-    } else {
+    if let primaryAction = behavior.primaryAction {
       content.contextMenu(
         forSelectionType: Element.ID.self,
         menu: { ids in behavior.contextMenu?(ids) },
         primaryAction: { ids in
-          if !ids.isEmpty { behavior.primaryAction?(ids) }
+          if !ids.isEmpty { primaryAction(ids) }
         })
+    } else if let menu = behavior.contextMenu {
+      // Without a primary action, use the overload that has none: on iOS, any primary action —
+      // even one that does nothing — replaces tap-to-select.
+      content.contextMenu(forSelectionType: Element.ID.self) { ids in menu(ids) }
+    } else {
+      content
     }
   }
 }

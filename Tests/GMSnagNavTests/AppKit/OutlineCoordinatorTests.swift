@@ -189,6 +189,45 @@
       #expect(outlineView.selectedRow == 1)
     }
 
+    @Test func keepsAMovedGroupExpanded() {
+      host.roots = [.group("a", [.group("f", [.leaf("f1")])]), .group("b", [.leaf("b1")])]
+      host.expansion = ["a", "b", "f"]
+      update()
+      #expect(visibleIDs == ["a", "f", "f1", "b", "b1"])
+
+      host.roots = [.group("a"), .group("b", [.leaf("b1"), .group("f", [.leaf("f1")])])]
+      update()
+      #expect(visibleIDs == ["a", "b", "b1", "f", "f1"])
+    }
+
+    @Test func updatesRowContentInPlace() throws {
+      host.roots = [.leaf("x")]
+      update()
+      let before = try #require(item("x") as? NodeBox<String>)
+
+      host.roots = [.leaf("x"), .leaf("y")]
+      update()
+      // The same item object is kept, so AppKit keeps its row state.
+      #expect((item("x") as? NodeBox<String>) === before)
+    }
+
+    @Test(arguments: 0..<150)
+    func matchesVisibleRowsAfterRandomEdits(seed: Int) {
+      var random = SeededRandom(seed: UInt64(seed) &+ 7)
+      host.roots = RandomTree.make(using: &random)
+      let ids = RandomTree.allIDs(host.roots)
+      host.expansion = Set(ids.filter { _ in random.next() % 2 == 0 })
+      update()
+
+      for _ in 0..<3 {
+        host.roots = RandomTree.edit(host.roots, using: &random)
+        update()
+        let expected = OutlineTree(host.roots, children: \.children)
+          .visibleRows(expanded: host.expansion).map(\.id)
+        #expect(visibleIDs == expected, "seed \(seed)")
+      }
+    }
+
     @Test func dropsSelectionOfRemovedElements() {
       host.single = "c"
       update()

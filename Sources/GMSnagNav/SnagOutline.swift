@@ -33,6 +33,7 @@ where Data.Element: Identifiable, Data.Element.ID: Sendable {
   var appearance = OutlineAppearance()
 
   @State private var internalExpansion: Set<ID> = []
+  @Environment(\.springLoadingBehavior) private var springLoadingBehavior
 
   /// Creates an outline with single selection.
   ///
@@ -120,6 +121,7 @@ where Data.Element: Identifiable, Data.Element.ID: Sendable {
         expansion: expansion ?? $internalExpansion,
         behavior: behavior,
         appearance: appearance,
+        springLoading: springLoadingBehavior,
         rowContent: rowContent
       )
       .modifier(EmptySpaceContextMenu(selection: selection, behavior: behavior))

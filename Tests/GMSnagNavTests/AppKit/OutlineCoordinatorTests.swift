@@ -20,6 +20,7 @@
       var appearance = OutlineAppearance()
       var canDrag: ((TestItem) -> Bool)?
       var drop: OutlineDropHandler<String>?
+      var springLoading = SpringLoadingBehavior.automatic
     }
 
     let host = Host()
@@ -51,6 +52,7 @@
           expansion: Binding(get: { host.expansion }, set: { host.expansion = $0 }),
           behavior: behavior,
           appearance: host.appearance,
+          springLoading: host.springLoading,
           rowContent: { Text($0.id) }))
     }
 
@@ -302,6 +304,56 @@
       performed = nil
       #expect(!coordinator.performDrop(of: ["a"], onto: item("a"), childIndex: 0))
       #expect(performed == nil)
+    }
+
+    /// Hovers over `id` during a drag and waits for spring-loading to react.
+    private func hover(onto id: String?, childIndex: Int = NSOutlineViewDropOnItemIndex) async {
+      coordinator.updateSpringLoading(hovering: id.flatMap(item), childIndex: childIndex)
+      try? await Task.sleep(for: .milliseconds(250))
+    }
+
+    private func isExpanded(_ id: String) -> Bool {
+      item(id).map(outlineView.isItemExpanded) ?? false
+    }
+
+    @Test func springLoadsCollapsedElementsWithoutChangingTheBinding() async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      update()
+      await hover(onto: "a")
+      #expect(isExpanded("a"))
+      #expect(host.expansion.isEmpty)
+
+      // Resting inside the opened element keeps it open.
+      await hover(onto: "a2")
+      #expect(isExpanded("a") && isExpanded("a2"))
+    }
+
+    @Test func closesSpringLoadedElementsWhenThePointerLeaves() async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      update()
+      await hover(onto: "a")
+      await hover(onto: nil, childIndex: 1)
+      #expect(!isExpanded("a"))
+      #expect(host.expansion.isEmpty)
+    }
+
+    @Test func keepsSpringLoadedElementsTheHostExpandedAfterTheDrop() async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      update()
+      await hover(onto: "a")
+      await hover(onto: "a2")
+      host.expansion.insert("a")
+      coordinator.endSpringLoading()
+      #expect(isExpanded("a"))
+      #expect(!isExpanded("a2"))
+    }
+
+    @Test func doesNotSpringLoadWhenDisabled() async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      host.springLoading = .disabled
+      update()
+      await hover(onto: "a")
+      #expect(!isExpanded("a"))
     }
 
     @Test func keepsStateWhenDataChanges() {

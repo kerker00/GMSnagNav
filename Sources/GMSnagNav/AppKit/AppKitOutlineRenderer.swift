@@ -15,6 +15,7 @@
     @Binding var expansion: Set<ID>
     let behavior: OutlineBehavior<Element>
     let appearance: OutlineAppearance
+    var springLoading = SpringLoadingBehavior.automatic
     let rowContent: (Element) -> RowContent
 
     func makeCoordinator() -> OutlineCoordinator<Element, RowContent> {
@@ -90,6 +91,15 @@
     /// Only tokens travel on the pasteboard, so identifiers need not be `Codable`, and drags from
     /// other outlines or apps — whose tokens are unknown here — are ignored.
     private var draggedIDsByToken: [String: ID] = [:]
+    /// Collapsed elements opened temporarily by hovering over them during the current drag.
+    private var springLoaded: [ID] = []
+    /// The element the pointer rests on during a drag, and the pending task that opens it.
+    private var springLoadCandidate: ID?
+    private var springLoadTask: Task<Void, Never>?
+    /// Replaces the system's spring-loading delay, for tests.
+    var springLoadingDelayOverride: Duration?
+    /// Set while spring-loading opens or closes elements; such changes never reach the binding.
+    private var isSpringLoading = false
     /// Whether the outline has loaded a snapshot; the first one is loaded without animation.
     private var hasLoaded = false
     /// Above this many steps, reloading everything is cheaper and calmer than animating them.
@@ -226,7 +236,8 @@
       let current = Set(
         boxes.values.filter { outlineView.isItemExpanded($0) }.map(\.id))
       let changes = tree.expansionChanges(from: current, to: desired)
-      for id in changes.collapse {
+      // Spring-loaded elements stay open until the drag ends, even though the binding lacks them.
+      for id in changes.collapse where !springLoaded.contains(id) {
         outlineView.collapseItem(box(for: id))
       }
       // Items below a collapsed parent are not loaded and ignore `expandItem`; they are expanded
@@ -301,6 +312,80 @@
       endedAt screenPoint: NSPoint, operation: NSDragOperation
     ) {
       draggedIDsByToken.removeAll()
+      endSpringLoading()
+    }
+
+    // MARK: Spring-loading
+
+    /// The delay before a hovered element opens, or `nil` if spring-loading is off.
+    ///
+    /// Follows the system's spring-loading preference unless the host set
+    /// `springLoadingBehavior(_:)` explicitly.
+    private var springLoadingDelay: Duration? {
+      guard let renderer, renderer.springLoading != .disabled else { return nil }
+      if let springLoadingDelayOverride { return springLoadingDelayOverride }
+      let defaults = UserDefaults.standard
+      if renderer.springLoading == .automatic,
+        defaults.object(forKey: "com.apple.springing.enabled") as? Bool == false
+      {
+        return nil
+      }
+      let delay = defaults.double(forKey: "com.apple.springing.delay")
+      return .seconds(delay > 0 ? delay : 0.5)
+    }
+
+    /// Opens collapsed elements the pointer rests on and closes the ones it has left.
+    func updateSpringLoading(hovering item: Any?, childIndex: Int) {
+      let target = target(item: item, childIndex: childIndex)
+      for id in tree.springLoadedToClose(springLoaded, targetParent: target.parent) {
+        springLoaded.removeAll { $0 == id }
+        setSpringLoaded(id, expanded: false)
+      }
+
+      var candidate: ID?
+      if childIndex == NSOutlineViewDropOnItemIndex, let id = id(of: item),
+        !tree.children(of: id).isEmpty, outlineView?.isItemExpanded(box(for: id)) == false
+      {
+        candidate = id
+      }
+      guard candidate != springLoadCandidate else { return }
+      springLoadTask?.cancel()
+      springLoadCandidate = candidate
+      guard let candidate, let delay = springLoadingDelay else { return }
+
+      springLoadTask = Task { [weak self] in
+        try? await Task.sleep(for: delay)
+        guard !Task.isCancelled, let self, self.springLoadCandidate == candidate else { return }
+        self.springLoaded.append(candidate)
+        self.setSpringLoaded(candidate, expanded: true)
+      }
+    }
+
+    /// Closes what spring-loading opened, unless the host expanded it in the meantime — for
+    /// example to reveal the elements just dropped into it.
+    func endSpringLoading() {
+      springLoadTask?.cancel()
+      springLoadTask = nil
+      springLoadCandidate = nil
+      let expansion = renderer?.expansion ?? []
+      let toClose = tree.springLoadedToClose(springLoaded, targetParent: nil)
+      springLoaded.removeAll()
+      for id in toClose where !expansion.contains(id) {
+        setSpringLoaded(id, expanded: false)
+      }
+    }
+
+    private func setSpringLoaded(_ id: ID, expanded: Bool) {
+      guard let outlineView else { return }
+      isSpringLoading = true
+      defer { isSpringLoading = false }
+      // Not through the animator: the expansion notifications must arrive while
+      // `isSpringLoading` is set, so the temporary change never reaches the binding.
+      if expanded {
+        outlineView.expandItem(box(for: id))
+      } else {
+        outlineView.collapseItem(box(for: id))
+      }
     }
 
     func outlineView(
@@ -308,6 +393,8 @@
       proposedChildIndex index: Int
     ) -> NSDragOperation {
       let ids = draggedIDs(on: info.draggingPasteboard)
+      guard !ids.isEmpty else { return [] }
+      updateSpringLoading(hovering: item, childIndex: index)
       guard let drop = resolveDrop(of: ids, onto: item, childIndex: index) else { return [] }
       if drop.proposal.target != target(item: item, childIndex: index) {
         outlineView.setDropItem(
@@ -422,7 +509,7 @@
     func outlineViewItemDidExpand(_ notification: Notification) {
       guard let renderer, let outlineView, let id = expandedOrCollapsedID(in: notification)
       else { return }
-      if !isApplyingUpdate, !renderer.expansion.contains(id) {
+      if !isApplyingUpdate, !isSpringLoading, !renderer.expansion.contains(id) {
         renderer.expansion.insert(id)
       }
       // Restore the expansion of children that were expanded while this item was collapsed.
@@ -435,7 +522,8 @@
     }
 
     func outlineViewItemDidCollapse(_ notification: Notification) {
-      guard !isApplyingUpdate, let renderer, let id = expandedOrCollapsedID(in: notification)
+      guard !isApplyingUpdate, !isSpringLoading, let renderer,
+        let id = expandedOrCollapsedID(in: notification)
       else { return }
       if renderer.expansion.contains(id) {
         renderer.expansion.remove(id)

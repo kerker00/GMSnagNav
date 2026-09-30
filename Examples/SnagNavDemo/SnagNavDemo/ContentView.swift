@@ -14,7 +14,9 @@ struct ContentView: View {
         #endif
     } detail: {
       if let selection, library.item(selection) != nil {
+        // A fresh detail view per item, so its state starts from the selected item.
         ItemDetailView(itemID: selection, onError: show)
+          .id(selection)
       } else {
         ContentUnavailableView(
           "No Selection", systemImage: "sidebar.left",

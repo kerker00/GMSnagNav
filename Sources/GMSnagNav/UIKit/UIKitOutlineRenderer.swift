@@ -212,7 +212,7 @@
 
     /// Expands or collapses an item on the user's behalf.
     private func toggle(_ id: ID) {
-      guard let renderer, !tree.children(of: id).isEmpty else { return }
+      guard !tree.children(of: id).isEmpty else { return }
       userChangedExpansion(of: id, expanded: !displayedExpansion.contains(id))
     }
 

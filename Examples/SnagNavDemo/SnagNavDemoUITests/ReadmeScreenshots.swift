@@ -35,7 +35,7 @@ final class ReadmeScreenshots: XCTestCase {
     #endif
 
     #if os(macOS)
-      let outlineMenu = app.menuButtons["Outline"].firstMatch
+      let outlineMenu = app.menuButtons["Outline Options"].firstMatch
     #else
       let outlineMenu = app.buttons["Outline"].firstMatch
     #endif

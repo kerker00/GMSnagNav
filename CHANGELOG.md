@@ -37,5 +37,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `NavigationSplitView` — such as on iPhone — from an outline's selection.
 - Drag-and-drop vocabulary: `OutlineDropTarget`, `OutlineDropOperation`, `OutlineDropResult` and
   `OutlineDropProposal`, including detection of drops into a dragged element's own subtree and
-  insertion indices adjusted for the removal of dragged siblings.
+  insertion indices adjusted for the removal of dragged siblings. Dragged identifiers are
+  normalized to top-level elements, so a descendant dragged along with its ancestor is left out.
 - `SnagNavDemo`, a multiplatform demo app in `Examples/`.

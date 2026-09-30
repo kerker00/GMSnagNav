@@ -17,8 +17,15 @@ public enum SnagOutlineStyle: Hashable, Sendable {
 
 /// Visual options configured through `SnagOutline`'s modifiers.
 struct OutlineAppearance {
-  /// The default horizontal distance between two nesting levels.
-  static let defaultIndentation: CGFloat = 14
+  /// The default horizontal distance between two nesting levels: AppKit's source-list spacing on
+  /// macOS, and a wider step on iOS, whose taller list rows need more indentation to read clearly.
+  static var defaultIndentation: CGFloat {
+    #if os(macOS)
+      14
+    #else
+      24
+    #endif
+  }
 
   var style = SnagOutlineStyle.automatic
   var indentation = defaultIndentation
@@ -44,7 +51,7 @@ extension SnagOutline {
   /// Apply this modifier directly to the `SnagOutline`, before any other view modifier.
   ///
   /// - Parameter width: The indentation per level, in points. Negative values are treated as `0`.
-  ///   The default is 14 points.
+  ///   The default is 14 points on macOS and 24 points on iOS.
   public func outlineIndentation(_ width: CGFloat) -> Self {
     var copy = self
     copy.appearance.indentation = max(width, 0)

@@ -132,7 +132,9 @@ where Data.Element: Identifiable, Data.Element.ID: Sendable {
         expansion: expansion ?? $internalExpansion,
         behavior: behavior,
         appearance: appearance,
-        rowContent: rowContent)
+        rowContent: rowContent
+      )
+      .modifier(EmptySpaceContextMenu(selection: selection, behavior: behavior))
     #else
       ListOutlineRenderer(
         tree: OutlineTree(data, children: children),
@@ -170,9 +172,7 @@ extension SnagOutline {
   /// it receives the selected elements when the activated row is part of the selection, otherwise
   /// the activated element alone.
   ///
-  /// On iOS, a tap then runs the action instead of selecting the row, as with SwiftUI's
-  /// `contextMenu(forSelectionType:menu:primaryAction:)`. Only add a primary action on iOS when
-  /// rows do not navigate through their selection.
+  /// On iOS, a tap first selects the row, then runs the action.
   ///
   /// Apply this modifier directly to the `SnagOutline`, before any other view modifier.
   ///
@@ -224,4 +224,21 @@ enum OutlineSelection<ID: Hashable> {
   case none
   case single(Binding<ID?>)
   case multiple(Binding<Set<ID>>)
+}
+
+/// Shows the host's context menu with an empty set of identifiers for space that holds no row.
+/// Rows show their own menu from their hosted content.
+struct EmptySpaceContextMenu<Element: Identifiable>: ViewModifier where Element.ID: Sendable {
+  let selection: OutlineSelection<Element.ID>
+  let behavior: OutlineBehavior<Element>
+
+  func body(content: Content) -> some View {
+    if case .none = selection {
+      content
+    } else if let menu = behavior.contextMenu {
+      content.contextMenu { menu([]) }
+    } else {
+      content
+    }
+  }
 }

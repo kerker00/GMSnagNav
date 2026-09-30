@@ -159,10 +159,14 @@
         childCount: children.count)
       // The row draws its own leading chevron and indentation: UIKit places its outline
       // disclosure on the trailing edge of sidebar lists and does not indent hosted content.
+      let menu = renderer.behavior.contextMenu
+      let menuIDs = activatedIDs(for: id)
       cell.contentConfiguration = UIHostingConfiguration {
         OutlineRowView(
           row: row, indentation: renderer.appearance.indentation, isExpanded: row.isExpanded,
-          toggle: { [weak self] in self?.toggle(id) }, content: renderer.rowContent(element))
+          toggle: { [weak self] in self?.toggle(id) }, content: renderer.rowContent(element)
+        )
+        .modifier(RowMenu(menu: menu.map { menu in { menu(menuIDs) } }))
       }
       .margins(.vertical, 6)
       cell.indentationLevel = 0
@@ -229,7 +233,24 @@
       }
     }
 
+    /// The elements an action on `id` applies to: the selection if `id` is part of it, otherwise
+    /// `id` alone.
+    func activatedIDs(for id: ID) -> Set<ID> {
+      guard let renderer else { return [id] }
+      let selected = selectedIDs(in: renderer.selection)
+      return selected.contains(id) ? selected : [id]
+    }
+
     // MARK: UICollectionViewDelegate
+
+    func collectionView(
+      _ collectionView: UICollectionView, performPrimaryActionForItemAt indexPath: IndexPath
+    ) {
+      guard let primaryAction = renderer?.behavior.primaryAction,
+        let id = dataSource?.itemIdentifier(for: indexPath)
+      else { return }
+      primaryAction(activatedIDs(for: id))
+    }
 
     func collectionView(
       _ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath
@@ -252,6 +273,19 @@
       _ collectionView: UICollectionView, didDeselectItemAt indexPath: IndexPath
     ) {
       writeSelection()
+    }
+  }
+
+  /// Attaches the host's context menu to a hosted row.
+  private struct RowMenu: ViewModifier {
+    let menu: (() -> AnyView)?
+
+    func body(content: Content) -> some View {
+      if let menu {
+        content.contextMenu { menu() }
+      } else {
+        content
+      }
     }
   }
 #endif

@@ -97,7 +97,8 @@ struct SidebarView: View {
     .onOutlineDrop(validate: library.dropResult(for:), perform: drop)
 
     #if os(macOS)
-      // On iOS a tap already selects and navigates, so the primary action is macOS only.
+      // On iOS a tap selects and navigates; also opening documents on every tap would get in
+      // the way, so the demo's primary action is macOS only.
       return
         outline
         .outlinePrimaryAction(open)

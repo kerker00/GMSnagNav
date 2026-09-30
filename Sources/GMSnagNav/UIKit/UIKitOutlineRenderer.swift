@@ -321,8 +321,8 @@
 
     /// The host's answers for the current drag and snapshot.
     private var dropCache = DropResolutionCache<ID>()
-    /// The last drop resolved while the user drags, performed when they lift the finger.
-    private var pendingDrop: (proposal: OutlineDropProposal<ID>, operation: OutlineDropOperation)?
+    /// Where the elements would land if the user lifted the finger now, before the host's answer.
+    private var pendingTarget: OutlineDropTarget<ID>?
 
     /// Starts a drag from the row of `id`, called by the row's hosted content.
     ///
@@ -417,8 +417,8 @@
       _ collectionView: UICollectionView, dropSessionDidUpdate session: UIDropSession,
       withDestinationIndexPath destinationIndexPath: IndexPath?
     ) -> UICollectionViewDropProposal {
-      pendingDrop = nil
-      guard let renderer, let drop = renderer.behavior.drop else {
+      pendingTarget = nil
+      guard renderer?.behavior.drop != nil else {
         return UICollectionViewDropProposal(operation: .forbidden)
       }
       let location = session.location(in: collectionView)
@@ -428,18 +428,11 @@
       let target = dropTarget(over: hit.row, verticalFraction: hit.fraction, in: rows)
       updateSpringLoading(for: target)
 
-      let ids = draggedIDs(in: session)
-      guard
-        let resolved = dropCache.resolution(
-          for: ids, target: target,
-          resolve: {
-            drop.resolve(draggedIDs: ids, target: target, tree: tree, expanded: renderer.expansion)
-          })
-      else {
+      guard let resolved = resolveDrop(of: draggedIDs(in: session), at: target) else {
         dropIndicator = nil
         return UICollectionViewDropProposal(operation: .forbidden)
       }
-      pendingDrop = resolved
+      pendingTarget = target
       dropIndicator = indicator(for: resolved.proposal.target, near: hit, in: rows)
 
       let operation: UIDropOperation = resolved.operation == .copy ? .copy : .move
@@ -452,10 +445,31 @@
       performDropWith coordinator: UICollectionViewDropCoordinator
     ) {
       dropIndicator = nil
-      guard let drop = renderer?.behavior.drop, let pending = pendingDrop else { return }
-      pendingDrop = nil
+      guard let target = pendingTarget else { return }
+      pendingTarget = nil
       // The host changes its data; the next update animates the rows to their new place.
-      _ = drop.perform(pending.proposal, pending.operation)
+      _ = performDrop(of: currentDragIDs, at: target)
+    }
+
+    /// Asks the host whether and where `ids` may be dropped at `target`, reusing its answer until
+    /// the data changes.
+    func resolveDrop(
+      of ids: [ID], at target: OutlineDropTarget<ID>
+    ) -> (proposal: OutlineDropProposal<ID>, operation: OutlineDropOperation)? {
+      guard let renderer, let drop = renderer.behavior.drop, !ids.isEmpty else { return nil }
+      return dropCache.resolution(for: ids, target: target) {
+        drop.resolve(draggedIDs: ids, target: target, tree: tree, expanded: renderer.expansion)
+      }
+    }
+
+    /// Lets the host perform a drop and returns whether it did.
+    ///
+    /// The drop is resolved again, because the host's data may have changed since the finger last
+    /// moved; a proposal from before that change could carry outdated positions.
+    func performDrop(of ids: [ID], at target: OutlineDropTarget<ID>) -> Bool {
+      guard let drop = renderer?.behavior.drop, let resolved = resolveDrop(of: ids, at: target)
+      else { return false }
+      return drop.perform(resolved.proposal, resolved.operation)
     }
 
     func collectionView(
@@ -473,7 +487,7 @@
     func collectionView(
       _ collectionView: UICollectionView, dropSessionDidEnd session: UIDropSession
     ) {
-      pendingDrop = nil
+      pendingTarget = nil
       dragRowFrames = nil
       dropIndicator = nil
       currentDragIDs = []

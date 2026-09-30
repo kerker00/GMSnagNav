@@ -364,7 +364,8 @@
     }
 
     private func setSpringLoaded(_ id: ID, expanded: Bool) {
-      guard let outlineView else { return }
+      // The host may have removed the element during the drag.
+      guard let outlineView, tree.contains(id) else { return }
       isSpringLoading = true
       defer { isSpringLoading = false }
       // Not through the animator: the expansion notifications must arrive while

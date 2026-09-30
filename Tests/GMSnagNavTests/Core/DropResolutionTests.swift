@@ -92,4 +92,20 @@ import Testing
     }
     #expect(calls == 1)
   }
+
+  @Test func rejectsTargetsThatNoLongerExistWithoutAskingTheHost() {
+    var calls = 0
+    let accepting = handler { _ in
+      calls += 1
+      return .accept(.move)
+    }
+    #expect(
+      accepting.resolve(draggedIDs: ["c"], target: .onto("missing"), tree: tree, expanded: [])
+        == nil)
+    #expect(
+      accepting.resolve(
+        draggedIDs: ["c"], target: .insert(into: nil, at: 4), tree: tree, expanded: [])
+        == nil)
+    #expect(calls == 0)
+  }
 }

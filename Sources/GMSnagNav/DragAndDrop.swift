@@ -80,6 +80,8 @@ extension OutlineDropHandler {
     expanded: Set<ID>
   ) -> (proposal: OutlineDropProposal<ID>, operation: OutlineDropOperation)?
   where Element.ID == ID {
+    // A target proposed before the host's data changed may no longer exist.
+    guard tree.isValidDropTarget(target) else { return nil }
     let proposal = OutlineDropProposal(
       draggedIDs: draggedIDs, target: target, tree: tree, expanded: expanded)
     guard !proposal.draggedIDs.isEmpty else { return nil }

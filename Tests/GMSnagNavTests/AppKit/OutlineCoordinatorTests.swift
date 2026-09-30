@@ -452,5 +452,46 @@
       update()
       #expect(outlineView.selectedRowIndexes.isEmpty)
     }
+
+    @Test func rejectsDropsOfElementsRemovedDuringTheDrag() {
+      host.drop = acceptAll()
+      update()
+      #expect(coordinator.resolveDrop(of: ["c"], onto: item("b"), childIndex: -1) != nil)
+
+      host.roots.removeLast()
+      update()
+      #expect(coordinator.resolveDrop(of: ["c"], onto: item("b"), childIndex: -1) == nil)
+    }
+
+    @Test func resolvesTheDropAgainstDataChangedDuringTheDrag() {
+      var performed: OutlineDropProposal<String>?
+      host.drop = acceptAll(recording: { proposal, _ in performed = proposal })
+      update()
+      // Roots a b c: moving c to the end needs no adjustment.
+      #expect(
+        coordinator.resolveDrop(of: ["c"], onto: nil, childIndex: 2)?.proposal
+          .insertionIndexAfterRemoval == 2)
+
+      // With a removed, c sits at index 1, before the insertion point.
+      host.roots.removeFirst()
+      update()
+      #expect(coordinator.performDrop(of: ["c"], onto: nil, childIndex: 2))
+      #expect(performed?.insertionIndexAfterRemoval == 1)
+    }
+
+    @Test func ignoresSpringLoadedElementsRemovedDuringTheDrag() async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      host.drop = acceptAll()
+      update()
+      coordinator.updateSpringLoading(hovering: item("a"), childIndex: NSOutlineViewDropOnItemIndex)
+      try? await Task.sleep(for: .milliseconds(250))
+      #expect(visibleIDs == ["a", "a1", "a2", "b", "c"])
+
+      host.roots.removeFirst()
+      update()
+      coordinator.endSpringLoading()
+      #expect(visibleIDs == ["b", "c"])
+      #expect(host.expansion.isEmpty)
+    }
   }
 #endif

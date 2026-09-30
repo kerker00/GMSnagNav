@@ -75,9 +75,10 @@ Common types: `feat`, `fix`, `perf`, `refactor`, `test`, `docs`, `ci`, `chore`. 
 ## Translations
 
 The package's own texts — so far only what VoiceOver reads for the rows' disclosure indicators on
-iOS — live in the string catalog `Sources/GMSnagNav/Resources/Localizable.xcstrings`. To add a
-language, open the catalog in Xcode, add the language and translate every entry, then add the
-translations to `Tests/GMSnagNavTests/LocalizationTests.swift`. The texts follow the host app's
+iOS — live in `Sources/GMSnagNav/Resources/<language>.lproj/Localizable.strings`. Plain strings
+files work with every build system; a string catalog is not compiled by `swift build` with
+Xcode 26. To add a language, copy `en.lproj` to a folder for the new language, translate every
+entry, and add the translations to `Tests/GMSnagNavTests/LocalizationTests.swift`. The texts follow the host app's
 language, so they appear only in apps that are localized for that language too.
 
 ## Formatting

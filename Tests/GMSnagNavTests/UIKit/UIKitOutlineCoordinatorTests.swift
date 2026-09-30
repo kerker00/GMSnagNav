@@ -14,6 +14,7 @@
       var single: String?
       var isSelectable: (TestItem) -> Bool = { _ in true }
       var primaryAction: ((Set<String>) -> Void)?
+      var springLoading = SpringLoadingBehavior.automatic
     }
 
     let host = Host()
@@ -38,6 +39,7 @@
           expansion: Binding(get: { host.expansion }, set: { host.expansion = $0 }),
           behavior: behavior,
           appearance: OutlineAppearance(),
+          springLoading: host.springLoading,
           rowContent: { Text($0.id) }))
     }
 
@@ -149,6 +151,91 @@
       #expect(Coordinator.row(at: -5, in: frames).row == 0)
       #expect(Coordinator.row(at: -5, in: frames).fraction == 0)
       #expect(Coordinator.row(at: 100, in: frames).row == nil)
+    }
+
+    private func restOn(_ target: OutlineDropTarget<String>) async {
+      coordinator.updateSpringLoading(for: target)
+      try? await Task.sleep(for: .milliseconds(250))
+    }
+
+    @Test func springLoadsCollapsedFoldersWithoutChangingTheBinding() async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      update()
+      await restOn(.onto("a"))
+      #expect(coordinator.springLoaded == ["a"])
+      #expect(coordinator.displayedExpansion.contains("a"))
+      #expect(host.expansion.isEmpty)
+
+      // Resting inside the opened folder keeps it open and opens the next level.
+      await restOn(.onto("a2"))
+      #expect(coordinator.springLoaded == ["a", "a2"])
+    }
+
+    @Test func closesSpringLoadedFoldersWhenTheFingerLeaves() async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      update()
+      await restOn(.onto("a"))
+      await restOn(.insert(into: nil, at: 3))
+      #expect(coordinator.springLoaded.isEmpty)
+      #expect(!coordinator.displayedExpansion.contains("a"))
+    }
+
+    @Test func keepsFoldersTheHostExpandedWhenTheDragEnds() async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      update()
+      await restOn(.onto("a"))
+      await restOn(.onto("a2"))
+      host.expansion.insert("a")
+      coordinator.endSpringLoading()
+      #expect(coordinator.displayedExpansion == ["a"])
+    }
+
+    @Test func doesNotSpringLoadWhenDisabled() async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      host.springLoading = .disabled
+      update()
+      await restOn(.onto("a"))
+      #expect(coordinator.springLoaded.isEmpty)
+    }
+
+    @Test func ignoresLeavesAndEmptyFolders() async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      update()
+      await restOn(.onto("b"))
+      await restOn(.onto("c"))
+      #expect(coordinator.springLoaded.isEmpty)
+    }
+
+    @Test func indicatesDropsOntoRowsWithAHighlight() {
+      update()
+      let rows = OutlineTree(sampleRoots, children: \.children).visibleRows(expanded: [])
+      #expect(coordinator.indicator(for: .onto("a"), near: (0, 0.5), in: rows) == .onto("a"))
+    }
+
+    @Test func drawsInsertionLinesBelowThePreviousSibling() {
+      host.expansion = ["a"]
+      update()
+      let rows = OutlineTree(sampleRoots, children: \.children).visibleRows(expanded: ["a"])
+      // Rows: a, a1, a2, b, c. Inserting at root index 1 goes below a's last visible row, a2.
+      #expect(
+        coordinator.indicator(for: .insert(into: nil, at: 1), near: (3, 0.1), in: rows)
+          == .line("a2", atBottom: true, depth: 0))
+      // Inserting into a at index 1 goes below a1, one level deep.
+      #expect(
+        coordinator.indicator(for: .insert(into: "a", at: 1), near: (1, 0.9), in: rows)
+          == .line("a1", atBottom: true, depth: 1))
+    }
+
+    @Test func drawsInsertionLinesAboveTheFirstChild() {
+      host.expansion = ["a"]
+      update()
+      let rows = OutlineTree(sampleRoots, children: \.children).visibleRows(expanded: ["a"])
+      #expect(
+        coordinator.indicator(for: .insert(into: nil, at: 0), near: (0, 0.1), in: rows)
+          == .line("a", atBottom: false, depth: 0))
+      #expect(
+        coordinator.indicator(for: .insert(into: "a", at: 0), near: (1, 0.1), in: rows)
+          == .line("a1", atBottom: false, depth: 1))
     }
   }
 #endif

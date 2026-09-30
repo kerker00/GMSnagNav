@@ -132,6 +132,7 @@ where Data.Element: Identifiable, Data.Element.ID: Sendable {
         expansion: expansion ?? $internalExpansion,
         behavior: behavior,
         appearance: appearance,
+        springLoading: springLoadingBehavior,
         rowContent: rowContent)
     #else
       ListOutlineRenderer(

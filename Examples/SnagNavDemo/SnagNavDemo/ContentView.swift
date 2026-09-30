@@ -1,12 +1,15 @@
+import GMSnagNav
 import SwiftUI
 
 struct ContentView: View {
   @Environment(Library.self) private var library
   @State private var selection: LibraryItem.ID?
   @State private var errorMessage: String?
+  /// Which column a collapsed split view shows, such as on iPhone.
+  @State private var compactColumn = NavigationSplitViewColumn.sidebar
 
   var body: some View {
-    NavigationSplitView {
+    NavigationSplitView(preferredCompactColumn: $compactColumn) {
       SidebarView(selection: $selection, onError: show)
         .navigationTitle("Library")
         #if os(macOS)
@@ -23,6 +26,8 @@ struct ContentView: View {
           description: Text("Select an item in the sidebar."))
       }
     }
+    // On iPhone: open the detail for a selection, clear the selection on the way back.
+    .outlineCompactNavigation(selection: $selection, column: $compactColumn)
     .alert(
       "Action Failed",
       isPresented: Binding(

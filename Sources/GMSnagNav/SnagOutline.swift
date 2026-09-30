@@ -17,6 +17,12 @@ import SwiftUI
 ///
 /// Identifiers must be unique across the whole tree. The outline keeps no copy of the data between
 /// updates; every change to `data` is reflected the next time SwiftUI renders the view.
+///
+/// ## Compact split views
+///
+/// A collapsed `NavigationSplitView`, such as on iPhone, navigates to its detail column by itself
+/// only for selections in a SwiftUI `List`. Apply `outlineCompactNavigation(selection:column:)`
+/// to the split view for the same behavior with an outline.
 public struct SnagOutline<Data: RandomAccessCollection, RowContent: View>: View
 where Data.Element: Identifiable, Data.Element.ID: Sendable {
   /// The type of the elements shown in the outline.

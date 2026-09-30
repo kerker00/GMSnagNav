@@ -4,6 +4,6 @@
 /// with SwiftUI. The host app owns its tree and decides what every drop means — the package only
 /// supplies the interaction mechanics.
 public enum GMSnagNav {
-    /// The version of the package, following Semantic Versioning.
-    public static let version = "0.0.0"
+  /// The version of the package, following Semantic Versioning.
+  public static let version = "0.0.0"
 }

@@ -42,7 +42,7 @@ xcodebuild -scheme GMSnagNav -destination 'generic/platform=iOS Simulator' build
 
 We use [Conventional Commits](https://www.conventionalcommits.org/):
 
-```
+```text
 feat(macos): drop between rows with insertion marker
 fix(core): keep expansion when an item moves to another parent
 docs: explain drop validation
@@ -57,6 +57,20 @@ Common types: `feat`, `fix`, `perf`, `refactor`, `test`, `docs`, `ci`, `chore`. 
 - No third-party dependencies and no private Apple APIs.
 - Public API avoids `fatalError` paths; invalid input is handled or rejected gracefully.
 - Match the style of the surrounding code.
+
+## Formatting
+
+Code is formatted with `swift format`, which ships with the Swift toolchain. The configuration
+lives in `.swift-format` (2-space indentation, 100-column lines, documented public API, no force
+unwraps or force tries).
+
+```sh
+# Format in place
+swift format --in-place --recursive Package.swift Sources Tests
+
+# Check without changing files (this is what CI runs)
+swift format lint --strict --recursive Package.swift Sources Tests
+```
 
 ## Code of Conduct
 

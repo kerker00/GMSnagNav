@@ -160,6 +160,13 @@
       }
     }
 
+    /// The height a row's content takes at least; with the vertical margins, rows are 52 points
+    /// tall, like those of a native sidebar list, and grow with larger text.
+    static var rowMinimumContentHeight: CGFloat { 32 }
+
+    /// The space above and below a row's content. Drop indicators reach into it, to the row's edge.
+    static var rowVerticalMargin: CGFloat { 10 }
+
     /// The element each cell currently shows, keyed by the cell's identity.
     private var cellElements: [ObjectIdentifier: ID] = [:]
 
@@ -185,6 +192,7 @@
           row: row, indentation: renderer.appearance.indentation, isExpanded: row.isExpanded,
           toggle: { [weak self] in self?.toggle(id) }, content: renderer.rowContent(element)
         )
+        .frame(minHeight: Self.rowMinimumContentHeight)
         .modifier(RowMenu(menu: menu.map { menu in { menu(menuIDs) } }))
         .modifier(RowDrag(begin: canDrag ? { [weak self] in self?.beginDrag(from: id) } : nil))
         .background {
@@ -192,20 +200,23 @@
             RoundedRectangle(cornerRadius: 8, style: .continuous)
               .fill(.tint.opacity(0.25))
               .padding(.horizontal, -8)
+              .padding(.vertical, 4 - Self.rowVerticalMargin)
           }
         }
         .overlay(alignment: .bottomLeading) {
           if case .line(id, true, let depth) = indicator {
-            InsertionLine(indent: CGFloat(depth) * indentation).offset(y: 7)
+            InsertionLine(indent: CGFloat(depth) * indentation)
+              .offset(y: Self.rowVerticalMargin + 1)
           }
         }
         .overlay(alignment: .topLeading) {
           if case .line(id, false, let depth) = indicator {
-            InsertionLine(indent: CGFloat(depth) * indentation).offset(y: -7)
+            InsertionLine(indent: CGFloat(depth) * indentation)
+              .offset(y: -Self.rowVerticalMargin - 1)
           }
         }
       }
-      .margins(.vertical, 6)
+      .margins(.vertical, Self.rowVerticalMargin)
       cell.indentationLevel = 0
       cell.accessories = []
     }

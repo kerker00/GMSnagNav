@@ -13,7 +13,8 @@ one SwiftUI API for arbitrarily deep trees with selection, expansion and real dr
 
 - **macOS:** backed by a native `NSOutlineView` — system drop indicators, keyboard navigation,
   source-list styling and VoiceOver behave like in Finder or Mail.
-- **iOS / iPadOS:** rendered with SwiftUI and the platform's own drag-and-drop interactions.
+- **iOS / iPadOS:** backed by a native `UICollectionView` list — the system's drag-and-drop
+  interactions, drop indicators between rows and spring-loaded folders, like in the Files app.
 
 ## Design principles
 
@@ -26,13 +27,15 @@ one SwiftUI API for arbitrarily deep trees with selection, expansion and real dr
 - **Explicit options, no magic.** Multi-selection, context menus, primary actions and
   drag-and-drop are opt-in modifiers.
 
-## Planned features for 0.1.0
+## Features
 
-- Arbitrarily deep trees with selection and expansion bindings
-- Drag and drop onto items, between rows and into the root, with host-side validation
+- Arbitrarily deep trees with single, multiple or no selection and an optional expansion binding
+- Drag and drop onto items, between rows and into the root, with host-side validation and
+  redirection
 - Spring-loaded expansion while dragging
 - Context menus, primary action (double-click / Return / tap) and non-selectable rows
 - Incremental, animated updates when your data changes
+- Navigation of collapsed split views, such as on iPhone, from the selection
 - Demo app for macOS and iOS
 
 ## Requirements
@@ -51,6 +54,62 @@ dependencies: [
 ```
 
 > No release has been tagged yet. Until then, depend on a specific commit.
+
+## Usage
+
+Show your own values with a children key path — `nil` marks a leaf, an array (possibly empty) a
+container. Selection and expansion are sets of your identifiers:
+
+```swift
+import GMSnagNav
+import SwiftUI
+
+struct Item: Identifiable {
+  let id: UUID
+  var name: String
+  var children: [Item]?
+}
+
+struct Sidebar: View {
+  var library: Library
+  @State private var selection: Set<Item.ID> = []
+  @State private var expansion: Set<Item.ID> = []
+
+  var body: some View {
+    SnagOutline(
+      library.roots, children: \.children, selection: $selection, expansion: $expansion
+    ) { item in
+      Label(item.name, systemImage: item.children == nil ? "doc" : "folder")
+    }
+    .outlineContextMenuItems { ids in
+      ids.isEmpty
+        ? []
+        : [.action("Delete", systemImage: "trash", role: .destructive) { library.delete(ids) }]
+    }
+    .outlineDraggable()
+    .onOutlineDrop { proposal in
+      proposal.isDroppingIntoOwnSubtree ? .reject : .accept(.move)
+    } perform: { proposal, _ in
+      library.move(
+        proposal.draggedIDs, into: proposal.target.parent,
+        at: proposal.insertionIndexAfterRemoval)
+    }
+  }
+}
+```
+
+`Library` stands for your own model; its `move` returns whether the move succeeded.
+
+GMSnagNav never changes your data. When the user drops, `perform` receives the dragged
+identifiers — only top-level ones, in display order — and the target: a parent (`nil` for the
+root level) and, for drops between rows, the insertion index. `insertionIndexAfterRemoval` is
+that index adjusted for removing the dragged items first, or `nil` for a drop onto an item, where
+you typically append. After your model changes, the outline animates the rows to their new
+place.
+
+Identifiers must be unique across the whole tree. The demo app's
+[`Library`](Examples/SnagNavDemo/SnagNavDemo/Model/Library.swift) shows a complete model with
+validation and moves.
 
 ## Demo app
 

@@ -11,6 +11,7 @@ struct SidebarView: View {
   let onError: (Error) -> Void
 
   @State private var expansion: Set<LibraryItem.ID> = []
+  @State private var didSetInitialExpansion = false
   @State private var openedDocument: String?
   @AppStorage("foldersSelectable") private var foldersSelectable = true
   @AppStorage("outlineStyle") private var style = DemoOutlineStyle.automatic
@@ -20,7 +21,10 @@ struct SidebarView: View {
   var body: some View {
     outline
       .onAppear {
-        // Start with the top-level folders open.
+        // Start with the top-level folders open — once. On iPhone the sidebar appears again after
+        // every navigation back, and must keep the user's expansion then.
+        guard !didSetInitialExpansion else { return }
+        didSetInitialExpansion = true
         expansion = Set(library.roots.filter(\.isFolder).map(\.id))
       }
       .onChange(of: foldersSelectable) {

@@ -62,9 +62,10 @@ extension SnagOutline {
     /// Customizes the underlying `NSOutlineView` beyond what GMSnagNav's modifiers offer.
     ///
     /// The closure runs after every update, once GMSnagNav has applied its own configuration, so
-    /// changes take effect immediately and override GMSnagNav's settings. Keep it idempotent, and
-    /// do not replace the outline view's data source, delegate, target or actions — GMSnagNav
-    /// relies on them.
+    /// changes take effect immediately and override GMSnagNav's settings — except the indentation,
+    /// which AppKit resets when the row size changes: set it with ``outlineIndentation(_:)``. Keep
+    /// the closure idempotent, and do not replace the outline view's data source, delegate, target
+    /// or actions — GMSnagNav relies on them.
     ///
     /// ```swift
     /// SnagOutline(items, children: \.children, selection: $selection) { Text($0.name) }

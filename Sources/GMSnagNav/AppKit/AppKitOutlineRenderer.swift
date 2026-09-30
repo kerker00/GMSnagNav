@@ -136,9 +136,9 @@
       case .none, .single: outlineView.allowsMultipleSelection = false
       case .multiple: outlineView.allowsMultipleSelection = true
       }
-      applyAppearance(renderer.appearance, to: outlineView)
+      let reindented = applyAppearance(renderer.appearance, to: outlineView)
 
-      applyStructure(from: oldTree, to: outlineView)
+      applyStructure(from: oldTree, to: outlineView, reloading: reindented)
       boxes = boxes.filter { tree.contains($0.key) }
       refreshVisibleRows()
       applyExpansion(renderer.expansion)
@@ -146,8 +146,12 @@
     }
 
     /// Brings the outline's rows from the old snapshot to the current one, animated when possible.
-    private func applyStructure(from oldTree: OutlineTree<Element>, to outlineView: NSOutlineView) {
-      guard hasLoaded else {
+    ///
+    /// - Parameter reloading: Reloads all rows instead, for changes that affect every row.
+    private func applyStructure(
+      from oldTree: OutlineTree<Element>, to outlineView: NSOutlineView, reloading: Bool = false
+    ) {
+      guard hasLoaded, !reloading else {
         hasLoaded = true
         outlineView.reloadData()
         return
@@ -205,17 +209,24 @@
       return AnyView(content.contextMenu { menu(ids) })
     }
 
-    private func applyAppearance(_ appearance: OutlineAppearance, to outlineView: NSOutlineView) {
+    /// Applies the style, the host's configuration and the indentation.
+    ///
+    /// - Returns: Whether the indentation changed. AppKit indents only rows and disclosure
+    ///   triangles it creates from then on, so the visible rows need to be reloaded.
+    private func applyAppearance(
+      _ appearance: OutlineAppearance, to outlineView: NSOutlineView
+    ) -> Bool {
       let style: NSTableView.Style =
         switch appearance.style {
         case .automatic, .sidebar: .sourceList
         case .plain: .plain
         }
       if outlineView.style != style { outlineView.style = style }
-      if outlineView.indentationPerLevel != appearance.indentation {
-        outlineView.indentationPerLevel = appearance.indentation
-      }
       appearance.appKitConfiguration?(outlineView)
+      // After the host's configuration: AppKit resets the indentation when the row size changes.
+      guard outlineView.indentationPerLevel != appearance.indentation else { return false }
+      outlineView.indentationPerLevel = appearance.indentation
+      return true
     }
 
     private func applyExpansion(_ desired: Set<ID>) {

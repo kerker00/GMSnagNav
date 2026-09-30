@@ -132,9 +132,7 @@ where Data.Element: Identifiable, Data.Element.ID: Sendable {
         expansion: expansion ?? $internalExpansion,
         behavior: behavior,
         appearance: appearance,
-        rowContent: rowContent
-      )
-      .modifier(EmptySpaceContextMenu(selection: selection, behavior: behavior))
+        rowContent: rowContent)
     #else
       ListOutlineRenderer(
         tree: OutlineTree(data, children: children),
@@ -190,7 +188,8 @@ extension SnagOutline {
   /// - the whole selection when the user opens the menu on a selected row,
   /// - only the clicked element when the row is not selected or not selectable,
   /// - an empty set when the menu opens on empty space in an outline with selection — useful for
-  ///   actions such as "New Folder" at the root level.
+  ///   actions such as "New Folder" at the root level. macOS only: on iOS, empty space shows no
+  ///   menu, because a long press there would lift the whole outline.
   ///
   /// Return no content to show no menu for a set of identifiers.
   ///
@@ -228,6 +227,9 @@ enum OutlineSelection<ID: Hashable> {
 
 /// Shows the host's context menu with an empty set of identifiers for space that holds no row.
 /// Rows show their own menu from their hosted content.
+///
+/// macOS only: on iOS a long press on empty space would lift the whole outline as the menu's
+/// preview, which can then be dragged around.
 struct EmptySpaceContextMenu<Element: Identifiable>: ViewModifier where Element.ID: Sendable {
   let selection: OutlineSelection<Element.ID>
   let behavior: OutlineBehavior<Element>

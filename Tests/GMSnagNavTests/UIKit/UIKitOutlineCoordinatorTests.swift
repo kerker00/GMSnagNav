@@ -108,5 +108,47 @@
         collectionView, performPrimaryActionForItemAt: IndexPath(item: 1, section: 0))
       #expect(activated == ["b"])
     }
+
+    @Test func dropsOntoARowWhileTheFingerRestsOnItsMiddle() {
+      update()
+      let rows = OutlineTree(sampleRoots, children: \.children).visibleRows(expanded: [])
+      #expect(coordinator.dropTarget(over: 0, verticalFraction: 0.5, in: rows) == .onto("a"))
+      #expect(coordinator.dropTarget(over: 1, verticalFraction: 0.3, in: rows) == .onto("b"))
+    }
+
+    @Test func dropsBetweenRowsNearTheirEdges() {
+      update()
+      let rows = OutlineTree(sampleRoots, children: \.children).visibleRows(expanded: [])
+      // Rows: a, b, c. The top edge of b is the gap after a; the bottom edge the gap after b.
+      #expect(
+        coordinator.dropTarget(over: 1, verticalFraction: 0.1, in: rows)
+          == .insert(into: nil, at: 1))
+      #expect(
+        coordinator.dropTarget(over: 1, verticalFraction: 0.9, in: rows)
+          == .insert(into: nil, at: 2))
+    }
+
+    @Test func appendsBelowTheLastRow() {
+      update()
+      let rows = OutlineTree(sampleRoots, children: \.children).visibleRows(expanded: [])
+      #expect(
+        coordinator.dropTarget(over: nil, verticalFraction: 0.5, in: rows)
+          == .insert(into: nil, at: 3))
+    }
+
+    @Test func locatesTheFingerAgainstRecordedRowFrames() {
+      typealias Coordinator = UIKitOutlineCoordinator<TestItem, Text>
+      let frames = [
+        CGRect(x: 0, y: 0, width: 300, height: 40), CGRect(x: 0, y: 40, width: 300, height: 40),
+      ]
+      #expect(Coordinator.row(at: 10, in: frames).row == 0)
+      #expect(Coordinator.row(at: 10, in: frames).fraction == 0.25)
+      #expect(Coordinator.row(at: 60, in: frames).row == 1)
+      #expect(Coordinator.row(at: 60, in: frames).fraction == 0.5)
+      // Above the first row counts as its top edge; below the last row there is no row.
+      #expect(Coordinator.row(at: -5, in: frames).row == 0)
+      #expect(Coordinator.row(at: -5, in: frames).fraction == 0)
+      #expect(Coordinator.row(at: 100, in: frames).row == nil)
+    }
   }
 #endif

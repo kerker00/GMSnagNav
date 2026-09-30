@@ -63,3 +63,42 @@ struct OutlineDropHandler<ID: Hashable & Sendable> {
   let validate: (OutlineDropProposal<ID>) -> OutlineDropResult<ID>
   let perform: (OutlineDropProposal<ID>, OutlineDropOperation) -> Bool
 }
+
+extension OutlineDropHandler {
+  /// Asks the host whether and where dragged elements may be dropped at a proposed target.
+  ///
+  /// Shared by both renderers, so validation and redirects behave the same on every platform.
+  ///
+  /// - Returns: The proposal — with a redirected target if the host asked for one — and the
+  ///   accepted operation, or `nil` if the drop is not allowed.
+  func resolve<Element: Identifiable>(
+    draggedIDs: [ID], target: OutlineDropTarget<ID>, tree: OutlineTree<Element>,
+    expanded: Set<ID>
+  ) -> (proposal: OutlineDropProposal<ID>, operation: OutlineDropOperation)?
+  where Element.ID == ID {
+    let proposal = OutlineDropProposal(
+      draggedIDs: draggedIDs, target: target, tree: tree, expanded: expanded)
+    guard !proposal.draggedIDs.isEmpty else { return nil }
+
+    switch validate(proposal) {
+    case .reject:
+      return nil
+    case .accept(let operation):
+      return (proposal, operation)
+    case .redirect(let redirected, let operation):
+      guard tree.isValidDropTarget(redirected) else { return nil }
+      let proposal = OutlineDropProposal(
+        draggedIDs: draggedIDs, target: redirected, tree: tree, expanded: expanded)
+      return (proposal, operation)
+    }
+  }
+}
+
+extension OutlineTree where ID: Sendable {
+  /// Whether a drop target refers to an existing parent and an index within its children.
+  func isValidDropTarget(_ target: OutlineDropTarget<ID>) -> Bool {
+    if let parent = target.parent, !contains(parent) { return false }
+    guard let childIndex = target.childIndex else { return true }
+    return (0...children(of: target.parent).count).contains(childIndex)
+  }
+}

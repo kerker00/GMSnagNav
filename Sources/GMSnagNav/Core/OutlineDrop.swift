@@ -78,6 +78,10 @@ public enum OutlineDropResult<ID: Hashable & Sendable>: Hashable, Sendable {
 /// land; the host checks whether that is allowed and performs the change in its own model.
 public struct OutlineDropProposal<ID: Hashable & Sendable>: Hashable, Sendable {
   /// The identifiers of the dragged elements, in display order and without duplicates.
+  ///
+  /// Only top-level elements are included: when an element and one of its descendants are
+  /// dragged together, the descendant is left out because it moves along with its ancestor.
+  /// Hosts can therefore move every identifier as a whole subtree without handling nesting.
   public let draggedIDs: [ID]
 
   /// Where the dragged elements would land.
@@ -102,7 +106,11 @@ public struct OutlineDropProposal<ID: Hashable & Sendable>: Hashable, Sendable {
   /// inserting them — the usual way to implement a move — should insert at this index instead.
   public let insertionIndexAfterRemoval: Int?
 
-  /// Creates a proposal, for example to unit test a host's drop validation.
+  /// Creates a proposal from the given values, for example to unit test a host's drop validation.
+  ///
+  /// The values are taken as they are. Unlike the proposals that the outline passes to the host,
+  /// `draggedIDs` is not normalized to top-level elements in display order, and the other values
+  /// are not derived from an outline's data.
   public init(
     draggedIDs: [ID],
     target: OutlineDropTarget<ID>,
@@ -124,9 +132,10 @@ extension OutlineDropProposal {
     draggedIDs: [ID], target: OutlineDropTarget<ID>, tree: OutlineTree<Element>,
     expanded: Set<ID>
   ) where Element.ID == ID {
-    var seen: Set<ID> = []
-    let unique = draggedIDs.filter { tree.contains($0) && seen.insert($0).inserted }
-    let dragged = unique.sorted {
+    let known = Set(draggedIDs.filter(tree.contains))
+    // An element dragged along with one of its ancestors moves with that ancestor's subtree.
+    let topLevel = known.filter { id in !tree.ancestors(of: id).contains(where: known.contains) }
+    let dragged = topLevel.sorted {
       tree.indexPath(of: $0).lexicographicallyPrecedes(tree.indexPath(of: $1))
     }
 

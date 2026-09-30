@@ -29,6 +29,9 @@ extension SnagOutline {
   /// GMSnagNav never changes the data itself. After `perform` updates the model, the outline
   /// animates the rows to their new place.
   ///
+  /// Both callbacks receive normalized ``OutlineDropProposal/draggedIDs``: only top-level elements
+  /// in display order, so a descendant dragged together with its ancestor is not moved twice.
+  ///
   /// ```swift
   /// .outlineDraggable()
   /// .onOutlineDrop { proposal in

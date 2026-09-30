@@ -38,6 +38,34 @@ import Testing
     #expect(result.draggedIDs == ["a1", "a2x", "c"])
   }
 
+  @Test func keepsOnlyTopLevelElementsWhenAncestorsAreDraggedToo() {
+    // a2x is a descendant of a2, which is a descendant of a.
+    #expect(proposal(["a2x", "a2"], .root).draggedIDs == ["a2"])
+    #expect(proposal(["a2x", "a", "a2"], .root).draggedIDs == ["a"])
+    #expect(proposal(["c", "a1", "a"], .root).draggedIDs == ["a", "c"])
+  }
+
+  @Test func keepsSiblingsAndCousinsThatDoNotContainEachOther() {
+    #expect(proposal(["a2x", "a1"], .root).draggedIDs == ["a1", "a2x"])
+    #expect(proposal(["b", "a2"], .root).draggedIDs == ["a2", "b"])
+  }
+
+  @Test func removesDuplicatesAndDescendantsTogether() {
+    #expect(proposal(["a2x", "a2", "a2x", "a2"], .root).draggedIDs == ["a2"])
+  }
+
+  @Test func adjustsInsertionIndexOnlyForTopLevelElements() {
+    // Moving a together with its child a1 to the end of the root level removes only a from it.
+    let result = proposal(["a1", "a"], .insert(into: nil, at: 3))
+    #expect(result.draggedIDs == ["a"])
+    #expect(result.insertionIndexAfterRemoval == 2)
+  }
+
+  @Test func publicInitTakesDraggedIDsAsTheyAre() {
+    let raw = OutlineDropProposal(draggedIDs: ["a2x", "a", "a"], target: .root)
+    #expect(raw.draggedIDs == ["a2x", "a", "a"])
+  }
+
   @Test func detectsDropsIntoOwnSubtree() {
     #expect(proposal(["a"], .onto("a")).isDroppingIntoOwnSubtree)
     #expect(proposal(["a"], .onto("a2")).isDroppingIntoOwnSubtree)

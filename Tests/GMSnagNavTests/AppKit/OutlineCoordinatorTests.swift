@@ -97,6 +97,54 @@
       }
     }
 
+    @Test func reindentsVisibleRowsWhenTheIndentationChanges() throws {
+      host.expansion = ["a"]
+      host.single = "a1"
+      host.appearance.indentation = 14
+      update()
+      outlineView.frame = CGRect(x: 0, y: 0, width: 300, height: 400)
+      outlineView.layoutSubtreeIfNeeded()
+      let before = try #require(outlineView.view(atColumn: 0, row: 1, makeIfNecessary: true))
+        .frame.minX
+
+      host.appearance.indentation = 30
+      update()
+      outlineView.layoutSubtreeIfNeeded()
+      let after = try #require(outlineView.view(atColumn: 0, row: 1, makeIfNecessary: true))
+      #expect(after.frame.minX == before + 16)
+      #expect(outlineView.selectedRowIndexes == [1])
+    }
+
+    @Test func reindentsDisclosureTrianglesAlongWithDataChanges() {
+      host.expansion = ["a"]
+      host.appearance.indentation = 14
+      update()
+      outlineView.frame = CGRect(x: 0, y: 0, width: 300, height: 400)
+      outlineView.layoutSubtreeIfNeeded()
+      // Row 2 is a2, an expandable child of a.
+      func triangleX() -> CGFloat? {
+        outlineView.rowView(atRow: 2, makeIfNecessary: false)?.subviews
+          .first { $0.identifier == NSOutlineView.disclosureButtonIdentifier }?.frame.minX
+      }
+      let before = triangleX()
+
+      host.appearance.indentation = 30
+      host.roots.removeLast()
+      update()
+      outlineView.layoutSubtreeIfNeeded()
+      #expect(before != nil)
+      #expect(triangleX() == before.map { $0 + 16 })
+      #expect(visibleIDs == ["a", "a1", "a2", "b"])
+    }
+
+    @Test func keepsTheIndentationWhenTheConfigurationChangesTheRowSize() {
+      host.appearance.indentation = 30
+      host.appearance.appKitConfiguration = { $0.rowSizeStyle = .large }
+      update()
+      #expect(outlineView.rowSizeStyle == .large)
+      #expect(outlineView.indentationPerLevel == 30)
+    }
+
     @Test func showsRootsCollapsedByDefault() {
       update()
       #expect(visibleIDs == ["a", "b", "c"])

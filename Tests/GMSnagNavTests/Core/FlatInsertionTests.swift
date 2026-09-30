@@ -31,13 +31,37 @@ import Testing
     #expect(tree.dropTarget(forGap: 5, in: rows) == .insert(into: nil, at: 2))
   }
 
-  @Test func resolvesLevelChangesToTheRowBelow() {
-    // Between a2x (depth 2) and b (depth 0), the items go before b at the root level.
-    #expect(tree.dropTarget(forGap: 4, in: rows) == .insert(into: nil, at: 1))
+  @Test func resolvesLevelChangesToTheRowAbove() {
+    // Between a2x (depth 2) and b (depth 0), the items go to the end of a2, after a2x.
+    #expect(tree.dropTarget(forGap: 4, in: rows) == .insert(into: "a2", at: 1))
   }
 
-  @Test func appendsToTheRootLevelBelowTheLastRow() {
+  @Test func keepsItemsInTheirFolderWhenMovedToItsBottom() {
+    // Rows with only a expanded: a, a1, a2, b, c. a1 moved below a2 stays in a, at its end.
+    let rows = tree.visibleRows(expanded: ["a"])
+    let target = tree.dropTarget(forGap: 3, in: rows)
+    #expect(target == .insert(into: "a", at: 2))
+    let proposal = OutlineDropProposal(
+      draggedIDs: ["a1"], target: target, tree: tree, expanded: ["a"])
+    #expect(proposal.insertionIndexAfterRemoval == 1)
+  }
+
+  @Test func appendsItemsFromOutsideToTheEndOfAnExpandedFolder() {
+    // c, coming from the root level, lands at the end of a when dropped below a's last child.
+    let rows = tree.visibleRows(expanded: ["a"])
+    let proposal = OutlineDropProposal(
+      draggedIDs: ["c"], target: tree.dropTarget(forGap: 3, in: rows), tree: tree,
+      expanded: ["a"])
+    #expect(proposal.target == .insert(into: "a", at: 2))
+    #expect(proposal.insertionIndexAfterRemoval == 2)
+  }
+
+  @Test func appendsToTheLastRowsLevelBelowTheLastRow() {
     #expect(tree.dropTarget(forGap: 6, in: rows) == .insert(into: nil, at: 3))
+    // When the last visible row is nested, the gap below it appends to its folder.
+    let nested = OutlineTree([TestItem.group("f", [.leaf("x")])], children: \.children)
+    let nestedRows = nested.visibleRows(expanded: ["f"])
+    #expect(nested.dropTarget(forGap: 2, in: nestedRows) == .insert(into: "f", at: 1))
   }
 
   @Test func clampsOutOfRangeGaps() {

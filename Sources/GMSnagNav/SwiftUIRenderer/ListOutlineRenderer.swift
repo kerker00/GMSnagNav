@@ -40,6 +40,7 @@ where Element.ID: Sendable {
     ForEach(rows, id: \.id) { row in
       if let element = tree.element(row.id) {
         let isSelectable = behavior.canSelect(element)
+        let canDrag = behavior.canDrag?(element) ?? false
         OutlineRowView(
           row: row,
           indentation: appearance.indentation,
@@ -58,8 +59,26 @@ where Element.ID: Sendable {
         .modifier(
           RowContextMenu(
             menu: hasSelection && isSelectable
-              ? nil : behavior.contextMenu.map { menu in { menu([row.id]) } }))
+              ? nil : behavior.contextMenu.map { menu in { menu([row.id]) } })
+        )
+        .moveDisabled(!canDrag)
       }
+    }
+    .onMove(perform: moveAction(for: rows))
+  }
+
+  /// Reorders and reparents through the list's built-in row moving, when the host handles drops.
+  private func moveAction(for rows: [VisibleRow<ID>]) -> ((IndexSet, Int) -> Void)? {
+    guard behavior.canDrag != nil, let drop = behavior.drop else { return nil }
+    return { source, gap in
+      let ids = source.compactMap { rows.indices.contains($0) ? rows[$0].id : nil }
+      // A gap is ambiguous across levels; see `dropTarget(forGap:in:)` for the rule.
+      let target = tree.dropTarget(forGap: gap, in: rows)
+      guard
+        let resolved = drop.resolve(
+          draggedIDs: ids, target: target, tree: tree, expanded: expansion)
+      else { return }
+      _ = drop.perform(resolved.proposal, resolved.operation)
     }
   }
 

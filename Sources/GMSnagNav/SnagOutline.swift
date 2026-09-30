@@ -30,6 +30,7 @@ where Data.Element: Identifiable, Data.Element.ID: Sendable {
   let expansion: Binding<Set<ID>>?
   let rowContent: (Element) -> RowContent
   var behavior = OutlineBehavior<Element>()
+  var appearance = OutlineAppearance()
 
   @State private var internalExpansion: Set<ID> = []
 
@@ -118,6 +119,7 @@ where Data.Element: Identifiable, Data.Element.ID: Sendable {
         selection: selection,
         expansion: expansion ?? $internalExpansion,
         behavior: behavior,
+        appearance: appearance,
         rowContent: rowContent
       )
       .modifier(EmptySpaceContextMenu(selection: selection, behavior: behavior))
@@ -127,6 +129,7 @@ where Data.Element: Identifiable, Data.Element.ID: Sendable {
         selection: selection,
         expansion: expansion ?? $internalExpansion,
         behavior: behavior,
+        appearance: appearance,
         rowContent: rowContent)
     #endif
   }

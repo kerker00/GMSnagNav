@@ -13,6 +13,9 @@ struct SidebarView: View {
   @State private var expansion: Set<LibraryItem.ID> = []
   @State private var openedDocument: String?
   @AppStorage("foldersSelectable") private var foldersSelectable = true
+  @AppStorage("outlineStyle") private var style = DemoOutlineStyle.automatic
+  @AppStorage("indentation") private var indentation = 14.0
+  @AppStorage("largeRows") private var largeRows = false
 
   var body: some View {
     outline
@@ -36,6 +39,18 @@ struct SidebarView: View {
             }
             Divider()
             Toggle("Folders Are Selectable", isOn: $foldersSelectable)
+            Divider()
+            Picker("Style", selection: $style) {
+              ForEach(DemoOutlineStyle.allCases) { Text($0.title).tag($0) }
+            }
+            Picker("Indentation", selection: $indentation) {
+              Text("Compact").tag(8.0)
+              Text("Regular").tag(14.0)
+              Text("Wide").tag(24.0)
+            }
+            #if os(macOS)
+              Toggle("Large Rows (AppKit)", isOn: $largeRows)
+            #endif
           } label: {
             Label("Outline", systemImage: "list.bullet.indent")
           }
@@ -78,10 +93,18 @@ struct SidebarView: View {
     }
     .outlineSelectable { item in foldersSelectable || !item.isFolder }
     .outlineContextMenu { ids in contextMenu(for: ids) }
+    .outlineStyle(style.outlineStyle)
+    .outlineIndentation(indentation)
 
     #if os(macOS)
       // On iOS a tap already selects and navigates, so the primary action is macOS only.
-      return outline.outlinePrimaryAction(open)
+      return
+        outline
+        .outlinePrimaryAction(open)
+        // The AppKit escape hatch: anything GMSnagNav does not offer as a modifier.
+        .outlineAppKitConfiguration { [largeRows] outlineView in
+          outlineView.rowSizeStyle = largeRows ? .large : .default
+        }
     #else
       return outline
     #endif
@@ -129,5 +152,30 @@ struct SidebarView: View {
       expansion.insert(folder)
     }
     selection = library.add(item, into: folder)
+  }
+}
+
+/// The styles offered in the demo's Outline menu, storable in `@AppStorage`.
+enum DemoOutlineStyle: String, CaseIterable, Identifiable {
+  case automatic
+  case sidebar
+  case plain
+
+  var id: Self { self }
+
+  var title: String {
+    switch self {
+    case .automatic: "Automatic"
+    case .sidebar: "Sidebar"
+    case .plain: "Plain"
+    }
+  }
+
+  var outlineStyle: SnagOutlineStyle {
+    switch self {
+    case .automatic: .automatic
+    case .sidebar: .sidebar
+    case .plain: .plain
+    }
   }
 }

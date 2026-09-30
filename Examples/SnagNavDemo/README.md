@@ -48,6 +48,7 @@ Then `import GMSnagNav` wherever you build your sidebar.
 | Spring-loaded folders while dragging | — | Planned |
 | Non-selectable folders (toggle in the Outline menu); clicking them expands and collapses | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
 | Primary action: double-click or Return toggles folders and "opens" documents (macOS) | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
+| Style, indentation and the AppKit configuration escape hatch (Outline menu) | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
 | Context menu for the clicked item or selection, and for empty space (add at the root level) | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
 
 The key idea: the demo's `Library` store — not GMSnagNav — decides whether a move is allowed and

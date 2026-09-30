@@ -1,0 +1,10 @@
+// Signing settings for the demo app.
+//
+// Personal settings such as your development team belong in Signing.local.xcconfig next to this
+// file. It is ignored by Git, so your team ID never ends up in the repository:
+//
+//     DEVELOPMENT_TEAM = ABCDE12345
+//
+// Without that file the demo still builds and runs on simulators and signs locally for "My Mac".
+
+#include? "Signing.local.xcconfig"

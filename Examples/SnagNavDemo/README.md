@@ -9,6 +9,10 @@ how to use its features. It grows with the package: every new feature is demonst
 2. Select the **SnagNavDemo** scheme and a destination — **My Mac** or an iPhone/iPad simulator.
 3. Build and run.
 
+To run the demo on your own iPhone, iPad or Mac with your development team, create
+`Examples/SnagNavDemo/Config/Signing.local.xcconfig` containing `DEVELOPMENT_TEAM = <your team ID>`.
+The file is ignored by Git, so your team ID stays on your machine.
+
 The project references the package in this repository as a **local** Swift package
 (`../..`), so changes to the package sources show up in the demo immediately.
 

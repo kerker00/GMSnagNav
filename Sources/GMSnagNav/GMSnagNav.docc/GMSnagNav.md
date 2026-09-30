@@ -38,6 +38,7 @@ rows to their new place.
 ### Essentials
 
 - ``SnagOutline``
+- ``OutlineLabel``
 - <doc:PlatformDifferences>
 
 ### Selection and actions

@@ -15,6 +15,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   closure. It renders natively on both platforms: with an `NSOutlineView` in source-list style on
   macOS, and with a `UICollectionView` list on iOS and iPadOS. Data changes are applied as
   animated inserts, removals and moves that keep expansion and selection.
+- `OutlineLabel`, a `Label` for rows whose truncated title shows in full in a tooltip on macOS,
+  like native sidebar rows.
 - `outlineSelectable(_:)` to make elements non-selectable; clicking such a container toggles it.
 - `outlinePrimaryAction(_:)` for double-click or Return on macOS and tap on iOS, where the tap
   selects the row first.

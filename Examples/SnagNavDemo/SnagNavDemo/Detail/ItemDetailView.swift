@@ -34,8 +34,18 @@ struct ItemDetailView: View {
       }
       .formStyle(.grouped)
       .navigationTitle(item.name)
+      #if os(macOS)
+        .navigationSubtitle(subtitle(for: item))
+      #endif
       .onAppear { name = item.name }
     }
+  }
+
+  /// Where the item lives, and for folders how many items they hold.
+  private func subtitle(for item: LibraryItem) -> String {
+    let folder = library.parent(of: itemID).flatMap(library.item)?.name ?? "Top Level"
+    guard let children = item.children else { return folder }
+    return "\(folder) · \(children.count == 1 ? "1 item" : "\(children.count) items")"
   }
 
   private var nameField: some View {

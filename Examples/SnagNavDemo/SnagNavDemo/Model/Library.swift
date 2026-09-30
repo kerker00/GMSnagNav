@@ -35,6 +35,14 @@ final class Library {
     Self.find(id, in: roots)
   }
 
+  /// The number of items in the whole library.
+  var itemCount: Int {
+    func count(_ items: [LibraryItem]) -> Int {
+      items.reduce(items.count) { $0 + count($1.children ?? []) }
+    }
+    return count(roots)
+  }
+
   /// The folder that contains the item, or `nil` at the root level.
   func parent(of id: LibraryItem.ID) -> LibraryItem.ID? {
     Self.location(of: id, in: roots)?.parent

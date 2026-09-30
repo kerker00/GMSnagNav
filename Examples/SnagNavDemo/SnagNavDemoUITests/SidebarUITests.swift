@@ -121,27 +121,58 @@ final class SidebarUITests: XCTestCase {
   #endif
 
   #if os(iOS)
-    /// Long-presses a row and moves it onto another row's place, like reordering in a list.
-    private func move(_ source: String, to target: String) {
+    /// Long-presses a row and drags it to a point within another row: `0.5` is the middle, which
+    /// drops onto the row; `0.05` its top edge, which inserts before it.
+    private func drag(_ source: String, to target: String, at verticalOffset: CGFloat = 0.5) {
       let source = row(source)
-      let target = row(target)
+      // Offsets refer to the whole list cell; the row's label is shorter than its cell.
+      let target = cell(containing: target)
       XCTAssertTrue(source.waitForExistence(timeout: 5))
       XCTAssertTrue(target.waitForExistence(timeout: 5))
-      source.press(
-        forDuration: 1.0, thenDragTo: target, withVelocity: .slow, thenHoldForDuration: 0.5)
+      source.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        .press(
+          forDuration: 1.0,
+          thenDragTo: target.coordinate(
+            withNormalizedOffset: CGVector(dx: 0.5, dy: verticalOffset)),
+          withVelocity: .slow, thenHoldForDuration: 0.5)
     }
 
-    func testMovingARowUpReordersTheRootLevel() {
-      move("Ideas", to: "Work")
+    private func cell(containing name: String) -> XCUIElement {
+      app.cells.containing(.any, identifier: "sidebar-row-\(name)").firstMatch
+    }
+
+    func testSelectingOpensTheDetailAndNavigatingBackAllowsReopening() throws {
+      select("Inbox")
+      assertDetailLocation("Inbox")
+      let back = app.navigationBars.buttons["Library"]
+      guard back.waitForExistence(timeout: 2) else {
+        throw XCTSkip("The split view is not collapsed on this device.")
+      }
+      back.tap()
+      XCTAssertTrue(row("Inbox").waitForExistence(timeout: 5))
+      // The selection was cleared on the way back, so the same row opens again.
+      select("Inbox")
+      assertDetailLocation("Inbox")
+    }
+
+    func testDroppingARowOntoAFolderMovesItInside() {
+      // Archive is an empty folder, so only a drop onto it can place Inbox inside.
+      drag("Inbox", to: "Archive")
+      XCTAssertTrue(row("Inbox").waitForExistence(timeout: 5))
+      select("Inbox")
+      assertDetailLocation("Archive › Inbox")
+    }
+
+    func testDroppingAtTheTopEdgeOfARowInsertsBeforeIt() {
+      drag("Ideas", to: "Work", at: 0.05)
       XCTAssertLessThan(row("Ideas").frame.minY, row("Work").frame.minY)
       select("Ideas")
       assertDetailLocation("Ideas")
     }
 
-    func testMovingARowIntoAnExpandedFolderReparentsIt() {
-      // Rows: … Personal, Travel, Recipes, Archive, Inbox. Moving Inbox up onto Recipes places it
-      // before Recipes, inside Personal.
-      move("Inbox", to: "Recipes")
+    func testDroppingOntoADocumentInsertsNextToIt() {
+      // Recipes is a document inside Personal, so the demo redirects the drop next to it.
+      drag("Inbox", to: "Recipes")
       select("Inbox")
       assertDetailLocation("Personal › Inbox")
     }

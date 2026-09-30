@@ -1,6 +1,23 @@
-# GMSnagNav
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/icon-dark.png">
+    <img src="docs/images/icon-light.png" width="128" height="128" alt="GMSnagNav icon">
+  </picture>
+</p>
 
-A nested, drag-and-drop capable outline for SwiftUI — native on macOS, idiomatic on iOS and iPadOS.
+<h1 align="center">GMSnagNav</h1>
+
+<p align="center">
+  A nested, drag-and-drop capable outline for SwiftUI — native on macOS, iOS and iPadOS.
+</p>
+
+<p align="center">
+  <a href="https://github.com/kerker00/GMSnagNav/actions/workflows/ci.yml?query=event%3Apull_request"><img src="https://github.com/kerker00/GMSnagNav/actions/workflows/ci.yml/badge.svg?event=pull_request" alt="CI"></a>
+  <img src="https://img.shields.io/badge/Swift-6.2-F05138?logo=swift&amp;logoColor=white" alt="Swift 6.2">
+  <img src="https://img.shields.io/badge/platforms-macOS%2026%20%7C%20iOS%2026-0A84FF" alt="Platforms: macOS 26 and iOS 26">
+  <img src="https://img.shields.io/badge/SwiftPM-compatible-34C759" alt="Swift Package Manager compatible">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/kerker00/GMSnagNav" alt="License"></a>
+</p>
 
 > **Status: pre-release.** The API is under active development and will change before `0.1.0`.
 > It is not ready for production use yet.
@@ -124,11 +141,6 @@ Identifiers must be unique across the whole tree. The demo app's
 [`Library`](Examples/SnagNavDemo/SnagNavDemo/Model/Library.swift) shows a complete model with
 validation and moves.
 
-The outline follows the conventions of each platform, so some interactions differ between macOS
-and iOS — see [Platform Differences](Sources/GMSnagNav/GMSnagNav.docc/PlatformDifferences.md).
-The package's DocC catalog documents the whole API; build it in Xcode with Product > Build
-Documentation.
-
 ## Demo app
 
 [`Examples/SnagNavDemo`](Examples/SnagNavDemo) is a multiplatform app for macOS and iOS that shows
@@ -137,6 +149,33 @@ package.
 
 The screenshots above come from the demo app. `Scripts/readme-screenshots.sh` takes them again on
 macOS and an iPad simulator, in light and dark appearance.
+
+## Documentation
+
+The package's DocC catalog documents the whole API. Build it in Xcode with
+**Product > Build Documentation**, or start with these articles:
+
+- [Drag and Drop](Sources/GMSnagNav/GMSnagNav.docc/DragAndDrop.md) — reading proposals,
+  validating, redirecting and performing drops.
+- [Platform Differences](Sources/GMSnagNav/GMSnagNav.docc/PlatformDifferences.md) — where macOS
+  and iOS behave differently, following the conventions of each platform.
+
+## Roadmap
+
+GMSnagNav is heading for its first release, `0.1.0`. Ideas for later versions, all planned to be
+backward compatible:
+
+- Drops from other apps, such as file URLs
+- Copying with the Option key while dragging
+- Inline renaming of rows
+- Section headers
+- Loading children asynchronously
+- An empty-state view, custom drag previews and type-select
+
+## Contributing
+
+Bug reports, ideas and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to
+build, test and format the code, and the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Acknowledgements
 

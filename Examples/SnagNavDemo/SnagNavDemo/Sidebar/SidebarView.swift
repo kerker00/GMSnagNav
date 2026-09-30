@@ -6,6 +6,9 @@ import SwiftUI
 /// Selection and expansion are plain bindings owned by the app: the expand and collapse commands
 /// and the "reveal new item" behavior simply change the `expansion` set.
 ///
+/// Searching filters the outline through its children closure, without copying the library, and
+/// turns dragging off: positions among the matches say nothing about positions in the library.
+///
 /// On macOS, the sidebar's actions sit in a bottom bar, following Mario Guzmán's sidebar
 /// guidelines: the toolbar above a sidebar keeps only the sidebar toggle. On iOS they stay in the
 /// navigation bar, as usual there.
@@ -15,6 +18,9 @@ struct SidebarView: View {
   let onError: (Error) -> Void
 
   @State private var expansion: Set<LibraryItem.ID> = []
+  @State private var searchText = ""
+  /// The expansion while searching, so the user's own expansion survives the search.
+  @State private var searchExpansion: Set<LibraryItem.ID> = []
   @State private var didSetInitialExpansion = false
   @State private var openedDocument: String?
   @AppStorage("foldersSelectable") private var foldersSelectable = true
@@ -24,6 +30,16 @@ struct SidebarView: View {
 
   var body: some View {
     outline
+      .searchable(text: $searchText, placement: .sidebar, prompt: "Search")
+      .onChange(of: searchText) {
+        // Open every folder on the way to a match; the user may still close them.
+        searchExpansion = matchingIDs.filter { library.item($0)?.isFolder == true }
+      }
+      .overlay {
+        if isSearching, matchingIDs.isEmpty {
+          ContentUnavailableView.search(text: searchText)
+        }
+      }
       .focusedSceneValue(\.sidebarActions, actions)
       .onAppear {
         // Start with the top-level folders open — once. On iPhone the sidebar appears again after
@@ -162,9 +178,36 @@ struct SidebarView: View {
     }
   #endif
 
+  private var isSearching: Bool {
+    !searchText.trimmingCharacters(in: .whitespaces).isEmpty
+  }
+
+  /// The items whose names match the search, and the folders that lead to them.
+  private var matchingIDs: Set<LibraryItem.ID> {
+    let query = searchText.trimmingCharacters(in: .whitespaces)
+    var result: Set<LibraryItem.ID> = []
+    func visit(_ items: [LibraryItem]) -> Bool {
+      var found = false
+      for item in items {
+        let childMatches = visit(item.children ?? [])
+        if childMatches || item.name.localizedStandardContains(query) {
+          result.insert(item.id)
+          found = true
+        }
+      }
+      return found
+    }
+    _ = visit(library.roots)
+    return result
+  }
+
   private var outline: some View {
+    let matches = isSearching ? matchingIDs : nil
     let outline = SnagOutline(
-      library.roots, children: \.children, selection: $selection, expansion: $expansion
+      library.roots.filter { matches?.contains($0.id) ?? true },
+      children: { item in item.children?.filter { matches?.contains($0.id) ?? true } },
+      selection: $selection,
+      expansion: isSearching ? $searchExpansion : $expansion
     ) { item in
       OutlineLabel(item.name, systemImage: item.systemImage)
         .accessibilityIdentifier("sidebar-row-\(item.name)")
@@ -173,7 +216,7 @@ struct SidebarView: View {
     .outlineContextMenuItems { ids in menuItems(for: ids) }
     .outlineStyle(style.outlineStyle)
     .outlineIndentation(indentationStep.width)
-    .outlineDraggable()
+    .outlineDraggable { _ in !isSearching }
     .onOutlineDrop(validate: library.dropResult(for:), perform: drop)
 
     #if os(macOS)

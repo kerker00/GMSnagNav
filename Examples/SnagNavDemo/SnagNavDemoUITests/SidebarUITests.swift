@@ -74,6 +74,42 @@ final class SidebarUITests: XCTestCase {
     assertDetailLocation("Work › Weekly Report")
   }
 
+  // MARK: Search
+
+  private func search(_ text: String) {
+    let field = app.searchFields.firstMatch
+    XCTAssertTrue(field.waitForExistence(timeout: 5), "No search field")
+    // Right after launch, the first keystrokes can get lost; type until the field has the text.
+    for _ in 0..<3 where (field.value as? String) != text {
+      #if os(macOS)
+        field.click()
+      #else
+        field.tap()
+      #endif
+      field.typeText(text)
+    }
+    XCTAssertEqual(field.value as? String, text)
+  }
+
+  func testSearchingShowsOnlyMatchesAndTheFoldersLeadingToThem() {
+    search("Contract")
+    // Contract lives in Work › Clients › Globex, which the search opens.
+    XCTAssertTrue(row("Contract").waitForExistence(timeout: 5))
+    XCTAssertTrue(row("Globex").exists)
+    XCTAssertFalse(row("Inbox").exists)
+    XCTAssertFalse(row("Acme").exists)
+  }
+
+  #if os(macOS)
+    func testDraggingIsOffWhileSearching() {
+      search("Contract")
+      XCTAssertTrue(row("Contract").waitForExistence(timeout: 5))
+      drag("Contract", onto: "Work")
+      select("Contract")
+      assertDetailLocation("Work › Clients › Globex › Contract")
+    }
+  #endif
+
   // MARK: Context menus
 
   #if os(macOS)

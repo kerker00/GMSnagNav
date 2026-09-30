@@ -97,6 +97,21 @@
       }
     }
 
+    @Test func outlineLabelsTruncateWithExpansionTooltips() throws {
+      let host = NSHostingView(
+        rootView: OutlineLabel("A title far too long for its row", systemImage: "doc")
+          .environment(\.outlineRowFontSize, 15)
+          .frame(width: 80))
+      host.frame = CGRect(x: 0, y: 0, width: 80, height: 30)
+      host.layoutSubtreeIfNeeded()
+
+      let field = try #require(host.descendants(of: NSTextField.self).first)
+      #expect(field.allowsExpansionToolTips)
+      #expect(field.lineBreakMode == .byTruncatingTail)
+      #expect(field.font?.pointSize == 15)
+      #expect(field.frame.width < field.intrinsicContentSize.width)
+    }
+
     @Test func showsRootsCollapsedByDefault() {
       update()
       #expect(visibleIDs == ["a", "b", "c"])
@@ -519,6 +534,13 @@
       coordinator.endSpringLoading()
       #expect(visibleIDs == ["b", "c"])
       #expect(host.expansion.isEmpty)
+    }
+  }
+
+  extension NSView {
+    /// All subviews of a type, searched depth first.
+    fileprivate func descendants<View: NSView>(of type: View.Type) -> [View] {
+      subviews.flatMap { ($0 as? View).map { [$0] } ?? [] + $0.descendants(of: type) }
     }
   }
 #endif

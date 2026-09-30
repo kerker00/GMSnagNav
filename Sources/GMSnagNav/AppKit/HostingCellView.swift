@@ -72,6 +72,7 @@
       hostingView.rootView = AnyView(
         content
           .font(fontSize.map { .system(size: $0) })
+          .environment(\.outlineRowFontSize, fontSize)
           .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
           .environment(
             \.backgroundProminence, backgroundStyle == .emphasized ? .increased : .standard))

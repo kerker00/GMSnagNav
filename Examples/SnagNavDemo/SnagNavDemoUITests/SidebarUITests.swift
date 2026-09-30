@@ -74,6 +74,21 @@ final class SidebarUITests: XCTestCase {
     assertDetailLocation("Work › Weekly Report")
   }
 
+  // MARK: Context menus
+
+  #if os(macOS)
+    func testRightClickingARowShowsItsContextMenu() {
+      let window = app.windows.firstMatch
+      let report = row("Weekly Report")
+      XCTAssertTrue(report.waitForExistence(timeout: 5))
+      report.rightClick()
+      // The row's own menu, not the one for empty space, which only offers adding.
+      XCTAssertTrue(window.menuItems["Move to"].waitForExistence(timeout: 3))
+      XCTAssertTrue(window.menuItems["Delete"].exists)
+      app.typeKey(.escape, modifierFlags: [])
+    }
+  #endif
+
   // MARK: Drag and drop
 
   #if os(macOS)

@@ -23,6 +23,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `outlineAppKitConfiguration(_:)` on macOS to customize the underlying `NSOutlineView`.
 - `outlineDraggable(_:)` and `onOutlineDrop(validate:perform:)` for moving elements by drag and
   drop, with in-process drags that need no `Codable` identifiers (macOS).
+- Spring-loaded folders while dragging on macOS: collapsed elements open after the system's
+  spring-loading delay and close again when the pointer leaves, without changing the expansion
+  binding. Respects `springLoadingBehavior(_:)`.
 - Drag-and-drop vocabulary: `OutlineDropTarget`, `OutlineDropOperation`, `OutlineDropResult` and
   `OutlineDropProposal`, including detection of drops into a dragged element's own subtree and
   insertion indices adjusted for the removal of dragged siblings.

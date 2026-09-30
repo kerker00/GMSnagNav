@@ -191,22 +191,16 @@ struct SidebarView: View {
     #endif
   }
 
-  /// The context menu: moving and deleting for one item, bulk delete for several, and adding at
-  /// the root level when the menu opens on empty space.
+  /// The context menu: adding, moving and deleting for one item, bulk delete for several, and
+  /// adding at the root level when the menu opens on empty space. Adding and deleting are also in
+  /// the bottom bar, as the sidebar guidelines ask for commonly used actions.
   ///
   /// Built from items, it shows as a native menu on both platforms; on iOS, UIKit then shares the
   /// long press between the menu and dragging.
   private func menuItems(for ids: Set<LibraryItem.ID>) -> [OutlineMenuItem] {
     switch ids.count {
     case 0:
-      return [
-        .action("New Folder", systemImage: "folder.badge.plus") {
-          selection = library.add(.folder("New Folder"), into: nil)
-        },
-        .action("New Document", systemImage: "doc.badge.plus") {
-          selection = library.add(.document("New Document"), into: nil)
-        },
-      ]
+      return addMenuItems(near: nil)
     case 1:
       guard let id = ids.first else { return [] }
       let destinations: [OutlineMenuItem] =
@@ -222,7 +216,8 @@ struct SidebarView: View {
             isDisabled: !library.canMove(id, into: folder.item.id)
           ) { move(id, into: folder.item.id) }
         }
-      return [
+      return addMenuItems(near: id) + [
+        .divider,
         .menu("Move to", systemImage: "folder", children: destinations),
         .divider,
         .action("Delete", systemImage: "trash", role: .destructive) { library.delete(id) },
@@ -234,6 +229,18 @@ struct SidebarView: View {
         }
       ]
     }
+  }
+
+  /// "New Folder" and "New Document", adding into `id` if it is a folder, and next to it otherwise.
+  private func addMenuItems(near id: LibraryItem.ID?) -> [OutlineMenuItem] {
+    [
+      .action("New Folder", systemImage: "folder.badge.plus") {
+        add(.folder("New Folder"), near: id)
+      },
+      .action("New Document", systemImage: "doc.badge.plus") {
+        add(.document("New Document"), near: id)
+      },
+    ]
   }
 
   private func move(_ id: LibraryItem.ID, into folder: LibraryItem.ID?) {
@@ -281,11 +288,11 @@ struct SidebarView: View {
   }
 
   private func newFolder() {
-    add(.folder("New Folder"))
+    add(.folder("New Folder"), near: selection)
   }
 
   private func newDocument() {
-    add(.document("New Document"))
+    add(.document("New Document"), near: selection)
   }
 
   private func deleteSelection() {
@@ -294,10 +301,10 @@ struct SidebarView: View {
     self.selection = nil
   }
 
-  /// Adds the item next to the selection — into the selected folder, or the root level otherwise —
-  /// and opens that folder so the new item is visible.
-  private func add(_ item: LibraryItem) {
-    let folder = selection.flatMap { library.item($0)?.isFolder == true ? $0 : nil }
+  /// Adds the item into `id` if it is a folder and next to it otherwise, or at the root level for
+  /// `nil`, then opens the folder and selects the new item so it is visible.
+  private func add(_ item: LibraryItem, near id: LibraryItem.ID?) {
+    let folder = id.flatMap { library.item($0)?.isFolder == true ? $0 : library.parent(of: $0) }
     if let folder {
       expansion.insert(folder)
     }

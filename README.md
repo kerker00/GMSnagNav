@@ -111,6 +111,11 @@ Identifiers must be unique across the whole tree. The demo app's
 [`Library`](Examples/SnagNavDemo/SnagNavDemo/Model/Library.swift) shows a complete model with
 validation and moves.
 
+The outline follows the conventions of each platform, so some interactions differ between macOS
+and iOS — see [Platform Differences](Sources/GMSnagNav/GMSnagNav.docc/PlatformDifferences.md).
+The package's DocC catalog documents the whole API; build it in Xcode with Product > Build
+Documentation.
+
 ## Demo app
 
 [`Examples/SnagNavDemo`](Examples/SnagNavDemo) is a multiplatform app for macOS and iOS that shows

@@ -118,7 +118,9 @@ where Data.Element: Identifiable, Data.Element.ID: Sendable {
         selection: selection,
         expansion: expansion ?? $internalExpansion,
         behavior: behavior,
-        rowContent: rowContent)
+        rowContent: rowContent
+      )
+      .modifier(EmptySpaceContextMenu(selection: selection, behavior: behavior))
     #else
       ListOutlineRenderer(
         tree: OutlineTree(data, children: children),
@@ -151,7 +153,7 @@ extension SnagOutline {
 
   /// Performs an action when the user activates elements.
   ///
-  /// The action runs on a double-click on macOS and on a tap on iOS. For outlines with selection,
+  /// The action runs on a double-click or Return on macOS and on a tap on iOS. For outlines with selection,
   /// it receives the selected elements when the activated row is part of the selection, otherwise
   /// the activated element alone.
   ///

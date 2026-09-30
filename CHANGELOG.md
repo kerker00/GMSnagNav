@@ -15,7 +15,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   closure. On macOS it renders with a native `NSOutlineView` in source-list style; on iOS and
   iPadOS with a SwiftUI `List`.
 - `outlineSelectable(_:)` to make elements non-selectable; clicking such a container toggles it.
-- `outlinePrimaryAction(_:)` for double-click on macOS and tap on iOS.
+- `outlinePrimaryAction(_:)` for double-click or Return on macOS and tap on iOS.
 - `outlineContextMenu(_:)` for the clicked element, the selection, or empty space.
 - Drag-and-drop vocabulary: `OutlineDropTarget`, `OutlineDropOperation`, `OutlineDropResult` and
   `OutlineDropProposal`, including detection of drops into a dragged element's own subtree and

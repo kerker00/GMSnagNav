@@ -155,6 +155,14 @@ final class SidebarUITests: XCTestCase {
       assertDetailLocation("Inbox")
     }
 
+    func testLongPressShowsTheContextMenu() {
+      let inbox = row("Inbox")
+      XCTAssertTrue(inbox.waitForExistence(timeout: 5))
+      inbox.press(forDuration: 1.2)
+      XCTAssertTrue(app.buttons["Delete"].waitForExistence(timeout: 5), "No context menu appeared")
+      XCTAssertTrue(app.buttons["Move to"].exists)
+    }
+
     func testDroppingARowOntoAFolderMovesItInside() {
       // Archive is an empty folder, so only a drop onto it can place Inbox inside.
       drag("Inbox", to: "Archive")

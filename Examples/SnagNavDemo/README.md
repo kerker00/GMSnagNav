@@ -53,7 +53,7 @@ Then `import GMSnagNav` wherever you build your sidebar.
 | Non-selectable folders (toggle in the Outline menu); clicking them expands and collapses | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
 | Primary action: double-click or Return toggles folders and "opens" documents (macOS) | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
 | Style, indentation and the AppKit configuration escape hatch (Outline menu) | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
-| Context menu for the clicked item or selection, and for empty space (add at the root level) | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
+| Native context menu built from `OutlineMenuItem`s — submenu with disabled targets, destructive delete, add at the root level on empty space; on iOS it shares the long press with dragging | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
 
 UI tests in [`SnagNavDemoUITests`](SnagNavDemoUITests) cover selection on both platforms and, on
 macOS, real drags: into a folder, a rejected cycle, a redirected drop onto a document, and a moved

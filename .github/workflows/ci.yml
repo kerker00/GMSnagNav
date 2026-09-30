@@ -19,7 +19,7 @@ jobs:
         run: swift --version
 
       - name: Check formatting
-        run: swift format lint --strict --recursive Package.swift Sources Tests
+        run: swift format lint --strict --recursive Package.swift Sources Tests Examples
 
   test-macos:
     name: Test (macOS)

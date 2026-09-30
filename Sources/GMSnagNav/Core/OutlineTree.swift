@@ -24,8 +24,9 @@ struct OutlineTree<Element: Identifiable> {
     let depth: Int
     /// The identifiers of the children, or `nil` if the element is a leaf.
     ///
-    /// An empty array describes a container without children, such as an empty folder, which
-    /// stays expandable. `nil` describes an element that can never have children.
+    /// An empty array describes a container without children, such as an empty folder: it shows
+    /// no disclosure indicator but accepts drops. `nil` describes an element that can never have
+    /// children.
     fileprivate(set) var children: [ID]?
   }
 

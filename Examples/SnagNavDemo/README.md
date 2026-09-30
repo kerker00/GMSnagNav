@@ -43,7 +43,7 @@ Then `import GMSnagNav` wherever you build your sidebar.
 | Host-owned tree model | [`Model/LibraryItem.swift`](SnagNavDemo/Model/LibraryItem.swift) | ✅ |
 | Host-owned mutations: move with insertion index, cycle protection, rename, delete | [`Model/Library.swift`](SnagNavDemo/Model/Library.swift) | ✅ |
 | Menu-based "Move to" fallback for keyboard and accessibility users | [`Sidebar/ItemActions.swift`](SnagNavDemo/Sidebar/ItemActions.swift) | ✅ |
-| Sidebar with selection and expansion | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | Plain `List` for now — switches to `SnagOutline` with the public API |
+| `SnagOutline` with selection and expansion bindings, expand/collapse all, revealing new items | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ SwiftUI renderer on both platforms; native `NSOutlineView` on macOS planned |
 | Drag and drop onto items, between rows and into the root | — | Planned |
 | Spring-loaded folders while dragging | — | Planned |
 | Context menus, primary action, non-selectable rows | — | Planned |

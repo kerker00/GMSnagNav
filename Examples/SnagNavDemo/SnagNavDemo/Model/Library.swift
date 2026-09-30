@@ -1,4 +1,5 @@
 import Foundation
+import GMSnagNav
 import Observation
 
 /// The demo app's store: the single source of truth for the tree and every mutation of it.
@@ -73,6 +74,43 @@ final class Library {
       insertionIndex = index - 1
     }
     Self.insert(item, into: folder, at: insertionIndex, in: &roots)
+  }
+
+  /// Moves several items into a folder (or the root level for `nil`), keeping their order.
+  ///
+  /// `index` refers to the destination's children *after* the items were removed — what
+  /// `OutlineDropProposal.insertionIndexAfterRemoval` provides. `nil` appends.
+  func move(_ ids: [LibraryItem.ID], into folder: LibraryItem.ID?, at index: Int?) throws {
+    for id in ids { try validateMove(id, into: folder) }
+    let items = ids.compactMap { Self.remove($0, from: &roots) }
+    for (offset, item) in items.enumerated() {
+      Self.insert(item, into: folder, at: index.map { $0 + offset }, in: &roots)
+    }
+  }
+
+  // MARK: Drag and drop
+
+  /// Decides whether and where a drag may be dropped — called on every pointer movement.
+  func dropResult(
+    for proposal: OutlineDropProposal<LibraryItem.ID>
+  ) -> OutlineDropResult<LibraryItem.ID> {
+    // Moving a folder into itself or one of its subfolders would create a cycle.
+    if proposal.isDroppingIntoOwnSubtree { return .reject }
+
+    guard let parent = proposal.target.parent, let target = item(parent) else {
+      return .accept(.move)
+    }
+    if target.isFolder { return .accept(.move) }
+
+    // Documents cannot contain items: dropping onto one inserts right after it instead.
+    guard let location = Self.location(of: parent, in: roots) else { return .reject }
+    return .redirect(to: .insert(into: location.parent, at: location.index + 1), operation: .move)
+  }
+
+  /// Performs an accepted drop.
+  func performDrop(_ proposal: OutlineDropProposal<LibraryItem.ID>) throws {
+    try move(
+      proposal.draggedIDs, into: proposal.target.parent, at: proposal.insertionIndexAfterRemoval)
   }
 
   func rename(_ id: LibraryItem.ID, to name: String) {

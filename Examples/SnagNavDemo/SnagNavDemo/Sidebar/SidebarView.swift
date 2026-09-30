@@ -96,6 +96,7 @@ struct SidebarView: View {
     .outlineStyle(style.outlineStyle)
     .outlineIndentation(indentation)
     .outlineDraggable()
+    .onOutlineDrop(validate: library.dropResult(for:), perform: drop)
 
     #if os(macOS)
       // On iOS a tap already selects and navigates, so the primary action is macOS only.
@@ -130,6 +131,22 @@ struct SidebarView: View {
       Button("Delete \(ids.count) Items", systemImage: "trash", role: .destructive) {
         ids.forEach(library.delete)
       }
+    }
+  }
+
+  /// Moves the dropped items and opens the folder they were dropped into, so they stay visible.
+  private func drop(
+    _ proposal: OutlineDropProposal<LibraryItem.ID>, operation: OutlineDropOperation
+  ) -> Bool {
+    do {
+      try library.performDrop(proposal)
+      if let folder = proposal.target.parent {
+        expansion.insert(folder)
+      }
+      return true
+    } catch {
+      onError(error)
+      return false
     }
   }
 

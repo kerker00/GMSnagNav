@@ -81,6 +81,10 @@
     private var renderer: Renderer?
     private var tree = OutlineTree<Element>([], children: { _ in nil })
     private var boxes: [ID: NodeBox<ID>] = [:]
+    /// Whether the outline has loaded a snapshot; the first one is loaded without animation.
+    private var hasLoaded = false
+    /// Above this many steps, reloading everything is cheaper and calmer than animating them.
+    static var maximumAnimatedChanges: Int { 250 }
     /// Set while the coordinator changes the outline itself, so AppKit's callbacks for those
     /// changes are not mistaken for user interaction and written back into the bindings.
     private var isApplyingUpdate = false
@@ -109,9 +113,12 @@
     /// Applies a new snapshot, expansion and selection to the outline.
     func update(with renderer: Renderer) {
       self.renderer = renderer
+      let oldTree = tree
       tree = renderer.tree
-      boxes = boxes.filter { tree.contains($0.key) }
-      guard let outlineView else { return }
+      guard let outlineView else {
+        boxes = boxes.filter { tree.contains($0.key) }
+        return
+      }
 
       isApplyingUpdate = true
       defer { isApplyingUpdate = false }
@@ -122,9 +129,71 @@
       }
       applyAppearance(renderer.appearance, to: outlineView)
 
-      outlineView.reloadData()
+      applyStructure(from: oldTree, to: outlineView)
+      boxes = boxes.filter { tree.contains($0.key) }
+      refreshVisibleRows()
       applyExpansion(renderer.expansion)
       applySelection(selectedIDs(in: renderer.selection))
+    }
+
+    /// Brings the outline's rows from the old snapshot to the current one, animated when possible.
+    private func applyStructure(from oldTree: OutlineTree<Element>, to outlineView: NSOutlineView) {
+      guard hasLoaded else {
+        hasLoaded = true
+        outlineView.reloadData()
+        return
+      }
+      let loaded = Set(boxes.values.filter { outlineView.isItemExpanded($0) }.map(\.id))
+      let changes = tree.changes(from: oldTree, loaded: loaded)
+      guard !changes.isEmpty else { return }
+      guard changes.count <= Self.maximumAnimatedChanges else {
+        outlineView.reloadData()
+        return
+      }
+
+      // The data source already answers with the new snapshot; every step keeps the outline
+      // consistent with it for the rows it has touched so far.
+      outlineView.beginUpdates()
+      for change in changes {
+        switch change {
+        case .remove(let parent, let index):
+          outlineView.removeItems(
+            at: [index], inParent: parent.map(box(for:)), withAnimation: .effectFade)
+        case .insert(_, let parent, let index):
+          outlineView.insertItems(
+            at: [index], inParent: parent.map(box(for:)), withAnimation: .effectFade)
+        case .move(_, let fromParent, let fromIndex, let toParent, let toIndex):
+          outlineView.moveItem(
+            at: fromIndex, inParent: fromParent.map(box(for:)),
+            to: toIndex, inParent: toParent.map(box(for:)))
+        case .reload(let id):
+          outlineView.reloadItem(box(for: id), reloadChildren: false)
+        }
+      }
+      outlineView.endUpdates()
+    }
+
+    /// Shows the current content in the visible rows, whose elements may have changed in place.
+    private func refreshVisibleRows() {
+      guard let outlineView else { return }
+      for row in 0..<outlineView.numberOfRows {
+        guard
+          let cell = outlineView.view(atColumn: 0, row: row, makeIfNecessary: false)
+            as? HostingCellView,
+          let id = id(of: outlineView.item(atRow: row)),
+          let content = rowContent(for: id)
+        else { continue }
+        cell.show(content)
+      }
+    }
+
+    /// The host's row content for an element, with the context menu attached.
+    private func rowContent(for id: ID) -> AnyView? {
+      guard let renderer, let element = tree.element(id) else { return nil }
+      let content = renderer.rowContent(element)
+      guard let menu = renderer.behavior.contextMenu else { return AnyView(content) }
+      let ids = activatedIDs(for: id)
+      return AnyView(content.contextMenu { menu(ids) })
     }
 
     private func applyAppearance(_ appearance: OutlineAppearance, to outlineView: NSOutlineView) {
@@ -205,19 +274,11 @@
     func outlineView(
       _ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any
     ) -> NSView? {
-      guard let renderer, let id = id(of: item), let element = tree.element(id) else {
-        return nil
-      }
+      guard let id = id(of: item), let content = rowContent(for: id) else { return nil }
       let cell =
         outlineView.makeView(withIdentifier: HostingCellView.reuseIdentifier, owner: nil)
         as? HostingCellView ?? HostingCellView()
-      let content = renderer.rowContent(element)
-      if let menu = renderer.behavior.contextMenu {
-        let ids = activatedIDs(for: id)
-        cell.show(AnyView(content.contextMenu { menu(ids) }))
-      } else {
-        cell.show(AnyView(content))
-      }
+      cell.show(content)
       return cell
     }
 

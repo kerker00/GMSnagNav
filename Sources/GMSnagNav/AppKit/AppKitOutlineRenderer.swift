@@ -24,7 +24,7 @@
       let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("GMSnagNav.Column"))
       column.resizingMask = .autoresizingMask
 
-      let outlineView = NSOutlineView()
+      let outlineView = SnagOutlineView()
       outlineView.addTableColumn(column)
       outlineView.outlineTableColumn = column
       outlineView.headerView = nil
@@ -34,8 +34,6 @@
       outlineView.autosaveExpandedItems = false
       outlineView.allowsEmptySelection = true
       outlineView.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
-      outlineView.dataSource = context.coordinator
-      outlineView.delegate = context.coordinator
 
       let scrollView = NSScrollView()
       scrollView.documentView = outlineView
@@ -44,13 +42,30 @@
       scrollView.drawsBackground = false
       scrollView.borderType = .noBorder
 
-      context.coordinator.outlineView = outlineView
+      context.coordinator.attach(to: outlineView)
       context.coordinator.update(with: self)
       return scrollView
     }
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
       context.coordinator.update(with: self)
+    }
+  }
+
+  /// Shows the host's context menu with an empty set of identifiers when the user right-clicks
+  /// space that holds no row. Rows show their own menu from their hosted content.
+  struct EmptySpaceContextMenu<Element: Identifiable>: ViewModifier {
+    let selection: OutlineSelection<Element.ID>
+    let behavior: OutlineBehavior<Element>
+
+    func body(content: Content) -> some View {
+      if case .none = selection {
+        content
+      } else if let menu = behavior.contextMenu {
+        content.contextMenu { menu([]) }
+      } else {
+        content
+      }
     }
   }
 
@@ -62,13 +77,32 @@
     typealias ID = Element.ID
     typealias Renderer = AppKitOutlineRenderer<Element, RowContent>
 
-    weak var outlineView: NSOutlineView?
+    private(set) weak var outlineView: NSOutlineView?
     private var renderer: Renderer?
     private var tree = OutlineTree<Element>([], children: { _ in nil })
     private var boxes: [ID: NodeBox<ID>] = [:]
     /// Set while the coordinator changes the outline itself, so AppKit's callbacks for those
     /// changes are not mistaken for user interaction and written back into the bindings.
     private var isApplyingUpdate = false
+    private let clickTarget = OutlineClickTarget()
+    /// A single click on an unselectable container toggles it once the double-click interval has
+    /// passed, so a double-click can still run the primary action instead.
+    private var pendingToggle: Task<Void, Never>?
+
+    /// Connects the coordinator to an outline view as its data source, delegate and click target.
+    func attach(to outlineView: NSOutlineView) {
+      self.outlineView = outlineView
+      outlineView.dataSource = self
+      outlineView.delegate = self
+      clickTarget.onClick = { [weak self] in self?.handleClick() }
+      clickTarget.onDoubleClick = { [weak self] in self?.handleDoubleClick() }
+      outlineView.target = clickTarget
+      outlineView.action = #selector(OutlineClickTarget.click(_:))
+      outlineView.doubleAction = #selector(OutlineClickTarget.doubleClick(_:))
+      (outlineView as? SnagOutlineView)?.onReturn = { [weak self] in
+        self?.handleReturn() ?? false
+      }
+    }
 
     // MARK: Updates
 
@@ -163,7 +197,13 @@
       let cell =
         outlineView.makeView(withIdentifier: HostingCellView.reuseIdentifier, owner: nil)
         as? HostingCellView ?? HostingCellView()
-      cell.show(AnyView(renderer.rowContent(element)))
+      let content = renderer.rowContent(element)
+      if let menu = renderer.behavior.contextMenu {
+        let ids = activatedIDs(for: id)
+        cell.show(AnyView(content.contextMenu { menu(ids) }))
+      } else {
+        cell.show(AnyView(content))
+      }
       return cell
     }
 
@@ -214,6 +254,70 @@
       else { return }
       if renderer.expansion.contains(id) {
         renderer.expansion.remove(id)
+      }
+    }
+
+    // MARK: Clicks and keys
+
+    /// The elements an action on `id` applies to: the selection if `id` is part of it, otherwise
+    /// `id` alone.
+    private func activatedIDs(for id: ID) -> Set<ID> {
+      guard let renderer else { return [id] }
+      let selected = selectedIDs(in: renderer.selection)
+      return selected.contains(id) ? selected : [id]
+    }
+
+    private func handleClick() {
+      guard let renderer, let outlineView else { return }
+      let row = outlineView.clickedRow
+      guard row >= 0, let id = id(of: outlineView.item(atRow: row)),
+        let element = tree.element(id),
+        !renderer.behavior.canSelect(element), !tree.children(of: id).isEmpty
+      else { return }
+
+      // The disclosure triangle toggles on its own; do not toggle a second time.
+      if let event = NSApp.currentEvent {
+        let location = outlineView.convert(event.locationInWindow, from: nil)
+        if outlineView.frameOfOutlineCell(atRow: row).contains(location) { return }
+      }
+
+      guard renderer.behavior.primaryAction != nil else {
+        toggle(id)
+        return
+      }
+      pendingToggle?.cancel()
+      pendingToggle = Task { [weak self] in
+        try? await Task.sleep(for: .seconds(NSEvent.doubleClickInterval))
+        guard !Task.isCancelled else { return }
+        self?.toggle(id)
+      }
+    }
+
+    private func handleDoubleClick() {
+      pendingToggle?.cancel()
+      pendingToggle = nil
+      guard let primaryAction = renderer?.behavior.primaryAction, let outlineView else { return }
+      let row = outlineView.clickedRow
+      guard row >= 0, let id = id(of: outlineView.item(atRow: row)) else { return }
+      primaryAction(activatedIDs(for: id))
+    }
+
+    /// Runs the primary action for the selection; returns whether it handled the key press.
+    private func handleReturn() -> Bool {
+      guard let renderer, let primaryAction = renderer.behavior.primaryAction else { return false }
+      let selected = selectedIDs(in: renderer.selection)
+      guard !selected.isEmpty else { return false }
+      primaryAction(selected)
+      return true
+    }
+
+    private func toggle(_ id: ID) {
+      guard let outlineView else { return }
+      let item = box(for: id)
+      if outlineView.isItemExpanded(item) {
+        outlineView.animator().collapseItem(item)
+      } else {
+        outlineView.animator().expandItem(item)
       }
     }
 

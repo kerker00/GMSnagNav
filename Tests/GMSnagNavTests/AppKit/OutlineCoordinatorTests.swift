@@ -15,25 +15,25 @@
       var single: String?
       var multiple: Set<String> = []
       var isSelectable: (TestItem) -> Bool = { _ in true }
+      var primaryAction: ((Set<String>) -> Void)?
     }
 
     let host = Host()
-    let outlineView = NSOutlineView()
+    let outlineView = SnagOutlineView()
     let coordinator = OutlineCoordinator<TestItem, Text>()
 
     init() {
       let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("column"))
       outlineView.addTableColumn(column)
       outlineView.outlineTableColumn = column
-      outlineView.dataSource = coordinator
-      outlineView.delegate = coordinator
-      coordinator.outlineView = outlineView
+      coordinator.attach(to: outlineView)
     }
 
     private func update(multipleSelection: Bool = false) {
       let host = host
       var behavior = OutlineBehavior<TestItem>()
       behavior.isSelectable = host.isSelectable
+      behavior.primaryAction = host.primaryAction
       let selection: OutlineSelection<String> =
         multipleSelection
         ? .multiple(Binding(get: { host.multiple }, set: { host.multiple = $0 }))
@@ -125,6 +125,31 @@
       let proposed = coordinator.outlineView(
         outlineView, selectionIndexesForProposedSelection: [0, 2])
       #expect(proposed == [2])
+    }
+
+    private func pressReturn() {
+      let event = NSEvent.keyEvent(
+        with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0,
+        context: nil, characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false,
+        keyCode: 36)
+      if let event { outlineView.keyDown(with: event) }
+    }
+
+    @Test func runsPrimaryActionForTheSelectionOnReturn() {
+      var activated: Set<String> = []
+      host.primaryAction = { activated = $0 }
+      host.single = "c"
+      update()
+      pressReturn()
+      #expect(activated == ["c"])
+    }
+
+    @Test func ignoresReturnWithoutSelection() {
+      var activated: Set<String>?
+      host.primaryAction = { activated = $0 }
+      update()
+      pressReturn()
+      #expect(activated == nil)
     }
 
     @Test func keepsStateWhenDataChanges() {

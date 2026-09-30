@@ -9,6 +9,10 @@
   /// `backgroundProminence`, so hierarchical styles such as `.primary` and `.secondary` switch to
   /// their high-contrast variants on the accent-colored selection — just like rows of a native
   /// SwiftUI `List`.
+  ///
+  /// AppKit also tells cells the row size — small, medium or large, following the sidebar icon
+  /// size in System Settings for source lists. Native cells then use 11, 13 or 15 point text and
+  /// symbols; the cell passes the same size to the SwiftUI content as its default font.
   final class HostingCellView: NSTableCellView {
     static let reuseIdentifier = NSUserInterfaceItemIdentifier("GMSnagNav.HostingCell")
 
@@ -42,6 +46,22 @@
       }
     }
 
+    override var rowSizeStyle: NSTableView.RowSizeStyle {
+      didSet {
+        if rowSizeStyle != oldValue { render() }
+      }
+    }
+
+    /// The point size of native text in rows of the current size, or `nil` for custom sizes.
+    var fontSize: CGFloat? {
+      switch rowSizeStyle {
+      case .small: 11
+      case .medium: 13
+      case .large: 15
+      default: nil
+      }
+    }
+
     /// Shows new row content.
     func show(_ content: AnyView) {
       self.content = content
@@ -51,6 +71,7 @@
     private func render() {
       hostingView.rootView = AnyView(
         content
+          .font(fontSize.map { .system(size: $0) })
           .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
           .environment(
             \.backgroundProminence, backgroundStyle == .emphasized ? .increased : .standard))

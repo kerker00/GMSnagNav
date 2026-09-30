@@ -228,7 +228,7 @@
 
     private func restOn(_ target: OutlineDropTarget<String>) async {
       coordinator.updateSpringLoading(for: target)
-      try? await Task.sleep(for: .milliseconds(250))
+      await coordinator.springLoadingSettled()
     }
 
     @Test func springLoadsCollapsedFoldersWithoutChangingTheBinding() async {

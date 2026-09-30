@@ -81,6 +81,10 @@
     /// The element the pointer rests on during a drag, and the pending task that opens it.
     private var springLoadCandidate: ID?
     private var springLoadTask: Task<Void, Never>?
+    /// Finishes once the pending spring-loading has opened its element or was cancelled, for tests.
+    func springLoadingSettled() async {
+      await springLoadTask?.value
+    }
     /// Replaces the system's spring-loading delay, for tests.
     var springLoadingDelayOverride: Duration?
     /// Set while spring-loading opens or closes elements; such changes never reach the binding.

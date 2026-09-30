@@ -514,6 +514,10 @@
     /// The element the finger rests on, and the pending task that opens it.
     private var springLoadCandidate: ID?
     private var springLoadTask: Task<Void, Never>?
+    /// Finishes once the pending spring-loading has opened its element or was cancelled, for tests.
+    func springLoadingSettled() async {
+      await springLoadTask?.value
+    }
     /// Replaces the spring-loading delay, for tests.
     var springLoadingDelayOverride: Duration?
 

@@ -39,6 +39,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `OutlineDropProposal`, including detection of drops into a dragged element's own subtree and
   insertion indices adjusted for the removal of dragged siblings. Dragged identifiers are
   normalized to top-level elements, so a descendant dragged along with its ancestor is left out.
+  The host's validation is asked once per position during a drag.
 - `onOutlineDuplicateIDs(_:)` to learn about identifiers that occur more than once. Only their
   first occurrence is shown; repeats are logged, and without a handler they stop at an assertion
   in debug builds.

@@ -74,6 +74,8 @@
     /// Only tokens travel on the pasteboard, so identifiers need not be `Codable`, and drags from
     /// other outlines or apps — whose tokens are unknown here — are ignored.
     private var draggedIDsByToken: [String: ID] = [:]
+    /// The host's answers for the current drag and snapshot.
+    private var dropCache = DropResolutionCache<ID>()
     /// Collapsed elements opened temporarily by hovering over them during the current drag.
     private var springLoaded: [ID] = []
     /// The element the pointer rests on during a drag, and the pending task that opens it.
@@ -121,6 +123,7 @@
       let oldTree = tree
       renderer.behavior.reportDuplicateIDs(in: renderer.tree, previous: oldTree)
       tree = renderer.tree
+      dropCache.removeAll()
       guard let outlineView else {
         boxes = boxes.filter { tree.contains($0.key) }
         return
@@ -296,6 +299,7 @@
       endedAt screenPoint: NSPoint, operation: NSDragOperation
     ) {
       draggedIDsByToken.removeAll()
+      dropCache.removeAll()
       endSpringLoading()
     }
 
@@ -403,9 +407,10 @@
       of ids: [ID], onto item: Any?, childIndex: Int
     ) -> (proposal: OutlineDropProposal<ID>, operation: OutlineDropOperation)? {
       guard let renderer, let drop = renderer.behavior.drop, !ids.isEmpty else { return nil }
-      return drop.resolve(
-        draggedIDs: ids, target: target(item: item, childIndex: childIndex), tree: tree,
-        expanded: renderer.expansion)
+      let target = target(item: item, childIndex: childIndex)
+      return dropCache.resolution(for: ids, target: target) {
+        drop.resolve(draggedIDs: ids, target: target, tree: tree, expanded: renderer.expansion)
+      }
     }
 
     /// Validates the drop once more and lets the host perform it.

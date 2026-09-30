@@ -50,4 +50,46 @@ import Testing
       .resolve(draggedIDs: ["c"], target: .root, tree: tree, expanded: [])
     #expect(result == nil)
   }
+
+  @Test func cachesResolutionsPerDraggedIDsAndTarget() {
+    var cache = DropResolutionCache<String>()
+    var calls = 0
+    let accepting = handler { _ in
+      calls += 1
+      return .accept(.move)
+    }
+    func resolve(_ ids: [String], _ target: OutlineDropTarget<String>) -> OutlineDropOperation? {
+      cache.resolution(for: ids, target: target) {
+        accepting.resolve(draggedIDs: ids, target: target, tree: tree, expanded: [])
+      }?.operation
+    }
+
+    #expect(resolve(["c"], .onto("a")) == .move)
+    #expect(resolve(["c"], .onto("a")) == .move)
+    #expect(calls == 1)
+
+    _ = resolve(["c"], .onto("b"))
+    _ = resolve(["b", "c"], .onto("a"))
+    #expect(calls == 3)
+
+    cache.removeAll()
+    _ = resolve(["c"], .onto("a"))
+    #expect(calls == 4)
+  }
+
+  @Test func cachesRejections() {
+    var cache = DropResolutionCache<String>()
+    var calls = 0
+    let rejecting = handler { _ in
+      calls += 1
+      return .reject
+    }
+    for _ in 0..<3 {
+      let result = cache.resolution(for: ["c"], target: .root) {
+        rejecting.resolve(draggedIDs: ["c"], target: .root, tree: tree, expanded: [])
+      }
+      #expect(result == nil)
+    }
+    #expect(calls == 1)
+  }
 }

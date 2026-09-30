@@ -102,6 +102,7 @@
       self.renderer = renderer
       renderer.behavior.reportDuplicateIDs(in: renderer.tree, previous: tree)
       tree = renderer.tree
+      dropCache.removeAll()
       guard let collectionView, let dataSource else { return }
 
       isApplyingUpdate = true
@@ -318,6 +319,8 @@
       }
     }
 
+    /// The host's answers for the current drag and snapshot.
+    private var dropCache = DropResolutionCache<ID>()
     /// The last drop resolved while the user drags, performed when they lift the finger.
     private var pendingDrop: (proposal: OutlineDropProposal<ID>, operation: OutlineDropOperation)?
 
@@ -425,10 +428,13 @@
       let target = dropTarget(over: hit.row, verticalFraction: hit.fraction, in: rows)
       updateSpringLoading(for: target)
 
+      let ids = draggedIDs(in: session)
       guard
-        let resolved = drop.resolve(
-          draggedIDs: draggedIDs(in: session), target: target, tree: tree,
-          expanded: renderer.expansion)
+        let resolved = dropCache.resolution(
+          for: ids, target: target,
+          resolve: {
+            drop.resolve(draggedIDs: ids, target: target, tree: tree, expanded: renderer.expansion)
+          })
       else {
         dropIndicator = nil
         return UICollectionViewDropProposal(operation: .forbidden)
@@ -471,6 +477,7 @@
       dragRowFrames = nil
       dropIndicator = nil
       currentDragIDs = []
+      dropCache.removeAll()
       endSpringLoading()
     }
 

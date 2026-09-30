@@ -45,8 +45,9 @@ extension SnagOutline {
   /// Apply this modifier directly to the `SnagOutline`, before any other view modifier.
   ///
   /// - Parameters:
-  ///   - validate: Decides whether and where a proposed drop is allowed. Keep it fast; it runs on
-  ///     every pointer movement. By default, drops into a dragged element's own subtree are
+  ///   - validate: Decides whether and where a proposed drop is allowed. Keep it fast and free of
+  ///     side effects; it runs while the pointer moves. Its answer for a position is reused until
+  ///     the data or the expansion changes or the drag ends. By default, drops into a dragged element's own subtree are
   ///     rejected and everything else is accepted as a move.
   ///   - perform: Changes the host's data for an accepted drop and returns whether it succeeded.
   public func onOutlineDrop(
@@ -94,6 +95,39 @@ extension OutlineDropHandler {
         draggedIDs: draggedIDs, target: redirected, tree: tree, expanded: expanded)
       return (proposal, operation)
     }
+  }
+}
+
+/// Remembers the host's answers during a drag, so moving over the same position again does not
+/// ask the host again.
+///
+/// Renderers clear it whenever the host provides a new snapshot or expansion, since either can
+/// change the answer, and when the drag ends.
+struct DropResolutionCache<ID: Hashable & Sendable> {
+  typealias Resolution = (proposal: OutlineDropProposal<ID>, operation: OutlineDropOperation)
+
+  private struct Key: Hashable {
+    let draggedIDs: [ID]
+    let target: OutlineDropTarget<ID>
+  }
+
+  private var resolutions: [Key: Resolution?] = [:]
+
+  /// Returns the remembered resolution for dragging `draggedIDs` to `target`, or resolves and
+  /// remembers it; `nil` stands for a rejected drop.
+  mutating func resolution(
+    for draggedIDs: [ID], target: OutlineDropTarget<ID>, resolve: () -> Resolution?
+  ) -> Resolution? {
+    let key = Key(draggedIDs: draggedIDs, target: target)
+    if let cached = resolutions[key] { return cached }
+    let resolution = resolve()
+    resolutions[key] = .some(resolution)
+    return resolution
+  }
+
+  /// Forgets all remembered resolutions.
+  mutating func removeAll() {
+    resolutions.removeAll()
   }
 }
 

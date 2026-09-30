@@ -60,8 +60,8 @@ removed.
 
 ### Validate while the user drags
 
-`validate` runs on every pointer or finger movement over the outline and returns an
-``OutlineDropResult``:
+`validate` runs while the pointer or finger moves over the outline, once for every new position
+the elements could land at, and returns an ``OutlineDropResult``:
 
 - ``OutlineDropResult/reject`` refuses the drop. The outline shows no indicator, and releasing
   there does nothing.
@@ -89,8 +89,10 @@ func dropResult(for proposal: OutlineDropProposal<Item.ID>) -> OutlineDropResult
 }
 ```
 
-Keep `validate` fast and free of side effects: it may run many times for the same position.
-Look up what you need in memory rather than querying a database or the file system. Without a
+Keep `validate` fast and free of side effects. The outline reuses its answer for a position during
+the drag, but asks again after your data or expansion changes, and a quick drag across many rows
+still asks for each of them. Look up what you need in memory rather than querying a database or
+the file system. Without a
 `validate` closure, the outline rejects drops into a dragged element's own subtree and accepts
 everything else as a move.
 

@@ -293,6 +293,28 @@
         coordinator.resolveDrop(of: ["c"], onto: item("a"), childIndex: 0)?.operation == .move)
     }
 
+    @Test func asksTheHostOncePerPositionUntilTheDataChanges() {
+      var validations = 0
+      host.drop = OutlineDropHandler(
+        validate: { _ in
+          validations += 1
+          return .accept(.move)
+        }, perform: { _, _ in true })
+      update()
+
+      _ = coordinator.resolveDrop(of: ["c"], onto: item("a"), childIndex: 0)
+      _ = coordinator.resolveDrop(of: ["c"], onto: item("a"), childIndex: 0)
+      #expect(validations == 1)
+
+      _ = coordinator.resolveDrop(of: ["c"], onto: item("a"), childIndex: 1)
+      #expect(validations == 2)
+
+      host.expansion = ["a"]
+      update()
+      _ = coordinator.resolveDrop(of: ["c"], onto: item("a"), childIndex: 0)
+      #expect(validations == 3)
+    }
+
     @Test func redirectsToValidTargetsOnly() {
       host.drop = OutlineDropHandler(
         validate: { _ in .redirect(to: .onto("b"), operation: .copy) }, perform: { _, _ in true })

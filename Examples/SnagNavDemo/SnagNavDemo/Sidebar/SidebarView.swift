@@ -24,6 +24,7 @@ struct SidebarView: View {
 
   var body: some View {
     outline
+      .focusedSceneValue(\.sidebarActions, actions)
       .onAppear {
         // Start with the top-level folders open — once. On iPhone the sidebar appears again after
         // every navigation back, and must keep the user's expansion then.
@@ -73,6 +74,17 @@ struct SidebarView: View {
           .padding(8)
         }
       #endif
+  }
+
+  /// The sidebar's actions for the menu bar.
+  private var actions: SidebarActions {
+    var delete: (() -> Void)?
+    if selection != nil {
+      delete = { deleteSelection() }
+    }
+    return SidebarActions(
+      newFolder: { newFolder() }, newDocument: { newDocument() }, deleteSelection: delete,
+      expandAll: { expandAll() }, collapseAll: { collapseAll() })
   }
 
   private var versionText: String { "GMSnagNav \(GMSnagNav.version)" }

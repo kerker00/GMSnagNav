@@ -35,15 +35,14 @@ final class ReadmeScreenshots: XCTestCase {
     #endif
 
     #if os(macOS)
-      let outlineMenu = app.menuButtons["Outline Options"].firstMatch
+      // Through the menu bar, which also checks the demo's commands.
+      app.menuBars.menuBarItems["View"].click()
+      let expandAll = app.menuBars.menuItems["Expand All"]
+      XCTAssertTrue(expandAll.waitForExistence(timeout: 5), "No Expand All command")
+      expandAll.click()
     #else
       let outlineMenu = app.buttons["Outline"].firstMatch
-    #endif
-    XCTAssertTrue(outlineMenu.waitForExistence(timeout: 5), "No outline menu")
-    #if os(macOS)
-      outlineMenu.click()
-      app.menuItems["Expand All"].firstMatch.click()
-    #else
+      XCTAssertTrue(outlineMenu.waitForExistence(timeout: 5), "No outline menu")
       outlineMenu.tap()
       app.buttons["Expand All"].firstMatch.tap()
     #endif

@@ -46,6 +46,7 @@ struct SnagNavDemoApp: App {
           }
         #endif
     }
+    .commands { DemoCommands() }
     #if os(macOS)
       .defaultSize(width: 960, height: 640)
     #endif

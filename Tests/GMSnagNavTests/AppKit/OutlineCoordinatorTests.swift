@@ -409,7 +409,7 @@
     /// Hovers over `id` during a drag and waits for spring-loading to react.
     private func hover(onto id: String?, childIndex: Int = NSOutlineViewDropOnItemIndex) async {
       coordinator.updateSpringLoading(hovering: id.flatMap(item), childIndex: childIndex)
-      try? await Task.sleep(for: .milliseconds(250))
+      await coordinator.springLoadingSettled()
     }
 
     private func isExpanded(_ id: String) -> Bool {
@@ -558,8 +558,7 @@
       coordinator.springLoadingDelayOverride = .milliseconds(10)
       host.drop = acceptAll()
       update()
-      coordinator.updateSpringLoading(hovering: item("a"), childIndex: NSOutlineViewDropOnItemIndex)
-      try? await Task.sleep(for: .milliseconds(250))
+      await hover(onto: "a")
       #expect(visibleIDs == ["a", "a1", "a2", "b", "c"])
 
       host.roots.removeFirst()

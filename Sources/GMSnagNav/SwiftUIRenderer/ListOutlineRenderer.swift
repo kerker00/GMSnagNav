@@ -11,28 +11,42 @@ where Element.ID: Sendable {
   let tree: OutlineTree<Element>
   let selection: OutlineSelection<ID>
   @Binding var expansion: Set<ID>
+  let behavior: OutlineBehavior<Element>
   let rowContent: (Element) -> RowContent
 
   var body: some View {
     let rows = tree.visibleRows(expanded: expansion)
     switch selection {
     case .none:
-      List { rowsView(rows) }
+      List { rowsView(rows, activatesOnTap: true) }
     case .single(let binding):
-      List(selection: binding) { rowsView(rows) }
+      List(selection: binding) { rowsView(rows, activatesOnTap: false) }
+        .modifier(SelectionActions(behavior: behavior))
     case .multiple(let binding):
-      List(selection: binding) { rowsView(rows) }
+      List(selection: binding) { rowsView(rows, activatesOnTap: false) }
+        .modifier(SelectionActions(behavior: behavior))
     }
   }
 
-  private func rowsView(_ rows: [VisibleRow<ID>]) -> some View {
+  /// - Parameter activatesOnTap: Whether rows trigger the primary action themselves. Lists with
+  ///   selection route activation through `contextMenu(forSelectionType:)` instead.
+  private func rowsView(_ rows: [VisibleRow<ID>], activatesOnTap: Bool) -> some View {
     ForEach(rows, id: \.id) { row in
       if let element = tree.element(row.id) {
+        let isSelectable = behavior.canSelect(element)
         OutlineRowView(
           row: row,
           isExpanded: row.isExpanded,
           toggle: { toggle(row.id) },
-          content: rowContent(element))
+          content: rowContent(element)
+        )
+        .selectionDisabled(!isSelectable)
+        .modifier(
+          RowTapBehavior(
+            togglesExpansion: !isSelectable && row.isExpandable && row.childCount > 0,
+            primaryAction: activatesOnTap
+              ? behavior.primaryAction.map { action in { action([row.id]) } } : nil,
+            toggle: { toggle(row.id) }))
       }
     }
   }
@@ -45,6 +59,55 @@ where Element.ID: Sendable {
         expansion.insert(id)
       }
     }
+  }
+}
+
+/// Routes the primary action of lists with selection through SwiftUI's selection-aware API.
+private struct SelectionActions<Element: Identifiable>: ViewModifier {
+  let behavior: OutlineBehavior<Element>
+
+  func body(content: Content) -> some View {
+    if let primaryAction = behavior.primaryAction {
+      content.contextMenu(
+        forSelectionType: Element.ID.self,
+        menu: { _ in EmptyView() },
+        primaryAction: { ids in
+          if !ids.isEmpty { primaryAction(ids) }
+        })
+    } else {
+      content
+    }
+  }
+}
+
+/// Handles taps on a row that are not selection: toggling non-selectable containers and, in lists
+/// without selection, the primary action.
+private struct RowTapBehavior: ViewModifier {
+  let togglesExpansion: Bool
+  let primaryAction: (() -> Void)?
+  let toggle: () -> Void
+
+  func body(content: Content) -> some View {
+    if let primaryAction {
+      content
+        .contentShape(.rect)
+        .onTapGesture(count: Self.activationTapCount, perform: primaryAction)
+    } else if togglesExpansion {
+      content
+        .contentShape(.rect)
+        .onTapGesture(perform: toggle)
+    } else {
+      content
+    }
+  }
+
+  /// Double-click activates on macOS, like in Finder; a single tap activates on iOS.
+  private static var activationTapCount: Int {
+    #if os(macOS)
+      2
+    #else
+      1
+    #endif
   }
 }
 

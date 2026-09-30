@@ -21,6 +21,26 @@ import Testing
     _ = SnagOutline(sampleRoots, children: { $0.children }, rowContent: { Text($0.id) })
   }
 
+  @Test func selectsEverythingByDefault() {
+    let outline = SnagOutline(sampleRoots, children: \.children) { Text($0.id) }
+    #expect(sampleRoots.allSatisfy(outline.behavior.canSelect))
+  }
+
+  @Test func appliesSelectablePredicate() {
+    let outline = SnagOutline(sampleRoots, children: \.children) { Text($0.id) }
+      .outlineSelectable { $0.children == nil }
+    #expect(!outline.behavior.canSelect(.group("a")))
+    #expect(outline.behavior.canSelect(.leaf("c")))
+  }
+
+  @Test func storesPrimaryAction() {
+    var activated: Set<String> = []
+    let outline = SnagOutline(sampleRoots, children: \.children) { Text($0.id) }
+      .outlinePrimaryAction { activated = $0 }
+    outline.behavior.primaryAction?(["a", "c"])
+    #expect(activated == ["a", "c"])
+  }
+
   @Test func bindsSelectionModes() {
     var single: String? = "a"
     let outline = SnagOutline(

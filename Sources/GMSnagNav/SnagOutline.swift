@@ -125,7 +125,7 @@ where Data.Element: Identifiable, Data.Element.ID: Sendable {
         rowContent: rowContent
       )
       .modifier(EmptySpaceContextMenu(selection: selection, behavior: behavior))
-    #elseif os(iOS)
+    #else
       UIKitOutlineRenderer(
         tree: OutlineTree(data, children: children),
         selection: selection,
@@ -133,14 +133,6 @@ where Data.Element: Identifiable, Data.Element.ID: Sendable {
         behavior: behavior,
         appearance: appearance,
         springLoading: springLoadingBehavior,
-        rowContent: rowContent)
-    #else
-      ListOutlineRenderer(
-        tree: OutlineTree(data, children: children),
-        selection: selection,
-        expansion: expansion ?? $internalExpansion,
-        behavior: behavior,
-        appearance: appearance,
         rowContent: rowContent)
     #endif
   }

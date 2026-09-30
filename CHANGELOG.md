@@ -29,6 +29,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Spring-loaded folders while dragging: collapsed elements open after a short delay — on macOS
   the system's spring-loading delay — and close again when the pointer or finger leaves, without
   changing the expansion binding. Respects `springLoadingBehavior(_:)`.
+- `outlineCompactNavigation(selection:column:)` to open the detail of a collapsed
+  `NavigationSplitView` — such as on iPhone — from an outline's selection.
 - Drag-and-drop vocabulary: `OutlineDropTarget`, `OutlineDropOperation`, `OutlineDropResult` and
   `OutlineDropProposal`, including detection of drops into a dragged element's own subtree and
   insertion indices adjusted for the removal of dragged siblings.

@@ -46,4 +46,5 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `onOutlineDuplicateIDs(_:)` to learn about identifiers that occur more than once. Only their
   first occurrence is shown; repeats are logged, and without a handler they stop at an assertion
   in debug builds.
+- English and German texts for what VoiceOver reads on iOS. They follow the host app's language.
 - `SnagNavDemo`, a multiplatform demo app in `Examples/`.

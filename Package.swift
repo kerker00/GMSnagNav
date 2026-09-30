@@ -4,6 +4,7 @@ import PackageDescription
 
 let package = Package(
   name: "GMSnagNav",
+  defaultLocalization: "en",
   platforms: [
     .macOS(.v26),
     .iOS(.v26),
@@ -12,7 +13,10 @@ let package = Package(
     .library(name: "GMSnagNav", targets: ["GMSnagNav"])
   ],
   targets: [
-    .target(name: "GMSnagNav"),
+    .target(
+      name: "GMSnagNav",
+      resources: [.process("Resources")]
+    ),
     .testTarget(
       name: "GMSnagNavTests",
       dependencies: ["GMSnagNav"]

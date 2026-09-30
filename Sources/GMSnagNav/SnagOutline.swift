@@ -112,12 +112,21 @@ where Data.Element: Identifiable, Data.Element.ID: Sendable {
 
   /// The content and behavior of the view.
   public var body: some View {
-    ListOutlineRenderer(
-      tree: OutlineTree(data, children: children),
-      selection: selection,
-      expansion: expansion ?? $internalExpansion,
-      behavior: behavior,
-      rowContent: rowContent)
+    #if os(macOS)
+      AppKitOutlineRenderer(
+        tree: OutlineTree(data, children: children),
+        selection: selection,
+        expansion: expansion ?? $internalExpansion,
+        behavior: behavior,
+        rowContent: rowContent)
+    #else
+      ListOutlineRenderer(
+        tree: OutlineTree(data, children: children),
+        selection: selection,
+        expansion: expansion ?? $internalExpansion,
+        behavior: behavior,
+        rowContent: rowContent)
+    #endif
   }
 }
 

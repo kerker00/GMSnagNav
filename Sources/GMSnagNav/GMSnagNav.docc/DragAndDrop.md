@@ -123,6 +123,28 @@ Perform the whole drop as one change. ``OutlineDropProposal/draggedIDs`` can hol
 elements from different parents; hosts with persistent stores should move them in a single
 transaction, so a failure leaves the data unchanged.
 
+### Turn off dragging while searching
+
+A search usually shows only the matching elements and the containers that lead to them. Filter
+through the children closure, so your data is not copied, and give the search an expansion of its
+own, so the user's expansion is back when the search ends:
+
+```swift
+SnagOutline(
+  library.roots.filter { matches?.contains($0.id) ?? true },
+  children: { item in item.children?.filter { matches?.contains($0.id) ?? true } },
+  selection: $selection,
+  expansion: isSearching ? $searchExpansion : $expansion
+) { item in
+  OutlineLabel(item.name, systemImage: item.systemImage)
+}
+.outlineDraggable { _ in !isSearching }
+```
+
+Turn dragging off while the outline is filtered. A drop between two matches has no clear position
+in your data, where hidden elements may lie between them, and an insertion index refers to the
+visible siblings only. After the search, the user moves elements in the complete outline.
+
 ### Test your drop handling
 
 The public ``OutlineDropProposal/init(draggedIDs:target:isTargetExpanded:isDroppingIntoOwnSubtree:insertionIndexAfterRemoval:)``

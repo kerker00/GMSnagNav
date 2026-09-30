@@ -15,6 +15,7 @@
       var isSelectable: (TestItem) -> Bool = { _ in true }
       var primaryAction: ((Set<String>) -> Void)?
       var springLoading = SpringLoadingBehavior.automatic
+      var drop: OutlineDropHandler<String>?
     }
 
     let host = Host()
@@ -32,6 +33,7 @@
       var behavior = OutlineBehavior<TestItem>()
       behavior.isSelectable = host.isSelectable
       behavior.primaryAction = host.primaryAction
+      behavior.drop = host.drop
       coordinator.update(
         with: UIKitOutlineRenderer(
           tree: OutlineTree(host.roots, children: \.children),
@@ -111,6 +113,49 @@
       #expect(activated == ["b"])
     }
 
+    @Test func resolvesThePendingDropAgainstDataChangedDuringTheDrag() {
+      var validations = 0
+      var performed: OutlineDropProposal<String>?
+      host.drop = OutlineDropHandler(
+        validate: { _ in
+          validations += 1
+          return .accept(.move)
+        },
+        perform: { proposal, _ in
+          performed = proposal
+          return true
+        })
+      update()
+      // Roots a b c: moving c to the end needs no adjustment.
+      #expect(
+        coordinator.resolveDrop(of: ["c"], at: .insert(into: nil, at: 2))?.proposal
+          .insertionIndexAfterRemoval == 2)
+
+      // With a removed, c sits at index 1, before the insertion point.
+      host.roots.removeFirst()
+      update()
+      #expect(coordinator.performDrop(of: ["c"], at: .insert(into: nil, at: 2)))
+      #expect(performed?.insertionIndexAfterRemoval == 1)
+      #expect(validations == 2)
+    }
+
+    @Test func dropsNothingWhenTheDataChangedAwayFromTheDrop() {
+      var performed = false
+      host.drop = OutlineDropHandler(
+        validate: { _ in .accept(.move) },
+        perform: { _, _ in
+          performed = true
+          return true
+        })
+      update()
+      host.roots.removeLast()
+      update()
+      // c no longer exists, and the root level has no index 3 anymore.
+      #expect(!coordinator.performDrop(of: ["c"], at: .onto("a")))
+      #expect(!coordinator.performDrop(of: ["b"], at: .insert(into: nil, at: 3)))
+      #expect(!performed)
+    }
+
     @Test func dropsOntoARowWhileTheFingerRestsOnItsMiddle() {
       update()
       let rows = OutlineTree(sampleRoots, children: \.children).visibleRows(expanded: [])
@@ -169,6 +214,23 @@
       // Resting inside the opened folder keeps it open and opens the next level.
       await restOn(.onto("a2"))
       #expect(coordinator.springLoaded == ["a", "a2"])
+    }
+
+    @Test func forgetsSpringLoadedFoldersRemovedDuringTheDrag() async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      update()
+      await restOn(.onto("a"))
+      #expect(coordinator.springLoaded == ["a"])
+
+      host.roots.removeFirst()
+      update()
+      coordinator.endSpringLoading()
+      #expect(coordinator.springLoaded.isEmpty)
+      #expect(
+        coordinator.sectionSnapshot(expanded: coordinator.displayedExpansion).visibleItems == [
+          "b", "c",
+        ])
+      #expect(host.expansion.isEmpty)
     }
 
     @Test func closesSpringLoadedFoldersWhenTheFingerLeaves() async {

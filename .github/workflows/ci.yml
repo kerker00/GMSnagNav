@@ -34,7 +34,26 @@ jobs:
         run: swift build
 
       - name: Run tests
-        run: swift test
+        run: swift test --enable-code-coverage
+
+      # Line coverage per file in the run's summary; no external service involved.
+      - name: Summarize coverage
+        run: |
+          set -euo pipefail
+          report=$(swift test --show-codecov-path)
+          sources='[.data[0].files[] | select(.filename | contains("/Sources/"))]'
+          {
+            echo "### Line coverage on macOS"
+            echo
+            echo "| File | Lines | Covered |"
+            echo "|---|---:|---:|"
+            jq -r "$sources | sort_by(.filename)[]
+              | \"| \(.filename | split(\"/Sources/GMSnagNav/\")[1]) | \(.summary.lines.count) | \(.summary.lines.percent * 10 | round / 10)% |\"" "$report"
+            jq -r "$sources | map(.summary.lines)
+              | \"| **Total** | \(map(.count) | add) | **\((map(.covered) | add) * 1000 / (map(.count) | add) | round / 10)%** |\"" "$report"
+            echo
+            echo "The UIKit renderer is compiled only for iOS and not included."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   test-ios:
     name: Test (iOS Simulator)

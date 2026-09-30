@@ -51,5 +51,9 @@ Then `import GMSnagNav` wherever you build your sidebar.
 | Style, indentation and the AppKit configuration escape hatch (Outline menu) | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
 | Context menu for the clicked item or selection, and for empty space (add at the root level) | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
 
+UI tests in [`SnagNavDemoUITests`](SnagNavDemoUITests) cover selection on both platforms and, on
+macOS, real drags: into a folder, a rejected cycle, a redirected drop onto a document, and a moved
+folder that stays expanded. See `CONTRIBUTING.md` for how to run them.
+
 The key idea: the demo's `Library` store — not GMSnagNav — decides whether a move is allowed and
 performs it. Replace it with your Core Data, SwiftData or file-system layer in a real app.

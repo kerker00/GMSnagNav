@@ -13,7 +13,9 @@ import SwiftUI
 /// ```
 ///
 /// Children are read as an optional array: `nil` marks a leaf that can never have children, while
-/// an empty array marks an expandable container that is currently empty, such as an empty folder.
+/// an empty array marks a container that is currently empty, such as an empty folder. An empty
+/// container shows no disclosure indicator, since there is nothing to reveal, but accepts drops
+/// onto its row.
 ///
 /// Identifiers must be unique across the whole tree, not only among siblings. A repeated
 /// identifier shows only its first occurrence; see `onOutlineDuplicateIDs(_:)`. The outline keeps
@@ -151,8 +153,8 @@ where Data.Element: Identifiable, Data.Element.ID: Sendable {
 extension SnagOutline {
   /// Decides which elements can be selected.
   ///
-  /// Rows of elements that are not selectable ignore clicks and taps for selection; clicking an
-  /// expandable, non-selectable row toggles its expansion instead. Use this for grouping elements,
+  /// Rows of elements that are not selectable ignore clicks and taps for selection; clicking a
+  /// non-selectable row that has children toggles its expansion instead. Use this for grouping elements,
   /// such as folders in a project list, that have no detail view of their own.
   ///
   /// Apply this modifier directly to the `SnagOutline`, before any other view modifier.

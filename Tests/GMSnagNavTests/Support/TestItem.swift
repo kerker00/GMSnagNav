@@ -8,7 +8,7 @@ struct TestItem: Identifiable, Equatable {
     TestItem(id: id, children: nil)
   }
 
-  /// A container; an empty `children` list describes an expandable container without children.
+  /// A container; an empty `children` list describes a container without children.
   static func group(_ id: String, _ children: [TestItem] = []) -> TestItem {
     TestItem(id: id, children: children)
   }

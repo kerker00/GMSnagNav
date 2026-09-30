@@ -272,7 +272,7 @@
 
     func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool {
       guard let id = id(of: item) else { return false }
-      // Empty containers show no disclosure triangle, matching the SwiftUI renderer.
+      // Empty containers show no disclosure triangle, matching the UIKit renderer.
       return !tree.children(of: id).isEmpty
     }
 

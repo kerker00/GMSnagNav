@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: swift --version
+
+      - name: Check formatting
+        run: swift format lint --strict --recursive Package.swift Sources Tests
+
+  test-macos:
+    name: Test (macOS)
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: xcodebuild -version
+
+      - name: Build
+        run: swift build
+
+      - name: Run tests
+        run: swift test
+
+  test-ios:
+    name: Test (iOS Simulator)
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: xcodebuild -version
+
+      # Simulator devices differ between runner images, so pick any available iOS device
+      # instead of hard-coding a model, and create one from the newest runtime if none exists.
+      - name: Select an iOS Simulator destination
+        id: destination
+        run: |
+          set -euo pipefail
+          UDID=$(xcrun simctl list devices available iOS -j \
+            | jq -r '[.devices[][] | select(.isAvailable)] | first | .udid // empty')
+          if [ -z "$UDID" ]; then
+            RUNTIME_JSON=$(xcrun simctl list runtimes iOS available -j | jq '.runtimes[-1] // empty')
+            if [ -z "$RUNTIME_JSON" ]; then
+              echo "No iOS Simulator runtime is installed on this runner:" >&2
+              xcrun simctl list runtimes
+              exit 1
+            fi
+            RUNTIME=$(echo "$RUNTIME_JSON" | jq -r '.identifier')
+            # Only device types the runtime supports can boot; skip iPod touch, which shares the
+            # iPhone product family.
+            DEVICE_TYPE=$(echo "$RUNTIME_JSON" | jq -r '[.supportedDeviceTypes[]
+              | select(.productFamily == "iPhone" and (.name | startswith("iPhone")))]
+              | last | .identifier')
+            UDID=$(xcrun simctl create "CI iPhone" "$DEVICE_TYPE" "$RUNTIME")
+          fi
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: Run tests
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -scheme GMSnagNav \
+            -destination "platform=iOS Simulator,id=${{ steps.destination.outputs.udid }}" \
+            -resultBundlePath TestResults-iOS.xcresult \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-ios
+          path: TestResults-iOS.xcresult

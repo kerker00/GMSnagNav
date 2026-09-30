@@ -72,6 +72,14 @@ Common types: `feat`, `fix`, `perf`, `refactor`, `test`, `docs`, `ci`, `chore`. 
 - Public API avoids `fatalError` paths; invalid input is handled or rejected gracefully.
 - Match the style of the surrounding code.
 
+## Translations
+
+The package's own texts — so far only what VoiceOver reads for the rows' disclosure indicators on
+iOS — live in the string catalog `Sources/GMSnagNav/Resources/Localizable.xcstrings`. To add a
+language, open the catalog in Xcode, add the language and translate every entry, then add the
+translations to `Tests/GMSnagNavTests/LocalizationTests.swift`. The texts follow the host app's
+language, so they appear only in apps that are localized for that language too.
+
 ## Formatting
 
 Code is formatted with `swift format`, which ships with the Swift toolchain. The configuration

@@ -46,8 +46,13 @@
     func body(content: Content) -> some View {
       if row.isExpandable && row.childCount > 0 {
         content
-          .accessibilityValue(row.isExpanded ? Text("Expanded") : Text("Collapsed"))
-          .accessibilityAction(named: row.isExpanded ? Text("Collapse") : Text("Expand"), toggle)
+          .accessibilityValue(
+            row.isExpanded ? Text("Expanded", bundle: .module) : Text("Collapsed", bundle: .module)
+          )
+          .accessibilityAction(
+            named: row.isExpanded
+              ? Text("Collapse", bundle: .module) : Text("Expand", bundle: .module),
+            toggle)
       } else {
         content
       }

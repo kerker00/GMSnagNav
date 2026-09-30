@@ -23,7 +23,13 @@ struct ContentView: View {
       } else {
         ContentUnavailableView(
           "No Selection", systemImage: "sidebar.left",
-          description: Text("Select an item in the sidebar."))
+          description: Text("Select an item in the sidebar.")
+        )
+        // The window shows the current section, never the app's name.
+        .navigationTitle("Library")
+        #if os(macOS)
+          .navigationSubtitle(itemCountText(library.itemCount))
+        #endif
       }
     }
     // On iPhone: open the detail for a selection, clear the selection on the way back.
@@ -38,6 +44,10 @@ struct ContentView: View {
     } message: {
       Text(errorMessage ?? "")
     }
+  }
+
+  private func itemCountText(_ count: Int) -> String {
+    count == 1 ? "1 item" : "\(count) items"
   }
 
   private func show(_ error: Error) {

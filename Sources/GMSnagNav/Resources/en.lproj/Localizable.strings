@@ -1,0 +1,11 @@
+/* The VoiceOver action that collapses a row. */
+"Collapse" = "Collapse";
+
+/* The VoiceOver value of a collapsed row. */
+"Collapsed" = "Collapsed";
+
+/* The VoiceOver action that expands a row. */
+"Expand" = "Expand";
+
+/* The VoiceOver value of an expanded row. */
+"Expanded" = "Expanded";

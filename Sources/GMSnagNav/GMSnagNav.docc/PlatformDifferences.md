@@ -58,15 +58,16 @@ nesting level. They differ in how the pointer or finger picks one.
 |---|---|---|
 | Onto a row | The pointer rests on the row | The finger rests on the middle half of the row |
 | Between rows | The system's insertion indicator; the horizontal position picks the nesting level | The upper or lower quarter of a row; the gap belongs to the row above it |
-| Empty space below the rows | Onto the root level (``OutlineDropTarget/root``) | After the last row, at its nesting level |
+| Empty space below the rows | Onto the root level (``OutlineDropTarget/root``) | At the end of the root level |
 | Above the first row | At the start of the root level | At the start of the root level |
 | Feedback | The system's drop highlight and insertion line | A highlight on the row or an insertion line drawn by the outline |
 
-On iOS and iPadOS, a gap between rows inserts after the row above it: items moved to the bottom of
-an expanded folder stay inside it. Below the last row, a drop therefore lands in the folder of the
-last visible row. To offer a drop at the end of the root level there, redirect such drops with
-``OutlineDropResult/redirect(to:operation:)``. On both platforms, a redirect moves the drop
-indicator to the new target.
+On iOS and iPadOS, a gap between rows inserts after the row above it: items moved to the lower
+edge of the last row in an expanded folder stay inside it. The empty space below the last row
+moves them to the end of the root level instead, with an insertion line at the outermost level.
+
+On both platforms, ``OutlineDropResult/redirect(to:operation:)`` moves the drop indicator to the
+new target.
 
 ### Empty containers
 

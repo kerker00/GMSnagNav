@@ -161,6 +161,8 @@ The package's DocC catalog documents the whole API. Build it in Xcode with
   validating, redirecting and performing drops.
 - [Platform Differences](Sources/GMSnagNav/GMSnagNav.docc/PlatformDifferences.md) — where macOS
   and iOS behave differently, following the conventions of each platform.
+- [Designing a Sidebar](Sources/GMSnagNav/GMSnagNav.docc/DesigningASidebar.md) — recommendations
+  for the app around the outline, after Mario Guzmán's Mac design guidelines.
 
 ## Roadmap
 

@@ -40,6 +40,7 @@ rows to their new place.
 - ``SnagOutline``
 - ``OutlineLabel``
 - <doc:PlatformDifferences>
+- <doc:DesigningASidebar>
 
 ### Selection and actions
 

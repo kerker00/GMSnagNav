@@ -35,6 +35,11 @@ final class Library {
     Self.find(id, in: roots)
   }
 
+  /// The folder that contains the item, or `nil` at the root level.
+  func parent(of id: LibraryItem.ID) -> LibraryItem.ID? {
+    Self.location(of: id, in: roots)?.parent
+  }
+
   /// The names from the root down to the item, e.g. `["Work", "Clients", "Brief.md"]`.
   func path(to id: LibraryItem.ID) -> [String] {
     Self.path(to: id, in: roots) ?? []

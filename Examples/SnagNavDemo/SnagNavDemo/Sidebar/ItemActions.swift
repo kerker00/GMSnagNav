@@ -10,7 +10,7 @@ struct ItemActions: View {
   let onError: (Error) -> Void
 
   var body: some View {
-    Menu("Move to", systemImage: "folder") {
+    Menu {
       Button("Top Level") { move(into: nil) }
         .disabled(!library.canMove(itemID, into: nil))
       Divider()
@@ -20,10 +20,24 @@ struct ItemActions: View {
         }
         .disabled(!library.canMove(itemID, into: folder.item.id))
       }
+    } label: {
+      Label("Move to", systemImage: "folder")
     }
-    Button("Delete", systemImage: "trash", role: .destructive) {
+    Button(role: .destructive) {
       library.delete(itemID)
+    } label: {
+      Label("Delete", systemImage: "trash")
+        .frame(maxWidth: Self.fillsWidth, alignment: .leading)
     }
+  }
+
+  /// On macOS, the button fills the width its container gives it, so it can match the menu.
+  private static var fillsWidth: CGFloat? {
+    #if os(macOS)
+      .infinity
+    #else
+      nil
+    #endif
   }
 
   private func move(into folder: LibraryItem.ID?) {

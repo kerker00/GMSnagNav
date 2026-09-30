@@ -13,7 +13,7 @@ struct ContentView: View {
       SidebarView(selection: $selection, onError: show)
         .navigationTitle("Library")
         #if os(macOS)
-          .navigationSplitViewColumnWidth(min: 220, ideal: 260)
+          .navigationSplitViewColumnWidth(min: 225, ideal: 260, max: 400)
         #endif
     } detail: {
       if let selection, library.item(selection) != nil {

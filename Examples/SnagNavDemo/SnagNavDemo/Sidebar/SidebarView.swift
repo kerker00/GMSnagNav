@@ -3,8 +3,12 @@ import SwiftUI
 
 /// The library sidebar, built with `SnagOutline`.
 ///
-/// Selection and expansion are plain bindings owned by the app: the toolbar's expand and collapse
-/// buttons and the "reveal new item" behavior simply change the `expansion` set.
+/// Selection and expansion are plain bindings owned by the app: the expand and collapse commands
+/// and the "reveal new item" behavior simply change the `expansion` set.
+///
+/// On macOS, the sidebar's actions sit in a bottom bar, following Mario Guzmán's sidebar
+/// guidelines: the toolbar above a sidebar keeps only the sidebar toggle. On iOS they stay in the
+/// navigation bar, as usual there.
 struct SidebarView: View {
   @Environment(Library.self) private var library
   @Binding var selection: LibraryItem.ID?
@@ -32,41 +36,22 @@ struct SidebarView: View {
           self.selection = nil
         }
       }
-      .toolbar {
-        ToolbarItemGroup {
-          Menu {
-            Button("Expand All", systemImage: "arrow.down.right.and.arrow.up.left") {
-              expansion = Set(library.allFolders.map(\.item.id))
+      #if os(iOS)
+        .toolbar {
+          ToolbarItemGroup {
+            Menu {
+              optionsMenuContent
+            } label: {
+              Label("Outline", systemImage: "list.bullet.indent")
             }
-            Button("Collapse All", systemImage: "arrow.up.left.and.arrow.down.right") {
-              expansion = []
+            Menu {
+              addMenuContent
+            } label: {
+              Label("Add", systemImage: "plus")
             }
-            Divider()
-            Toggle("Folders Are Selectable", isOn: $foldersSelectable)
-            Divider()
-            Picker("Style", selection: $style) {
-              ForEach(DemoOutlineStyle.allCases) { Text($0.title).tag($0) }
-            }
-            Picker("Indentation", selection: $indentationStep) {
-              ForEach(IndentationStep.allCases) { Text($0.title).tag($0) }
-            }
-            #if os(macOS)
-              Toggle("Large Rows (AppKit)", isOn: $largeRows)
-            #endif
-          } label: {
-            Label("Outline", systemImage: "list.bullet.indent")
-          }
-
-          Menu {
-            Button("New Folder", systemImage: "folder.badge.plus") { add(.folder("New Folder")) }
-            Button("New Document", systemImage: "doc.badge.plus") {
-              add(.document("New Document"))
-            }
-          } label: {
-            Label("Add", systemImage: "plus")
           }
         }
-      }
+      #endif
       .alert(
         "Opened \"\(openedDocument ?? "")\"",
         isPresented: Binding(
@@ -77,14 +62,93 @@ struct SidebarView: View {
       } message: {
         Text("A real app would open the document here.")
       }
-      .safeAreaInset(edge: .bottom) {
-        Text("GMSnagNav \(GMSnagNav.version)")
+      #if os(macOS)
+        .safeAreaBar(edge: .bottom, spacing: 0) { bottomBar }
+      #else
+        .safeAreaInset(edge: .bottom) {
+          Text(versionText)
           .font(.footnote)
           .foregroundStyle(.secondary)
           .frame(maxWidth: .infinity)
           .padding(8)
-      }
+        }
+      #endif
   }
+
+  private var versionText: String { "GMSnagNav \(GMSnagNav.version)" }
+
+  /// Expanding, collapsing and the settings the demo offers for the outline.
+  @ViewBuilder private var optionsMenuContent: some View {
+    Button("Expand All", systemImage: "arrow.down.right.and.arrow.up.left", action: expandAll)
+    Button("Collapse All", systemImage: "arrow.up.left.and.arrow.down.right", action: collapseAll)
+    Divider()
+    Toggle("Folders Are Selectable", isOn: $foldersSelectable)
+    Divider()
+    Picker("Style", selection: $style) {
+      ForEach(DemoOutlineStyle.allCases) { Text($0.title).tag($0) }
+    }
+    Picker("Indentation", selection: $indentationStep) {
+      ForEach(IndentationStep.allCases) { Text($0.title).tag($0) }
+    }
+    #if os(macOS)
+      Toggle("Large Rows (AppKit)", isOn: $largeRows)
+    #endif
+  }
+
+  @ViewBuilder private var addMenuContent: some View {
+    Button("New Folder", systemImage: "folder.badge.plus", action: newFolder)
+    Button("New Document", systemImage: "doc.badge.plus", action: newDocument)
+  }
+
+  #if os(macOS)
+    /// The sidebar's bottom bar: 32 points tall with its separator, borderless 31 × 18 point
+    /// buttons 1 point apart, 8 points from the edges, and a small secondary label.
+    private var bottomBar: some View {
+      VStack(spacing: 0) {
+        Divider()
+        HStack(spacing: 1) {
+          Menu {
+            addMenuContent
+          } label: {
+            Image(systemName: "plus")
+          }
+          .menuStyle(.button)
+          .menuIndicator(.hidden)
+          .frame(width: 31, height: 18)
+          .help("Add a folder or document")
+          .accessibilityLabel("Add")
+
+          Button(action: deleteSelection) {
+            Image(systemName: "minus")
+              .frame(width: 31, height: 18)
+          }
+          .disabled(selection == nil)
+          .help("Delete the selected item")
+          .accessibilityLabel("Delete")
+
+          Spacer()
+          Text(versionText)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+          Spacer()
+
+          Menu {
+            optionsMenuContent
+          } label: {
+            Image(systemName: "ellipsis.circle")
+          }
+          .menuStyle(.button)
+          .menuIndicator(.hidden)
+          .frame(width: 31, height: 18)
+          .help("Outline options")
+          .accessibilityLabel("Outline Options")
+        }
+        .buttonStyle(.borderless)
+        .padding(.horizontal, 8)
+        .frame(height: 31)
+      }
+    }
+  #endif
 
   private var outline: some View {
     let outline = SnagOutline(
@@ -194,6 +258,28 @@ struct SidebarView: View {
         openedDocument = item.name
       }
     }
+  }
+
+  private func expandAll() {
+    expansion = Set(library.allFolders.map(\.item.id))
+  }
+
+  private func collapseAll() {
+    expansion = []
+  }
+
+  private func newFolder() {
+    add(.folder("New Folder"))
+  }
+
+  private func newDocument() {
+    add(.document("New Document"))
+  }
+
+  private func deleteSelection() {
+    guard let selection else { return }
+    library.delete(selection)
+    self.selection = nil
   }
 
   /// Adds the item next to the selection — into the selected folder, or the root level otherwise —

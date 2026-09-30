@@ -54,7 +54,7 @@
 
   /// Shows the host's context menu with an empty set of identifiers when the user right-clicks
   /// space that holds no row. Rows show their own menu from their hosted content.
-  struct EmptySpaceContextMenu<Element: Identifiable>: ViewModifier {
+  struct EmptySpaceContextMenu<Element: Identifiable>: ViewModifier where Element.ID: Sendable {
     let selection: OutlineSelection<Element.ID>
     let behavior: OutlineBehavior<Element>
 
@@ -81,6 +81,15 @@
     private var renderer: Renderer?
     private var tree = OutlineTree<Element>([], children: { _ in nil })
     private var boxes: [ID: NodeBox<ID>] = [:]
+    /// The private pasteboard type of rows dragged within the outline.
+    static var draggedRowType: NSPasteboard.PasteboardType {
+      NSPasteboard.PasteboardType("io.github.kerker00.gmsnagnav.outline-row")
+    }
+    /// The elements of the current drag session, keyed by the token written to the pasteboard.
+    ///
+    /// Only tokens travel on the pasteboard, so identifiers need not be `Codable`, and drags from
+    /// other outlines or apps — whose tokens are unknown here — are ignored.
+    private var draggedIDsByToken: [String: ID] = [:]
     /// Whether the outline has loaded a snapshot; the first one is loaded without animation.
     private var hasLoaded = false
     /// Above this many steps, reloading everything is cheaper and calmer than animating them.
@@ -106,6 +115,9 @@
       (outlineView as? SnagOutlineView)?.onReturn = { [weak self] in
         self?.handleReturn() ?? false
       }
+      outlineView.registerForDraggedTypes([Self.draggedRowType])
+      outlineView.setDraggingSourceOperationMask([.move, .copy], forLocal: true)
+      outlineView.setDraggingSourceOperationMask([], forLocal: false)
     }
 
     // MARK: Updates
@@ -267,6 +279,35 @@
       guard let id = id(of: item) else { return false }
       // Empty containers show no disclosure triangle, matching the SwiftUI renderer.
       return !tree.children(of: id).isEmpty
+    }
+
+    // MARK: Dragging
+
+    func outlineView(
+      _ outlineView: NSOutlineView, pasteboardWriterForItem item: Any
+    ) -> NSPasteboardWriting? {
+      guard let canDrag = renderer?.behavior.canDrag, let id = id(of: item),
+        let element = tree.element(id), canDrag(element)
+      else { return nil }
+      let token = UUID().uuidString
+      draggedIDsByToken[token] = id
+      let pasteboardItem = NSPasteboardItem()
+      pasteboardItem.setString(token, forType: Self.draggedRowType)
+      return pasteboardItem
+    }
+
+    func outlineView(
+      _ outlineView: NSOutlineView, draggingSession session: NSDraggingSession,
+      endedAt screenPoint: NSPoint, operation: NSDragOperation
+    ) {
+      draggedIDsByToken.removeAll()
+    }
+
+    /// The elements of this outline that are being dragged on `pasteboard`, in pasteboard order.
+    func draggedIDs(on pasteboard: NSPasteboard) -> [ID] {
+      (pasteboard.pasteboardItems ?? []).compactMap { item in
+        item.string(forType: Self.draggedRowType).flatMap { draggedIDsByToken[$0] }
+      }
     }
 
     // MARK: NSOutlineViewDelegate

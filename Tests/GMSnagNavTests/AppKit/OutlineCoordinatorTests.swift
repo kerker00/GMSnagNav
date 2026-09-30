@@ -1,5 +1,6 @@
 #if os(macOS)
   import AppKit
+  import Foundation
   import SwiftUI
   import Testing
 
@@ -17,6 +18,7 @@
       var isSelectable: (TestItem) -> Bool = { _ in true }
       var primaryAction: ((Set<String>) -> Void)?
       var appearance = OutlineAppearance()
+      var canDrag: ((TestItem) -> Bool)?
     }
 
     let host = Host()
@@ -35,6 +37,7 @@
       var behavior = OutlineBehavior<TestItem>()
       behavior.isSelectable = host.isSelectable
       behavior.primaryAction = host.primaryAction
+      behavior.canDrag = host.canDrag
       let selection: OutlineSelection<String> =
         multipleSelection
         ? .multiple(Binding(get: { host.multiple }, set: { host.multiple = $0 }))
@@ -176,6 +179,45 @@
       update()
       #expect(calls == 2)
       #expect(outlineView.rowSizeStyle == .large)
+    }
+
+    private func writer(for id: String) -> NSPasteboardWriting? {
+      item(id).flatMap { coordinator.outlineView(outlineView, pasteboardWriterForItem: $0) }
+    }
+
+    @Test func startsNoDragsUnlessDraggingIsEnabled() {
+      update()
+      #expect(writer(for: "a") == nil)
+    }
+
+    @Test func dragsOnlyDraggableElements() {
+      host.canDrag = { $0.id != "b" }
+      update()
+      #expect(writer(for: "a") != nil)
+      #expect(writer(for: "b") == nil)
+    }
+
+    @Test func resolvesDraggedElementsFromTokensOnThePasteboard() {
+      host.canDrag = { _ in true }
+      update()
+      let writers = ["c", "a"].compactMap(writer(for:))
+      #expect(writers.count == 2)
+      let pasteboard = NSPasteboard(name: NSPasteboard.Name("GMSnagNavTests-\(UUID().uuidString)"))
+      defer { pasteboard.releaseGlobally() }
+      pasteboard.clearContents()
+      pasteboard.writeObjects(writers)
+      #expect(coordinator.draggedIDs(on: pasteboard) == ["c", "a"])
+    }
+
+    @Test func ignoresForeignPasteboardContent() {
+      update()
+      let pasteboard = NSPasteboard(name: NSPasteboard.Name("GMSnagNavTests-\(UUID().uuidString)"))
+      defer { pasteboard.releaseGlobally() }
+      pasteboard.clearContents()
+      let foreign = NSPasteboardItem()
+      foreign.setString("not-a-token", forType: OutlineCoordinator<TestItem, Text>.draggedRowType)
+      pasteboard.writeObjects([foreign])
+      #expect(coordinator.draggedIDs(on: pasteboard).isEmpty)
     }
 
     @Test func keepsStateWhenDataChanges() {

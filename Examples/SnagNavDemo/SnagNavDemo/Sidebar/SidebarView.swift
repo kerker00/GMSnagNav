@@ -95,6 +95,7 @@ struct SidebarView: View {
     .outlineContextMenu { ids in contextMenu(for: ids) }
     .outlineStyle(style.outlineStyle)
     .outlineIndentation(indentation)
+    .outlineDraggable()
 
     #if os(macOS)
       // On iOS a tap already selects and navigates, so the primary action is macOS only.

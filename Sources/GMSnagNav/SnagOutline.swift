@@ -197,10 +197,12 @@ extension SnagOutline {
 }
 
 /// Optional behavior configured through `SnagOutline`'s modifiers.
-struct OutlineBehavior<Element: Identifiable> {
+struct OutlineBehavior<Element: Identifiable> where Element.ID: Sendable {
   var isSelectable: ((Element) -> Bool)?
   var primaryAction: ((Set<Element.ID>) -> Void)?
   var contextMenu: ((Set<Element.ID>) -> AnyView)?
+  var canDrag: ((Element) -> Bool)?
+  var drop: OutlineDropHandler<Element.ID>?
 
   func canSelect(_ element: Element) -> Bool {
     isSelectable?(element) ?? true

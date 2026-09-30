@@ -89,7 +89,7 @@ private struct ListStyleModifier: ViewModifier {
 
 /// Routes the primary action and context menu of lists with selection through SwiftUI's
 /// selection-aware API, so a multi-selection is handled as a whole.
-private struct SelectionActions<Element: Identifiable>: ViewModifier {
+private struct SelectionActions<Element: Identifiable>: ViewModifier where Element.ID: Sendable {
   let behavior: OutlineBehavior<Element>
 
   func body(content: Content) -> some View {

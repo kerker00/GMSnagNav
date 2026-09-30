@@ -400,7 +400,8 @@
     }
 
     /// Where a drop lands: *onto* a row while the finger rests on its middle half, otherwise
-    /// *between* rows, resolved with the gap rule of `dropTarget(forGap:in:)`.
+    /// *between* rows, resolved with the gap rule of `dropTarget(forGap:in:)`. The empty space
+    /// below the last row inserts at the end of the root level, like a drop there on macOS.
     ///
     /// - Parameters:
     ///   - row: The visible row under the finger, if any.
@@ -410,7 +411,7 @@
       over row: Int?, verticalFraction: CGFloat, in rows: [VisibleRow<ID>]
     ) -> OutlineDropTarget<ID> {
       guard let row, rows.indices.contains(row) else {
-        return tree.dropTarget(forGap: rows.count, in: rows)
+        return .insert(into: nil, at: tree.roots.count)
       }
       if (0.25...0.75).contains(verticalFraction) {
         return .onto(rows[row].id)

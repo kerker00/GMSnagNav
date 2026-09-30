@@ -31,7 +31,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `outlineDraggable(_:)` and `onOutlineDrop(validate:perform:)` for moving elements by drag and
   drop onto elements, between rows and into the root, with in-process drags that need no
   `Codable` identifiers. On iOS, a gap between rows inserts after the row above it, so items
-  moved to the bottom of an expanded folder stay in it.
+  moved to the bottom of an expanded folder stay in it, and the empty space below the rows
+  appends to the root level.
 - Spring-loaded folders while dragging: collapsed elements open after a short delay — on macOS
   the system's spring-loading delay — and close again when the pointer or finger leaves, without
   changing the expansion binding. Respects `springLoadingBehavior(_:)`.

@@ -196,6 +196,21 @@
           == .insert(into: nil, at: 3))
     }
 
+    @Test func appendsToTheRootLevelBelowAnExpandedLastFolder() {
+      host.roots = [.leaf("a"), .group("z", [.leaf("z1")])]
+      host.expansion = ["z"]
+      update()
+      let rows = OutlineTree(host.roots, children: \.children).visibleRows(expanded: ["z"])
+      // Empty space below z1 appends to the root level, not to z.
+      #expect(
+        coordinator.dropTarget(over: nil, verticalFraction: 0.5, in: rows)
+          == .insert(into: nil, at: 2))
+      // The lower edge of z1 still inserts after it, inside z.
+      #expect(
+        coordinator.dropTarget(over: 2, verticalFraction: 0.9, in: rows)
+          == .insert(into: "z", at: 1))
+    }
+
     @Test func locatesTheFingerAgainstRecordedRowFrames() {
       typealias Coordinator = UIKitOutlineCoordinator<TestItem, Text>
       let frames = [

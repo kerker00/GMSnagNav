@@ -17,6 +17,11 @@ import SwiftUI
 /// container shows no disclosure indicator, since there is nothing to reveal, but accepts drops
 /// onto its row.
 ///
+/// The outline never writes to the selection binding because the data changed. The identifier of
+/// a removed element stays selected, and its row appears selected again when the element returns
+/// — for example when a search filter is cleared. Remove identifiers of deleted elements from the
+/// selection yourself.
+///
 /// Identifiers must be unique across the whole tree, not only among siblings. A repeated
 /// identifier shows only its first occurrence; see `onOutlineDuplicateIDs(_:)`. The outline keeps
 /// no copy of the data between updates; every change to `data` is reflected the next time SwiftUI

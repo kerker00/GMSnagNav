@@ -113,6 +113,19 @@
       #expect(activated == ["b"])
     }
 
+    @Test func keepsTheSelectionOfRemovedElementsInTheBinding() {
+      host.single = "c"
+      update()
+      host.roots.removeLast()
+      update()
+      #expect(coordinator.selectedItemIDs.isEmpty)
+      #expect(host.single == "c")
+
+      host.roots = sampleRoots
+      update()
+      #expect(coordinator.selectedItemIDs == ["c"])
+    }
+
     @Test func resolvesThePendingDropAgainstDataChangedDuringTheDrag() {
       var validations = 0
       var performed: OutlineDropProposal<String>?

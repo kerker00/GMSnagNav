@@ -445,12 +445,26 @@
       }
     }
 
-    @Test func dropsSelectionOfRemovedElements() {
+    @Test func keepsTheSelectionOfRemovedElementsInTheBinding() {
       host.single = "c"
       update()
       host.roots.removeLast()
       update()
       #expect(outlineView.selectedRowIndexes.isEmpty)
+      #expect(host.single == "c")
+
+      host.roots = sampleRoots
+      update()
+      #expect(outlineView.selectedRowIndexes == [2])
+    }
+
+    @Test func keepsRemovedElementsInAMultipleSelection() {
+      host.multiple = ["a", "c"]
+      update(multipleSelection: true)
+      host.roots.removeLast()
+      update(multipleSelection: true)
+      #expect(outlineView.selectedRowIndexes == [0])
+      #expect(host.multiple == ["a", "c"])
     }
 
     @Test func rejectsDropsOfElementsRemovedDuringTheDrag() {

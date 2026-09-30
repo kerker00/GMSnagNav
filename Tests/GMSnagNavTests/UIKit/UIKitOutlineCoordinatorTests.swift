@@ -237,5 +237,33 @@
         coordinator.indicator(for: .insert(into: "a", at: 0), near: (1, 0.1), in: rows)
           == .line("a1", atBottom: false, depth: 1))
     }
+
+    @Test func convertsMenuItemsToUIKitMenus() {
+      typealias Coordinator = UIKitOutlineCoordinator<TestItem, Text>
+      let elements = Coordinator.menuElements(for: [
+        .action("Rename", systemImage: "pencil") {},
+        .menu("Move to", children: [.action("Top Level", isDisabled: true) {}]),
+        .divider,
+        .action("Delete", role: .destructive) {},
+      ])
+      // A divider splits the items into two inline sections.
+      #expect(elements.count == 2)
+      let sections = elements.compactMap { $0 as? UIMenu }
+      #expect(sections.allSatisfy { $0.options.contains(.displayInline) })
+
+      let first = sections[0].children
+      #expect((first[0] as? UIAction)?.title == "Rename")
+      let submenu = first[1] as? UIMenu
+      #expect(submenu?.title == "Move to")
+      #expect((submenu?.children.first as? UIAction)?.attributes.contains(.disabled) == true)
+      #expect((sections[1].children.first as? UIAction)?.attributes.contains(.destructive) == true)
+    }
+
+    @Test func keepsMenusWithoutDividersFlat() {
+      typealias Coordinator = UIKitOutlineCoordinator<TestItem, Text>
+      let elements = Coordinator.menuElements(for: [.action("A") {}, .action("B") {}])
+      #expect(elements.count == 2)
+      #expect(elements.allSatisfy { $0 is UIAction })
+    }
   }
 #endif

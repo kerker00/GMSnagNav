@@ -209,6 +209,9 @@ struct OutlineBehavior<Element: Identifiable> where Element.ID: Sendable {
   var isSelectable: ((Element) -> Bool)?
   var primaryAction: ((Set<Element.ID>) -> Void)?
   var contextMenu: ((Set<Element.ID>) -> AnyView)?
+  /// The items of a native context menu, set by `outlineContextMenuItems(_:)`, which also sets
+  /// `contextMenu` for renderers that show the items as SwiftUI content.
+  var contextMenuItems: (@MainActor (Set<Element.ID>) -> [OutlineMenuItem])?
   var canDrag: ((Element) -> Bool)?
   var drop: OutlineDropHandler<Element.ID>?
 

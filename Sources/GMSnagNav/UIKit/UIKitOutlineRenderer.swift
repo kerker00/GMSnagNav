@@ -117,8 +117,11 @@
       case .none, .single: collectionView.allowsMultipleSelection = false
       case .multiple: collectionView.allowsMultipleSelection = true
       }
-      // Off by default on iPhone.
-      collectionView.dragInteractionEnabled = renderer.behavior.canDrag != nil
+      // With a native menu — or none — UIKit shares the long press between dragging and the menu.
+      // A SwiftUI menu lives in the hosted row, so the row starts drags itself, next to its menu;
+      // the collection view's own drag would win the long press and hide that menu.
+      collectionView.dragInteractionEnabled =
+        renderer.behavior.canDrag != nil && !rowsDragThemselves
 
       dataSource.apply(
         sectionSnapshot(expanded: displayedExpansion), to: 0, animatingDifferences: hasLoaded)
@@ -169,7 +172,9 @@
         childCount: children.count)
       // The row draws its own leading chevron and indentation: UIKit places its outline
       // disclosure on the trailing edge of sidebar lists and does not indent hosted content.
-      let menu = renderer.behavior.contextMenu
+      let canDrag = rowsDragThemselves && renderer.behavior.canDrag?(element) == true
+      // A native menu is shown by the collection view; only a SwiftUI menu lives in the row.
+      let menu = renderer.behavior.contextMenuItems == nil ? renderer.behavior.contextMenu : nil
       let menuIDs = activatedIDs(for: id)
       let indicator = dropIndicator
       let indentation = renderer.appearance.indentation
@@ -179,6 +184,7 @@
           toggle: { [weak self] in self?.toggle(id) }, content: renderer.rowContent(element)
         )
         .modifier(RowMenu(menu: menu.map { menu in { menu(menuIDs) } }))
+        .modifier(RowDrag(begin: canDrag ? { [weak self] in self?.beginDrag(from: id) } : nil))
         .background {
           if case .onto(id) = indicator {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -206,6 +212,12 @@
     private func toggle(_ id: ID) {
       guard let renderer, !tree.children(of: id).isEmpty else { return }
       userChangedExpansion(of: id, expanded: !displayedExpansion.contains(id))
+    }
+
+    /// Whether rows start drags from their hosted content: only with a SwiftUI context menu.
+    private var rowsDragThemselves: Bool {
+      guard let behavior = renderer?.behavior else { return false }
+      return behavior.contextMenuItems == nil && behavior.contextMenu != nil
     }
 
     // MARK: Expansion
@@ -277,17 +289,15 @@
       case line(ID, atBottom: Bool, depth: Int)
     }
 
-    /// The private type that marks rows dragged within an outline.
-    static var draggedRowType: String { "io.github.kerker00.gmsnagnav.outline-row" }
+    /// The private type that marks rows dragged from this outline.
+    ///
+    /// Unique per outline, so drops can recognize their own drags synchronously. Visible only
+    /// within this process, it needs no declaration in the app's Info.plist and never leaves the
+    /// app.
+    private let draggedRowType = "io.github.kerker00.gmsnagnav.outline-row.\(UUID().uuidString)"
 
-    /// The dragged element, carried in-process as the drag item's local object.
-    private final class DragPayload {
-      let id: ID
-
-      init(_ id: ID) {
-        self.id = id
-      }
-    }
+    /// The elements of the drag that is in progress, recorded when it begins.
+    private var currentDragIDs: [ID] = []
 
     /// The frames of the visible rows when the drag entered the list, in display order.
     ///
@@ -310,45 +320,68 @@
     /// The last drop resolved while the user drags, performed when they lift the finger.
     private var pendingDrop: (proposal: OutlineDropProposal<ID>, operation: OutlineDropOperation)?
 
+    /// Starts a drag from the row of `id`, called by the row's hosted content.
+    ///
+    /// Rows drag through SwiftUI, from the same view as their context menu, so a long press shows
+    /// the menu and moving the finger lifts the row out of it — like the Files app. A row that
+    /// belongs to a multiple selection drags the whole selection.
+    func beginDrag(from id: ID) -> NSItemProvider {
+      var ids = [id]
+      if let renderer, case .multiple(let binding) = renderer.selection,
+        binding.wrappedValue.contains(id), let canDrag = renderer.behavior.canDrag
+      {
+        ids = tree.visibleRows(expanded: displayedExpansion).map(\.id).filter { row in
+          binding.wrappedValue.contains(row) && tree.element(row).map(canDrag) == true
+        }
+      }
+      currentDragIDs = ids
+      return dragItemProvider()
+    }
+
+    /// An item provider marked with this outline's private type.
+    private func dragItemProvider() -> NSItemProvider {
+      // iOS offers a drag to drop targets only if it carries at least one type.
+      let provider = NSItemProvider()
+      provider.registerDataRepresentation(
+        forTypeIdentifier: draggedRowType, visibility: .ownProcess
+      ) { completion in
+        completion(Data(), nil)
+        return nil
+      }
+      return provider
+    }
+
     func collectionView(
       _ collectionView: UICollectionView, itemsForBeginning session: UIDragSession,
       at indexPath: IndexPath
     ) -> [UIDragItem] {
-      session.localContext = self
-      return dragItems(at: indexPath)
+      guard let id = draggableID(at: indexPath) else { return [] }
+      return [UIDragItem(itemProvider: beginDrag(from: id))]
     }
 
     func collectionView(
       _ collectionView: UICollectionView, itemsForAddingTo session: UIDragSession,
       at indexPath: IndexPath, point: CGPoint
     ) -> [UIDragItem] {
-      dragItems(at: indexPath)
+      guard let id = draggableID(at: indexPath), !currentDragIDs.contains(id) else { return [] }
+      currentDragIDs.append(id)
+      return [UIDragItem(itemProvider: dragItemProvider())]
     }
 
-    private func dragItems(at indexPath: IndexPath) -> [UIDragItem] {
+    private func draggableID(at indexPath: IndexPath) -> ID? {
       guard let canDrag = renderer?.behavior.canDrag,
         let id = dataSource?.itemIdentifier(for: indexPath),
         let element = tree.element(id), canDrag(element)
-      else { return [] }
-      // iOS offers a drag to drop targets only if it carries at least one type. A private type,
-      // visible only within this process, needs no declaration in the app's Info.plist and never
-      // leaves the app; the element itself travels as the local object.
-      let provider = NSItemProvider()
-      provider.registerDataRepresentation(
-        forTypeIdentifier: Self.draggedRowType, visibility: .ownProcess
-      ) { completion in
-        completion(Data(), nil)
-        return nil
-      }
-      let item = UIDragItem(itemProvider: provider)
-      item.localObject = DragPayload(id)
-      return [item]
+      else { return nil }
+      return id
     }
 
     /// The elements of this outline being dragged in `session`, in order.
     private func draggedIDs(in session: UIDropSession) -> [ID] {
-      guard session.localDragSession?.localContext as AnyObject? === self else { return [] }
-      return session.items.compactMap { ($0.localObject as? DragPayload)?.id }
+      guard session.localDragSession != nil,
+        session.hasItemsConforming(toTypeIdentifiers: [draggedRowType])
+      else { return [] }
+      return currentDragIDs
     }
 
     /// Where a drop lands: *onto* a row while the finger rests on its middle half, otherwise
@@ -436,6 +469,7 @@
       pendingDrop = nil
       dragRowFrames = nil
       dropIndicator = nil
+      currentDragIDs = []
       endSpringLoading()
     }
 
@@ -561,6 +595,54 @@
       return selected.contains(id) ? selected : [id]
     }
 
+    // MARK: Native context menu
+
+    func collectionView(
+      _ collectionView: UICollectionView,
+      contextMenuConfigurationForItemsAt indexPaths: [IndexPath], point: CGPoint
+    ) -> UIContextMenuConfiguration? {
+      guard let renderer, let menuItems = renderer.behavior.contextMenuItems else { return nil }
+      let ids: Set<ID>
+      if let first = indexPaths.first, let id = dataSource?.itemIdentifier(for: first) {
+        ids = activatedIDs(for: id)
+      } else {
+        // Empty space: only outlines with selection offer a menu there, as on macOS.
+        if case .none = renderer.selection { return nil }
+        ids = []
+      }
+      let items = menuItems(ids)
+      guard !items.isEmpty else { return nil }
+      return UIContextMenuConfiguration(actionProvider: { _ in
+        UIMenu(children: Self.menuElements(for: items))
+      })
+    }
+
+    /// Converts menu items to UIKit menu elements; dividers start inline sections.
+    static func menuElements(for items: [OutlineMenuItem]) -> [UIMenuElement] {
+      var sections: [[UIMenuElement]] = [[]]
+      for item in items {
+        let image = item.systemImage.flatMap { UIImage(systemName: $0) }
+        switch item.kind {
+        case .divider:
+          sections.append([])
+        case .menu(let children):
+          sections[sections.count - 1].append(
+            UIMenu(title: item.title, image: image, children: menuElements(for: children)))
+        case .action(let perform):
+          var attributes: UIMenuElement.Attributes = []
+          if item.isDestructive { attributes.insert(.destructive) }
+          if item.isDisabled { attributes.insert(.disabled) }
+          sections[sections.count - 1].append(
+            UIAction(title: item.title, image: image, attributes: attributes) { _ in
+              MainActor.assumeIsolated { perform() }
+            })
+        }
+      }
+      let nonEmpty = sections.filter { !$0.isEmpty }
+      guard nonEmpty.count > 1 else { return nonEmpty.first ?? [] }
+      return nonEmpty.map { UIMenu(options: .displayInline, children: $0) }
+    }
+
     // MARK: UICollectionViewDelegate
 
     func collectionView(
@@ -607,6 +689,19 @@
       }
       .padding(.leading, indent)
       .allowsHitTesting(false)
+    }
+  }
+
+  /// Lets a hosted row be dragged; the drag starts from the same view as the row's context menu.
+  private struct RowDrag: ViewModifier {
+    let begin: (() -> NSItemProvider?)?
+
+    func body(content: Content) -> some View {
+      if let begin {
+        content.onDrag { begin() ?? NSItemProvider() }
+      } else {
+        content
+      }
     }
   }
 

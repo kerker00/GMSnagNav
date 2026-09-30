@@ -94,7 +94,7 @@ struct SidebarView: View {
         .accessibilityIdentifier("sidebar-row-\(item.name)")
     }
     .outlineSelectable { item in foldersSelectable || !item.isFolder }
-    .outlineContextMenu { ids in contextMenu(for: ids) }
+    .outlineContextMenuItems { ids in menuItems(for: ids) }
     .outlineStyle(style.outlineStyle)
     .outlineIndentation(indentationStep.width)
     .outlineDraggable()
@@ -115,25 +115,56 @@ struct SidebarView: View {
     #endif
   }
 
-  /// The context menu: item actions for one item, bulk delete for several, and adding at the root
-  /// level when the menu opens on empty space.
-  @ViewBuilder private func contextMenu(for ids: Set<LibraryItem.ID>) -> some View {
+  /// The context menu: moving and deleting for one item, bulk delete for several, and adding at
+  /// the root level when the menu opens on empty space.
+  ///
+  /// Built from items, it shows as a native menu on both platforms; on iOS, UIKit then shares the
+  /// long press between the menu and dragging.
+  private func menuItems(for ids: Set<LibraryItem.ID>) -> [OutlineMenuItem] {
     switch ids.count {
     case 0:
-      Button("New Folder", systemImage: "folder.badge.plus") {
-        selection = library.add(.folder("New Folder"), into: nil)
-      }
-      Button("New Document", systemImage: "doc.badge.plus") {
-        selection = library.add(.document("New Document"), into: nil)
-      }
+      return [
+        .action("New Folder", systemImage: "folder.badge.plus") {
+          selection = library.add(.folder("New Folder"), into: nil)
+        },
+        .action("New Document", systemImage: "doc.badge.plus") {
+          selection = library.add(.document("New Document"), into: nil)
+        },
+      ]
     case 1:
-      if let id = ids.first {
-        ItemActions(itemID: id, onError: onError)
-      }
+      guard let id = ids.first else { return [] }
+      let destinations: [OutlineMenuItem] =
+        [
+          .action("Top Level", isDisabled: !library.canMove(id, into: nil)) {
+            move(id, into: nil)
+          },
+          .divider,
+        ]
+        + library.allFolders.map { folder in
+          .action(
+            String(repeating: "    ", count: folder.depth) + folder.item.name,
+            isDisabled: !library.canMove(id, into: folder.item.id)
+          ) { move(id, into: folder.item.id) }
+        }
+      return [
+        .menu("Move to", systemImage: "folder", children: destinations),
+        .divider,
+        .action("Delete", systemImage: "trash", role: .destructive) { library.delete(id) },
+      ]
     default:
-      Button("Delete \(ids.count) Items", systemImage: "trash", role: .destructive) {
-        ids.forEach(library.delete)
-      }
+      return [
+        .action("Delete \(ids.count) Items", systemImage: "trash", role: .destructive) {
+          ids.forEach(library.delete)
+        }
+      ]
+    }
+  }
+
+  private func move(_ id: LibraryItem.ID, into folder: LibraryItem.ID?) {
+    do {
+      try library.move(id, into: folder)
+    } catch {
+      onError(error)
     }
   }
 

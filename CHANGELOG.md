@@ -18,7 +18,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `outlineSelectable(_:)` to make elements non-selectable; clicking such a container toggles it.
 - `outlinePrimaryAction(_:)` for double-click or Return on macOS and tap on iOS, where the tap
   selects the row first.
-- `outlineContextMenu(_:)` for the pressed element, the selection, or — on macOS — empty space.
+- `outlineContextMenu(_:)` for the pressed element, the selection, or — on macOS — empty space,
+  with free SwiftUI content. On iOS its menu appears first; the row can be dragged out of it.
+- `outlineContextMenuItems(_:)` with `OutlineMenuItem` (actions, submenus, dividers) for a native
+  context menu on both platforms. On iOS it shares the long press with dragging, like the Files
+  app: moving the finger drags the row, holding it still opens the menu.
 - `outlineStyle(_:)` with `SnagOutlineStyle` (automatic, sidebar, plain) and
   `outlineIndentation(_:)`.
 - `outlineAppKitConfiguration(_:)` on macOS to customize the underlying `NSOutlineView`.

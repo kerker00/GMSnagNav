@@ -105,6 +105,34 @@ import Testing
     #expect(performed?.1 == .copy)
   }
 
+  @Test func storesMenuItemsAndDerivesASwiftUIMenu() {
+    var requested: Set<String>?
+    let outline = SnagOutline(sampleRoots, children: \.children) { Text($0.id) }
+      .outlineContextMenuItems { ids in
+        requested = ids
+        return [.action("Delete", role: .destructive) {}]
+      }
+    #expect(outline.behavior.contextMenuItems?(["a"]).count == 1)
+    #expect(requested == ["a"])
+    // Renderers without a native menu show the items as SwiftUI content.
+    #expect(outline.behavior.contextMenu != nil)
+  }
+
+  @Test func describesMenuItems() {
+    let delete = OutlineMenuItem.action("Delete", systemImage: "trash", role: .destructive) {}
+    #expect(delete.title == "Delete")
+    #expect(delete.systemImage == "trash")
+    #expect(delete.isDestructive)
+    #expect(!delete.isDisabled)
+
+    let move = OutlineMenuItem.menu("Move to", children: [.action("Top", isDisabled: true) {}])
+    guard case .menu(let children) = move.kind else {
+      Issue.record("Expected a submenu")
+      return
+    }
+    #expect(children.first?.isDisabled == true)
+  }
+
   @Test func bindsSelectionModes() {
     var single: String? = "a"
     let outline = SnagOutline(

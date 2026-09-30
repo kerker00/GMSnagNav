@@ -15,8 +15,10 @@ import SwiftUI
 /// Children are read as an optional array: `nil` marks a leaf that can never have children, while
 /// an empty array marks an expandable container that is currently empty, such as an empty folder.
 ///
-/// Identifiers must be unique across the whole tree. The outline keeps no copy of the data between
-/// updates; every change to `data` is reflected the next time SwiftUI renders the view.
+/// Identifiers must be unique across the whole tree, not only among siblings. A repeated
+/// identifier shows only its first occurrence; see `onOutlineDuplicateIDs(_:)`. The outline keeps
+/// no copy of the data between updates; every change to `data` is reflected the next time SwiftUI
+/// renders the view.
 ///
 /// ## Compact split views
 ///
@@ -214,6 +216,7 @@ struct OutlineBehavior<Element: Identifiable> where Element.ID: Sendable {
   var contextMenuItems: (@MainActor (Set<Element.ID>) -> [OutlineMenuItem])?
   var canDrag: ((Element) -> Bool)?
   var drop: OutlineDropHandler<Element.ID>?
+  var duplicateIDs: ((Set<Element.ID>) -> Void)?
 
   func canSelect(_ element: Element) -> Bool {
     isSelectable?(element) ?? true

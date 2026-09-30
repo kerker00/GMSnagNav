@@ -17,6 +17,7 @@
     @Binding var expansion: Set<ID>
     let behavior: OutlineBehavior<Element>
     let appearance: OutlineAppearance
+    var springLoading = SpringLoadingBehavior.automatic
     let rowContent: (Element) -> RowContent
 
     func makeCoordinator() -> UIKitOutlineCoordinator<Element, RowContent> {
@@ -120,7 +121,7 @@
       collectionView.dragInteractionEnabled = renderer.behavior.canDrag != nil
 
       dataSource.apply(
-        sectionSnapshot(expanded: renderer.expansion), to: 0, animatingDifferences: hasLoaded)
+        sectionSnapshot(expanded: displayedExpansion), to: 0, animatingDifferences: hasLoaded)
       hasLoaded = true
       refreshVisibleCells()
       applySelection(selectedIDs(in: renderer.selection))
@@ -164,13 +165,14 @@
       let row = VisibleRow(
         id: id, depth: node.depth, parent: node.parent, index: node.index,
         isExpandable: node.children != nil,
-        isExpanded: !children.isEmpty && renderer.expansion.contains(id),
+        isExpanded: !children.isEmpty && displayedExpansion.contains(id),
         childCount: children.count)
       // The row draws its own leading chevron and indentation: UIKit places its outline
       // disclosure on the trailing edge of sidebar lists and does not indent hosted content.
       let menu = renderer.behavior.contextMenu
       let menuIDs = activatedIDs(for: id)
-      let isDropTarget = highlightedDropTarget == id
+      let indicator = dropIndicator
+      let indentation = renderer.appearance.indentation
       cell.contentConfiguration = UIHostingConfiguration {
         OutlineRowView(
           row: row, indentation: renderer.appearance.indentation, isExpanded: row.isExpanded,
@@ -178,10 +180,20 @@
         )
         .modifier(RowMenu(menu: menu.map { menu in { menu(menuIDs) } }))
         .background {
-          if isDropTarget {
+          if case .onto(id) = indicator {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
               .fill(.tint.opacity(0.25))
               .padding(.horizontal, -8)
+          }
+        }
+        .overlay(alignment: .bottomLeading) {
+          if case .line(id, true, let depth) = indicator {
+            InsertionLine(indent: CGFloat(depth) * indentation).offset(y: 7)
+          }
+        }
+        .overlay(alignment: .topLeading) {
+          if case .line(id, false, let depth) = indicator {
+            InsertionLine(indent: CGFloat(depth) * indentation).offset(y: -7)
           }
         }
       }
@@ -193,10 +205,15 @@
     /// Expands or collapses an item on the user's behalf.
     private func toggle(_ id: ID) {
       guard let renderer, !tree.children(of: id).isEmpty else { return }
-      userChangedExpansion(of: id, expanded: !renderer.expansion.contains(id))
+      userChangedExpansion(of: id, expanded: !displayedExpansion.contains(id))
     }
 
     // MARK: Expansion
+
+    /// The expansion shown: the binding plus elements spring-loaded open during the current drag.
+    var displayedExpansion: Set<ID> {
+      (renderer?.expansion ?? []).union(springLoaded)
+    }
 
     private func userChangedExpansion(of id: ID, expanded: Bool) {
       guard !isApplyingUpdate, let renderer else { return }
@@ -252,6 +269,14 @@
 
     // MARK: Dragging
 
+    /// How a row shows that a drop would land on or next to it.
+    enum DropIndicator: Equatable {
+      /// The drop lands onto the row.
+      case onto(ID)
+      /// The drop is inserted at the top or bottom edge of the row, at the given nesting depth.
+      case line(ID, atBottom: Bool, depth: Int)
+    }
+
     /// The private type that marks rows dragged within an outline.
     static var draggedRowType: String { "io.github.kerker00.gmsnagnav.outline-row" }
 
@@ -271,13 +296,14 @@
     /// the dragged row itself, so drops are located against the frames from before the preview.
     private var dragRowFrames: [CGRect]?
 
-    /// The row highlighted as the target of a drop *onto* it.
+    /// Where the current drop would land, drawn by the rows themselves.
     ///
-    /// UIKit highlights the cell it computes itself, which — with cells moving aside for the
-    /// insertion preview — is often not the row under the finger, so the row is highlighted here.
-    private var highlightedDropTarget: ID? {
+    /// UIKit's own feedback moves cells aside to open a gap, so the row under the finger slides
+    /// away and the target flips back and forth. The rows stay in place instead, and draw either a
+    /// highlight (onto the row) or an insertion line at one edge, indented to the target level.
+    private var dropIndicator: DropIndicator? {
       didSet {
-        if highlightedDropTarget != oldValue { refreshVisibleCells() }
+        if dropIndicator != oldValue { refreshVisibleCells() }
       }
     }
 
@@ -359,37 +385,33 @@
         return UICollectionViewDropProposal(operation: .forbidden)
       }
       let location = session.location(in: collectionView)
-      let rows = tree.visibleRows(expanded: renderer.expansion)
+      let rows = tree.visibleRows(expanded: displayedExpansion)
       let frames = dragRowFrames ?? captureRowFrames(count: rows.count)
       let hit = Self.row(at: location.y, in: frames)
       let target = dropTarget(over: hit.row, verticalFraction: hit.fraction, in: rows)
+      updateSpringLoading(for: target)
 
       guard
         let resolved = drop.resolve(
           draggedIDs: draggedIDs(in: session), target: target, tree: tree,
           expanded: renderer.expansion)
       else {
-        highlightedDropTarget = nil
+        dropIndicator = nil
         return UICollectionViewDropProposal(operation: .forbidden)
       }
       pendingDrop = resolved
+      dropIndicator = indicator(for: resolved.proposal.target, near: hit, in: rows)
 
       let operation: UIDropOperation = resolved.operation == .copy ? .copy : .move
-      if resolved.proposal.target.childIndex == nil {
-        // Onto a row: highlight it ourselves and keep UIKit from opening a gap elsewhere.
-        highlightedDropTarget = resolved.proposal.target.parent
-        return UICollectionViewDropProposal(operation: operation, intent: .unspecified)
-      }
-      highlightedDropTarget = nil
-      return UICollectionViewDropProposal(
-        operation: operation, intent: .insertAtDestinationIndexPath)
+      // `.unspecified` keeps UIKit from moving cells aside; the rows draw the feedback.
+      return UICollectionViewDropProposal(operation: operation, intent: .unspecified)
     }
 
     func collectionView(
       _ collectionView: UICollectionView,
       performDropWith coordinator: UICollectionViewDropCoordinator
     ) {
-      highlightedDropTarget = nil
+      dropIndicator = nil
       guard let drop = renderer?.behavior.drop, let pending = pendingDrop else { return }
       pendingDrop = nil
       // The host changes its data; the next update animates the rows to their new place.
@@ -405,7 +427,7 @@
     func collectionView(
       _ collectionView: UICollectionView, dropSessionDidExit session: UIDropSession
     ) {
-      highlightedDropTarget = nil
+      dropIndicator = nil
     }
 
     func collectionView(
@@ -413,7 +435,99 @@
     ) {
       pendingDrop = nil
       dragRowFrames = nil
-      highlightedDropTarget = nil
+      dropIndicator = nil
+      endSpringLoading()
+    }
+
+    // MARK: Spring-loading
+
+    /// Collapsed elements opened temporarily by resting on them during the current drag.
+    private(set) var springLoaded: [ID] = []
+    /// The element the finger rests on, and the pending task that opens it.
+    private var springLoadCandidate: ID?
+    private var springLoadTask: Task<Void, Never>?
+    /// Replaces the spring-loading delay, for tests.
+    var springLoadingDelayOverride: Duration?
+
+    private var springLoadingDelay: Duration? {
+      guard let renderer, renderer.springLoading != .disabled else { return nil }
+      return springLoadingDelayOverride ?? .milliseconds(600)
+    }
+
+    /// Opens collapsed elements the finger rests on and closes the ones it has left.
+    func updateSpringLoading(for target: OutlineDropTarget<ID>) {
+      let toClose = tree.springLoadedToClose(springLoaded, targetParent: target.parent)
+      if !toClose.isEmpty {
+        springLoaded.removeAll { toClose.contains($0) }
+        applySpringLoadedExpansion()
+      }
+
+      var candidate: ID?
+      if target.childIndex == nil, let id = target.parent, !tree.children(of: id).isEmpty,
+        !displayedExpansion.contains(id)
+      {
+        candidate = id
+      }
+      guard candidate != springLoadCandidate else { return }
+      springLoadTask?.cancel()
+      springLoadCandidate = candidate
+      guard let candidate, let delay = springLoadingDelay else { return }
+
+      springLoadTask = Task { [weak self] in
+        try? await Task.sleep(for: delay)
+        guard !Task.isCancelled, let self, self.springLoadCandidate == candidate else { return }
+        self.springLoadCandidate = nil
+        self.springLoaded.append(candidate)
+        self.applySpringLoadedExpansion()
+      }
+    }
+
+    /// Closes what spring-loading opened, unless the host expanded it in the meantime — for
+    /// example to reveal the elements just dropped into it.
+    func endSpringLoading() {
+      springLoadTask?.cancel()
+      springLoadTask = nil
+      springLoadCandidate = nil
+      guard !springLoaded.isEmpty else { return }
+      springLoaded.removeAll()
+      applySpringLoadedExpansion()
+    }
+
+    /// Shows the current expansion; the row frames recorded for the drag are captured anew.
+    private func applySpringLoadedExpansion() {
+      guard let dataSource else { return }
+      dataSource.apply(
+        sectionSnapshot(expanded: displayedExpansion), to: 0, animatingDifferences: true)
+      dragRowFrames = nil
+      refreshVisibleCells()
+    }
+
+    /// The feedback for a resolved drop target, next to the row under the finger.
+    ///
+    /// Insertions are drawn as a line at the edge of a row adjacent to the insertion point: below
+    /// the row above it, or above the first row when inserting at the very top.
+    func indicator(
+      for target: OutlineDropTarget<ID>, near hit: (row: Int?, fraction: CGFloat),
+      in rows: [VisibleRow<ID>]
+    ) -> DropIndicator? {
+      guard let childIndex = target.childIndex else {
+        return target.parent.map(DropIndicator.onto)
+      }
+      let depth = target.parent.flatMap { tree.node($0)?.depth }.map { $0 + 1 } ?? 0
+      let siblings = tree.children(of: target.parent)
+      if childIndex > 0, siblings.indices.contains(childIndex - 1) {
+        // Below the previous sibling — or below the last visible row of its expanded subtree.
+        let previous = siblings[childIndex - 1]
+        let lastVisible = rows.last { row in
+          row.id == previous || tree.isDescendant(row.id, of: previous)
+        }
+        return lastVisible.map { .line($0.id, atBottom: true, depth: depth) }
+      }
+      if let first = siblings.first {
+        return .line(first, atBottom: false, depth: depth)
+      }
+      // Inserting into an empty, expanded parent: below the parent row itself.
+      return target.parent.map { .line($0, atBottom: true, depth: depth) }
     }
 
     /// Records the frames of the first `count` rows before UIKit starts previewing insertions.
@@ -479,6 +593,20 @@
       _ collectionView: UICollectionView, didDeselectItemAt indexPath: IndexPath
     ) {
       writeSelection()
+    }
+  }
+
+  /// The line that marks where dragged rows would be inserted, like `NSOutlineView`'s indicator.
+  private struct InsertionLine: View {
+    let indent: CGFloat
+
+    var body: some View {
+      HStack(spacing: 0) {
+        Circle().strokeBorder(.tint, lineWidth: 2).frame(width: 8, height: 8)
+        Rectangle().fill(.tint).frame(height: 2)
+      }
+      .padding(.leading, indent)
+      .allowsHitTesting(false)
     }
   }
 

@@ -21,6 +21,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `outlineStyle(_:)` with `SnagOutlineStyle` (automatic, sidebar, plain) and
   `outlineIndentation(_:)`.
 - `outlineAppKitConfiguration(_:)` on macOS to customize the underlying `NSOutlineView`.
+- `outlineDraggable(_:)` and `onOutlineDrop(validate:perform:)` for moving elements by drag and
+  drop, with in-process drags that need no `Codable` identifiers (macOS).
 - Drag-and-drop vocabulary: `OutlineDropTarget`, `OutlineDropOperation`, `OutlineDropResult` and
   `OutlineDropProposal`, including detection of drops into a dragged element's own subtree and
   insertion indices adjusted for the removal of dragged siblings.

@@ -64,6 +64,47 @@ import Testing
     #expect(styled.appearance.indentation == 0)
   }
 
+  @Test func enablesDraggingExplicitly() {
+    let outline = SnagOutline(sampleRoots, children: \.children) { Text($0.id) }
+    #expect(outline.behavior.canDrag == nil)
+
+    let draggable = outline.outlineDraggable()
+    #expect(draggable.behavior.canDrag?(.leaf("c")) == true)
+
+    let restricted = outline.outlineDraggable { $0.children == nil }
+    #expect(restricted.behavior.canDrag?(.group("a")) == false)
+  }
+
+  @Test func rejectsDropsIntoOwnSubtreeByDefault() throws {
+    let outline = SnagOutline(sampleRoots, children: \.children) { Text($0.id) }
+      .onOutlineDrop { _, _ in true }
+    let drop = try #require(outline.behavior.drop)
+
+    let cycle = OutlineDropProposal(
+      draggedIDs: ["a"], target: .onto("a2"), isDroppingIntoOwnSubtree: true)
+    #expect(drop.validate(cycle) == .reject)
+
+    let move = OutlineDropProposal(draggedIDs: ["c"], target: .onto("a"))
+    #expect(drop.validate(move) == .accept(.move))
+  }
+
+  @Test func storesCustomDropHandlers() throws {
+    var performed: (OutlineDropProposal<String>, OutlineDropOperation)?
+    let outline = SnagOutline(sampleRoots, children: \.children) { Text($0.id) }
+      .onOutlineDrop { _ in
+        .accept(.copy)
+      } perform: { proposal, operation in
+        performed = (proposal, operation)
+        return true
+      }
+    let drop = try #require(outline.behavior.drop)
+    let proposal = OutlineDropProposal(draggedIDs: ["c"], target: .root)
+    #expect(drop.validate(proposal) == .accept(.copy))
+    #expect(drop.perform(proposal, .copy))
+    #expect(performed?.0 == proposal)
+    #expect(performed?.1 == .copy)
+  }
+
   @Test func bindsSelectionModes() {
     var single: String? = "a"
     let outline = SnagOutline(

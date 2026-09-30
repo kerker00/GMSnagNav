@@ -90,7 +90,7 @@ struct SidebarView: View {
     let outline = SnagOutline(
       library.roots, children: \.children, selection: $selection, expansion: $expansion
     ) { item in
-      Label(item.name, systemImage: item.systemImage)
+      OutlineLabel(item.name, systemImage: item.systemImage)
         .accessibilityIdentifier("sidebar-row-\(item.name)")
     }
     .outlineSelectable { item in foldersSelectable || !item.isFolder }

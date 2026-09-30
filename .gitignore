@@ -16,3 +16,6 @@ DerivedData/
 xcuserdata/
 *.xcuserstate
 *.xcresult
+
+# Personal signing settings for the demo app
+Signing.local.xcconfig

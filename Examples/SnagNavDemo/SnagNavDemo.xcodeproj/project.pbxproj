@@ -10,14 +10,30 @@
 		5A1D00000000000000000101 /* GMSnagNav in Frameworks */ = {isa = PBXBuildFile; productRef = 5A1D00000000000000000401 /* GMSnagNav */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		5A1D00000000000000000B01 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5A1D00000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5A1D00000000000000000701;
+			remoteInfo = SnagNavDemo;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		5A1D00000000000000000201 /* SnagNavDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SnagNavDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5A1D00000000000000000202 /* SnagNavDemoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SnagNavDemoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		5A1D00000000000000000301 /* SnagNavDemo */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = SnagNavDemo;
+			sourceTree = "<group>";
+		};
+		5A1D00000000000000000302 /* SnagNavDemoUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = SnagNavDemoUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -31,6 +47,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5A1D00000000000000000503 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -38,6 +61,7 @@
 			isa = PBXGroup;
 			children = (
 				5A1D00000000000000000301 /* SnagNavDemo */,
+				5A1D00000000000000000302 /* SnagNavDemoUITests */,
 				5A1D00000000000000000602 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -46,6 +70,7 @@
 			isa = PBXGroup;
 			children = (
 				5A1D00000000000000000201 /* SnagNavDemo.app */,
+				5A1D00000000000000000202 /* SnagNavDemoUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -76,6 +101,29 @@
 			productReference = 5A1D00000000000000000201 /* SnagNavDemo.app */;
 			productType = "com.apple.product-type.application";
 		};
+		5A1D00000000000000000702 /* SnagNavDemoUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5A1D00000000000000000903 /* Build configuration list for PBXNativeTarget "SnagNavDemoUITests" */;
+			buildPhases = (
+				5A1D00000000000000000803 /* Sources */,
+				5A1D00000000000000000503 /* Frameworks */,
+				5A1D00000000000000000804 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				5A1D00000000000000000C01 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				5A1D00000000000000000302 /* SnagNavDemoUITests */,
+			);
+			name = SnagNavDemoUITests;
+			packageProductDependencies = (
+			);
+			productName = SnagNavDemoUITests;
+			productReference = 5A1D00000000000000000202 /* SnagNavDemoUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -88,6 +136,10 @@
 				TargetAttributes = {
 					5A1D00000000000000000701 = {
 						CreatedOnToolsVersion = 26.0;
+					};
+					5A1D00000000000000000702 = {
+						CreatedOnToolsVersion = 26.0;
+						TestTargetID = 5A1D00000000000000000701;
 					};
 				};
 			};
@@ -109,12 +161,20 @@
 			projectRoot = "";
 			targets = (
 				5A1D00000000000000000701 /* SnagNavDemo */,
+				5A1D00000000000000000702 /* SnagNavDemoUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		5A1D00000000000000000802 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5A1D00000000000000000804 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -131,7 +191,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5A1D00000000000000000803 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		5A1D00000000000000000C01 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5A1D00000000000000000701 /* SnagNavDemo */;
+			targetProxy = 5A1D00000000000000000B01 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		5A1D00000000000000000A01 /* Debug */ = {
@@ -232,6 +307,44 @@
 			};
 			name = Release;
 		};
+		5A1D00000000000000000A05 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.github.kerker00.SnagNavDemoUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = SnagNavDemo;
+			};
+			name = Debug;
+		};
+		5A1D00000000000000000A06 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.github.kerker00.SnagNavDemoUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = SnagNavDemo;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -249,6 +362,15 @@
 			buildConfigurations = (
 				5A1D00000000000000000A03 /* Debug */,
 				5A1D00000000000000000A04 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5A1D00000000000000000903 /* Build configuration list for PBXNativeTarget "SnagNavDemoUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5A1D00000000000000000A05 /* Debug */,
+				5A1D00000000000000000A06 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -28,6 +28,20 @@ Check that the package also builds for iOS:
 xcodebuild -scheme GMSnagNav -destination 'generic/platform=iOS Simulator' build
 ```
 
+### UI tests
+
+The demo app has UI tests that drive the real app, including genuine mouse drags on macOS:
+
+```sh
+cd Examples/SnagNavDemo
+xcodebuild test -project SnagNavDemo.xcodeproj -scheme SnagNavDemo -destination 'platform=macOS'
+xcodebuild test -project SnagNavDemo.xcodeproj -scheme SnagNavDemo \
+  -destination 'platform=iOS Simulator,name=<an installed simulator, e.g. iPhone 18 Pro>'
+```
+
+On macOS, grant Xcode (or your terminal) accessibility access when asked, and leave the mouse
+alone while the tests run.
+
 ## Making changes
 
 1. Fork the repository and create a branch from `main`.

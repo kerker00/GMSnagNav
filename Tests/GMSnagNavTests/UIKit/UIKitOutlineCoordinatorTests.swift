@@ -13,6 +13,7 @@
       var expansion: Set<String> = []
       var single: String?
       var isSelectable: (TestItem) -> Bool = { _ in true }
+      var primaryAction: ((Set<String>) -> Void)?
     }
 
     let host = Host()
@@ -29,6 +30,7 @@
       let host = host
       var behavior = OutlineBehavior<TestItem>()
       behavior.isSelectable = host.isSelectable
+      behavior.primaryAction = host.primaryAction
       coordinator.update(
         with: UIKitOutlineRenderer(
           tree: OutlineTree(host.roots, children: \.children),
@@ -89,6 +91,22 @@
         at: IndexPath(item: 2, section: 0), animated: false, scrollPosition: [])
       coordinator.collectionView(collectionView, didSelectItemAt: IndexPath(item: 2, section: 0))
       #expect(host.single == "c")
+    }
+
+    @Test func actsOnTheSelectionWhenTheActivatedRowBelongsToIt() {
+      host.single = "c"
+      update()
+      #expect(coordinator.activatedIDs(for: "c") == ["c"])
+      #expect(coordinator.activatedIDs(for: "a") == ["a"])
+    }
+
+    @Test func runsThePrimaryActionForTheTappedRow() {
+      var activated: Set<String>?
+      host.primaryAction = { activated = $0 }
+      update()
+      coordinator.collectionView(
+        collectionView, performPrimaryActionForItemAt: IndexPath(item: 1, section: 0))
+      #expect(activated == ["b"])
     }
   }
 #endif

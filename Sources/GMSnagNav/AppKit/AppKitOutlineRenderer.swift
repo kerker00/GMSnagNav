@@ -53,23 +53,6 @@
     }
   }
 
-  /// Shows the host's context menu with an empty set of identifiers when the user right-clicks
-  /// space that holds no row. Rows show their own menu from their hosted content.
-  struct EmptySpaceContextMenu<Element: Identifiable>: ViewModifier where Element.ID: Sendable {
-    let selection: OutlineSelection<Element.ID>
-    let behavior: OutlineBehavior<Element>
-
-    func body(content: Content) -> some View {
-      if case .none = selection {
-        content
-      } else if let menu = behavior.contextMenu {
-        content.contextMenu { menu([]) }
-      } else {
-        content
-      }
-    }
-  }
-
   /// Data source and delegate of the outline; translates between AppKit and the host's bindings.
   @MainActor
   final class OutlineCoordinator<Element: Identifiable, RowContent: View>: NSObject,

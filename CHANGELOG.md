@@ -16,7 +16,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   iPadOS with a SwiftUI `List`. On macOS, data changes are applied as animated inserts, removals
   and moves that keep expansion and selection.
 - `outlineSelectable(_:)` to make elements non-selectable; clicking such a container toggles it.
-- `outlinePrimaryAction(_:)` for double-click or Return on macOS and tap on iOS.
+- `outlinePrimaryAction(_:)` for double-click or Return on macOS and tap on iOS, where the tap
+  selects the row first.
 - `outlineContextMenu(_:)` for the clicked element, the selection, or empty space.
 - `outlineStyle(_:)` with `SnagOutlineStyle` (automatic, sidebar, plain) and
   `outlineIndentation(_:)`.

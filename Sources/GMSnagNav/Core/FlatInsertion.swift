@@ -1,7 +1,7 @@
 extension OutlineTree where ID: Sendable {
   /// Converts an insertion point in a flat list of visible rows into a drop target.
   ///
-  /// Flat lists, such as a SwiftUI `List` with `onMove`, report a gap between two rows:
+  /// Flat lists, such as the iOS renderer's collection view, report a gap between two rows:
   /// `gap == 0` is above the first row and `gap == rows.count` below the last one. A gap is
   /// ambiguous when the row above is deeper than the row below — the items could go to the end of
   /// the deeper level or before the row below. The rule follows the row *above*, so items dragged

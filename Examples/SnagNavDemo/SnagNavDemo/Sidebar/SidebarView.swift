@@ -14,7 +14,7 @@ struct SidebarView: View {
   @State private var openedDocument: String?
   @AppStorage("foldersSelectable") private var foldersSelectable = true
   @AppStorage("outlineStyle") private var style = DemoOutlineStyle.automatic
-  @AppStorage("indentation") private var indentation = 14.0
+  @AppStorage("indentationStep") private var indentationStep = IndentationStep.regular
   @AppStorage("largeRows") private var largeRows = false
 
   var body: some View {
@@ -43,10 +43,8 @@ struct SidebarView: View {
             Picker("Style", selection: $style) {
               ForEach(DemoOutlineStyle.allCases) { Text($0.title).tag($0) }
             }
-            Picker("Indentation", selection: $indentation) {
-              Text("Compact").tag(8.0)
-              Text("Regular").tag(14.0)
-              Text("Wide").tag(24.0)
+            Picker("Indentation", selection: $indentationStep) {
+              ForEach(IndentationStep.allCases) { Text($0.title).tag($0) }
             }
             #if os(macOS)
               Toggle("Large Rows (AppKit)", isOn: $largeRows)
@@ -94,7 +92,7 @@ struct SidebarView: View {
     .outlineSelectable { item in foldersSelectable || !item.isFolder }
     .outlineContextMenu { ids in contextMenu(for: ids) }
     .outlineStyle(style.outlineStyle)
-    .outlineIndentation(indentation)
+    .outlineIndentation(indentationStep.width)
     .outlineDraggable()
     .onOutlineDrop(validate: library.dropResult(for:), perform: drop)
 
@@ -194,6 +192,36 @@ enum DemoOutlineStyle: String, CaseIterable, Identifiable {
     case .automatic: .automatic
     case .sidebar: .sidebar
     case .plain: .plain
+    }
+  }
+}
+
+/// The indentation steps offered in the demo's Outline menu, relative to each platform's default.
+enum IndentationStep: String, CaseIterable, Identifiable {
+  case compact
+  case regular
+  case wide
+
+  var id: Self { self }
+
+  var title: String {
+    switch self {
+    case .compact: "Compact"
+    case .regular: "Regular"
+    case .wide: "Wide"
+    }
+  }
+
+  var width: CGFloat {
+    #if os(macOS)
+      let regular: CGFloat = 14
+    #else
+      let regular: CGFloat = 24
+    #endif
+    switch self {
+    case .compact: return regular * 0.7
+    case .regular: return regular
+    case .wide: return regular * 1.6
     }
   }
 }

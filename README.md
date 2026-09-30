@@ -5,6 +5,19 @@ A nested, drag-and-drop capable outline for SwiftUI — native on macOS, idiomat
 > **Status: pre-release.** The API is under active development and will change before `0.1.0`.
 > It is not ready for production use yet.
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/macos-dark.png">
+    <img src="docs/images/macos-light.png" width="560"
+      alt="The demo app on macOS: a sidebar outline of nested folders and documents with one document selected, next to its details.">
+  </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/ipad-dark.png">
+    <img src="docs/images/ipad-light.png" width="320"
+      alt="The same outline on iPad, rendered with a native collection view list.">
+  </picture>
+</p>
+
 ## Why
 
 SwiftUI's `List` can show a tree *or* reorder a flat list, but not both reliably: moving items
@@ -121,6 +134,9 @@ Documentation.
 [`Examples/SnagNavDemo`](Examples/SnagNavDemo) is a multiplatform app for macOS and iOS that shows
 how to add GMSnagNav with Swift Package Manager and how to use each feature. It grows with the
 package.
+
+The screenshots above come from the demo app. `Scripts/readme-screenshots.sh` takes them again on
+macOS and an iPad simulator, in light and dark appearance.
 
 ## Acknowledgements
 

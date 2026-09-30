@@ -11,6 +11,14 @@ struct SnagNavDemoApp: App {
   /// UI tests start from the sample data, with every setting at its default and a fresh window.
   private let isUITesting = CommandLine.arguments.contains("-ui-testing")
 
+  /// The appearance forced by `-DemoColorScheme light` or `dark`, used for the README screenshots.
+  private let colorScheme: ColorScheme? =
+    switch UserDefaults.standard.string(forKey: "DemoColorScheme") {
+    case "light": .light
+    case "dark": .dark
+    default: nil
+    }
+
   init() {
     if isUITesting, let domain = Bundle.main.bundleIdentifier {
       UserDefaults.standard.removePersistentDomain(forName: domain)
@@ -30,6 +38,7 @@ struct SnagNavDemoApp: App {
     WindowGroup {
       ContentView()
         .environment(library)
+        .preferredColorScheme(colorScheme)
         #if os(macOS)
           .onAppear {
             // A restored, smaller window would clip rows that UI tests interact with.

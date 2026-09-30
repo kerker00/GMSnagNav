@@ -100,6 +100,7 @@
     /// Applies a new snapshot, expansion and selection to the collection view.
     func update(with renderer: Renderer) {
       self.renderer = renderer
+      renderer.behavior.reportDuplicateIDs(in: renderer.tree, previous: tree)
       tree = renderer.tree
       guard let collectionView, let dataSource else { return }
 

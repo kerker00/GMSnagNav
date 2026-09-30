@@ -105,6 +105,29 @@ import Testing
     #expect(performed?.1 == .copy)
   }
 
+  @Test func storesDuplicateIDHandler() {
+    var reported: Set<String>?
+    let outline = SnagOutline(sampleRoots, children: \.children) { Text($0.id) }
+    #expect(outline.behavior.duplicateIDs == nil)
+
+    outline.onOutlineDuplicateIDs { reported = $0 }.behavior.duplicateIDs?(["x"])
+    #expect(reported == ["x"])
+  }
+
+  @Test func reportsDuplicateIDsOnlyWhenTheyChange() {
+    var reported: [Set<String>] = []
+    var behavior = OutlineBehavior<TestItem>()
+    behavior.duplicateIDs = { reported.append($0) }
+    let clean = OutlineTree(sampleRoots, children: \.children)
+    let repeated = OutlineTree(sampleRoots + [.leaf("c")], children: \.children)
+
+    behavior.reportDuplicateIDs(in: clean, previous: clean)
+    behavior.reportDuplicateIDs(in: repeated, previous: clean)
+    behavior.reportDuplicateIDs(in: repeated, previous: repeated)
+    behavior.reportDuplicateIDs(in: clean, previous: repeated)
+    #expect(reported == [["c"]])
+  }
+
   @Test func storesMenuItemsAndDerivesASwiftUIMenu() {
     var requested: Set<String>?
     let outline = SnagOutline(sampleRoots, children: \.children) { Text($0.id) }

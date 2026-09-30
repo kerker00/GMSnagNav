@@ -21,6 +21,7 @@
       var canDrag: ((TestItem) -> Bool)?
       var drop: OutlineDropHandler<String>?
       var springLoading = SpringLoadingBehavior.automatic
+      var reportedDuplicates: [Set<String>] = []
     }
 
     let host = Host()
@@ -41,6 +42,7 @@
       behavior.primaryAction = host.primaryAction
       behavior.canDrag = host.canDrag
       behavior.drop = host.drop
+      behavior.duplicateIDs = { host.reportedDuplicates.append($0) }
       let selection: OutlineSelection<String> =
         multipleSelection
         ? .multiple(Binding(get: { host.multiple }, set: { host.multiple = $0 }))
@@ -65,6 +67,21 @@
     private func item(_ id: String) -> Any? {
       (0..<outlineView.numberOfRows).lazy.compactMap { outlineView.item(atRow: $0) }
         .first { ($0 as? NodeBox<String>)?.id == id }
+    }
+
+    @Test func reportsRepeatedIdentifiersOncePerChange() {
+      update()
+      #expect(host.reportedDuplicates.isEmpty)
+
+      host.roots = sampleRoots + [.leaf("a1")]
+      update()
+      update()
+      #expect(host.reportedDuplicates == [["a1"]])
+      #expect(visibleIDs == ["a", "b", "c"])
+
+      host.roots = sampleRoots + [.leaf("a1"), .leaf("c")]
+      update()
+      #expect(host.reportedDuplicates == [["a1"], ["a1", "c"]])
     }
 
     @Test func showsRootsCollapsedByDefault() {

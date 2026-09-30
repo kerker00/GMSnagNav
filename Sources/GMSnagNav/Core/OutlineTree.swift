@@ -6,7 +6,8 @@
 ///
 /// Identifiers must be unique across the whole tree. When an identifier appears more than once,
 /// only its first occurrence (in depth-first, pre-order) is kept, its later occurrences and their
-/// subtrees are skipped, and the identifier is reported in ``duplicateIDs``. Skipping repeats also
+/// subtrees are skipped, and the identifier is recorded in ``duplicateIDs`` for the renderers to
+/// report to the host. Skipping repeats also
 /// guarantees termination for children providers that accidentally form a cycle.
 struct OutlineTree<Element: Identifiable> {
   typealias ID = Element.ID

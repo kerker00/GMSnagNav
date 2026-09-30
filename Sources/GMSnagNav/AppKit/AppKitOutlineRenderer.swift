@@ -119,6 +119,7 @@
     func update(with renderer: Renderer) {
       self.renderer = renderer
       let oldTree = tree
+      renderer.behavior.reportDuplicateIDs(in: renderer.tree, previous: oldTree)
       tree = renderer.tree
       guard let outlineView else {
         boxes = boxes.filter { tree.contains($0.key) }

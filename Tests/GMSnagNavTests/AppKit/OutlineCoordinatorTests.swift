@@ -19,6 +19,7 @@
       var primaryAction: ((Set<String>) -> Void)?
       var appearance = OutlineAppearance()
       var canDrag: ((TestItem) -> Bool)?
+      var drop: OutlineDropHandler<String>?
     }
 
     let host = Host()
@@ -38,6 +39,7 @@
       behavior.isSelectable = host.isSelectable
       behavior.primaryAction = host.primaryAction
       behavior.canDrag = host.canDrag
+      behavior.drop = host.drop
       let selection: OutlineSelection<String> =
         multipleSelection
         ? .multiple(Binding(get: { host.multiple }, set: { host.multiple = $0 }))
@@ -218,6 +220,88 @@
       foreign.setString("not-a-token", forType: OutlineCoordinator<TestItem, Text>.draggedRowType)
       pasteboard.writeObjects([foreign])
       #expect(coordinator.draggedIDs(on: pasteboard).isEmpty)
+    }
+
+    private func acceptAll(
+      recording performed: @escaping (OutlineDropProposal<String>, OutlineDropOperation) -> Void = {
+        _, _ in
+      }
+    ) -> OutlineDropHandler<String> {
+      OutlineDropHandler(
+        validate: { $0.isDroppingIntoOwnSubtree ? .reject : .accept(.move) },
+        perform: { proposal, operation in
+          performed(proposal, operation)
+          return true
+        })
+    }
+
+    @Test func rejectsDropsWithoutAHandlerOrDraggedElements() {
+      update()
+      #expect(coordinator.resolveDrop(of: ["c"], onto: nil, childIndex: 0) == nil)
+
+      host.drop = acceptAll()
+      update()
+      #expect(coordinator.resolveDrop(of: [], onto: nil, childIndex: 0) == nil)
+      #expect(coordinator.resolveDrop(of: ["removed"], onto: nil, childIndex: 0) == nil)
+    }
+
+    @Test func mapsAppKitPositionsToDropTargets() {
+      host.drop = acceptAll()
+      host.expansion = ["a"]
+      update()
+      let onItem = NSOutlineViewDropOnItemIndex
+
+      #expect(
+        coordinator.resolveDrop(of: ["c"], onto: item("a"), childIndex: onItem)?.proposal.target
+          == .onto("a"))
+      #expect(
+        coordinator.resolveDrop(of: ["c"], onto: item("a"), childIndex: 1)?.proposal.target
+          == .insert(into: "a", at: 1))
+      #expect(
+        coordinator.resolveDrop(of: ["a1"], onto: nil, childIndex: 3)?.proposal.target
+          == .insert(into: nil, at: 3))
+      #expect(
+        coordinator.resolveDrop(of: ["a1"], onto: nil, childIndex: onItem)?.proposal.target == .root
+      )
+    }
+
+    @Test func appliesTheHostsValidation() {
+      host.drop = acceptAll()
+      update()
+      // The default policy of the test handler rejects moving a into its own child.
+      #expect(coordinator.resolveDrop(of: ["a"], onto: item("a"), childIndex: 0) == nil)
+      #expect(
+        coordinator.resolveDrop(of: ["c"], onto: item("a"), childIndex: 0)?.operation == .move)
+    }
+
+    @Test func redirectsToValidTargetsOnly() {
+      host.drop = OutlineDropHandler(
+        validate: { _ in .redirect(to: .onto("b"), operation: .copy) }, perform: { _, _ in true })
+      update()
+      let redirected = coordinator.resolveDrop(of: ["c"], onto: nil, childIndex: 0)
+      #expect(redirected?.proposal.target == .onto("b"))
+      #expect(redirected?.operation == .copy)
+
+      host.drop = OutlineDropHandler(
+        validate: { _ in .redirect(to: .insert(into: "b", at: 5), operation: .move) },
+        perform: { _, _ in true })
+      update()
+      #expect(coordinator.resolveDrop(of: ["c"], onto: nil, childIndex: 0) == nil)
+    }
+
+    @Test func performsAcceptedDropsWithTheFinalProposal() {
+      var performed: (OutlineDropProposal<String>, OutlineDropOperation)?
+      host.drop = acceptAll { performed = ($0, $1) }
+      update()
+      // Moving a (root index 0) below c (root index 3) lands at index 2 after removal.
+      #expect(coordinator.performDrop(of: ["a"], onto: nil, childIndex: 3))
+      #expect(performed?.0.target == .insert(into: nil, at: 3))
+      #expect(performed?.0.insertionIndexAfterRemoval == 2)
+      #expect(performed?.1 == .move)
+
+      performed = nil
+      #expect(!coordinator.performDrop(of: ["a"], onto: item("a"), childIndex: 0))
+      #expect(performed == nil)
     }
 
     @Test func keepsStateWhenDataChanges() {

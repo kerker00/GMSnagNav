@@ -303,6 +303,75 @@
       draggedIDsByToken.removeAll()
     }
 
+    func outlineView(
+      _ outlineView: NSOutlineView, validateDrop info: NSDraggingInfo, proposedItem item: Any?,
+      proposedChildIndex index: Int
+    ) -> NSDragOperation {
+      let ids = draggedIDs(on: info.draggingPasteboard)
+      guard let drop = resolveDrop(of: ids, onto: item, childIndex: index) else { return [] }
+      if drop.proposal.target != target(item: item, childIndex: index) {
+        outlineView.setDropItem(
+          drop.proposal.target.parent.map(box(for:)),
+          dropChildIndex: drop.proposal.target.childIndex ?? NSOutlineViewDropOnItemIndex)
+      }
+      return drop.operation.dragOperation
+    }
+
+    func outlineView(
+      _ outlineView: NSOutlineView, acceptDrop info: NSDraggingInfo, item: Any?,
+      childIndex index: Int
+    ) -> Bool {
+      performDrop(of: draggedIDs(on: info.draggingPasteboard), onto: item, childIndex: index)
+    }
+
+    /// Asks the host where and how dragged elements may be dropped at AppKit's proposed position.
+    ///
+    /// - Returns: The proposal — with a redirected target if the host asked for one — and the
+    ///   accepted operation, or `nil` if the drop is not allowed.
+    func resolveDrop(
+      of ids: [ID], onto item: Any?, childIndex: Int
+    ) -> (proposal: OutlineDropProposal<ID>, operation: OutlineDropOperation)? {
+      guard let renderer, let drop = renderer.behavior.drop, !ids.isEmpty else { return nil }
+      let proposal = OutlineDropProposal(
+        draggedIDs: ids, target: target(item: item, childIndex: childIndex), tree: tree,
+        expanded: renderer.expansion)
+      guard !proposal.draggedIDs.isEmpty else { return nil }
+
+      switch drop.validate(proposal) {
+      case .reject:
+        return nil
+      case .accept(let operation):
+        return (proposal, operation)
+      case .redirect(let target, let operation):
+        guard isValid(target) else { return nil }
+        let redirected = OutlineDropProposal(
+          draggedIDs: ids, target: target, tree: tree, expanded: renderer.expansion)
+        return (redirected, operation)
+      }
+    }
+
+    /// Validates the drop once more and lets the host perform it.
+    func performDrop(of ids: [ID], onto item: Any?, childIndex: Int) -> Bool {
+      guard let drop = renderer?.behavior.drop,
+        let resolved = resolveDrop(of: ids, onto: item, childIndex: childIndex)
+      else { return false }
+      return drop.perform(resolved.proposal, resolved.operation)
+    }
+
+    private func target(item: Any?, childIndex: Int) -> OutlineDropTarget<ID> {
+      let parent = id(of: item)
+      return childIndex == NSOutlineViewDropOnItemIndex
+        ? OutlineDropTarget(parent: parent, placement: .onto)
+        : .insert(into: parent, at: childIndex)
+    }
+
+    /// Whether a host-provided target exists in the current snapshot.
+    private func isValid(_ target: OutlineDropTarget<ID>) -> Bool {
+      if let parent = target.parent, !tree.contains(parent) { return false }
+      guard let childIndex = target.childIndex else { return true }
+      return (0...tree.children(of: target.parent).count).contains(childIndex)
+    }
+
     /// The elements of this outline that are being dragged on `pasteboard`, in pasteboard order.
     func draggedIDs(on pasteboard: NSPasteboard) -> [ID] {
       (pasteboard.pasteboardItems ?? []).compactMap { item in
@@ -440,6 +509,16 @@
     /// Reads the item from an expansion notification; AppKit documents the key as `"NSObject"`.
     private func expandedOrCollapsedID(in notification: Notification) -> ID? {
       id(of: notification.userInfo?["NSObject"])
+    }
+  }
+
+  extension OutlineDropOperation {
+    /// The matching AppKit drag operation.
+    var dragOperation: NSDragOperation {
+      switch self {
+      case .move: .move
+      case .copy: .copy
+      }
     }
   }
 #endif

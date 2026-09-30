@@ -44,7 +44,7 @@ Then `import GMSnagNav` wherever you build your sidebar.
 | Host-owned mutations: move with insertion index, cycle protection, rename, delete | [`Model/Library.swift`](SnagNavDemo/Model/Library.swift) | ✅ |
 | Menu-based "Move to" fallback for keyboard and accessibility users | [`Sidebar/ItemActions.swift`](SnagNavDemo/Sidebar/ItemActions.swift) | ✅ |
 | `SnagOutline` with selection and expansion bindings, expand/collapse all, revealing new items | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ Native `NSOutlineView` on macOS, SwiftUI `List` on iOS |
-| Drag and drop onto items, between rows and into the root | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | 🚧 Rows can be dragged on macOS; dropping follows |
+| Drag and drop onto items, between rows and into the root, validated by the host | [`Model/Library.swift`](SnagNavDemo/Model/Library.swift) | ✅ macOS — cycles are rejected, drops onto documents are redirected next to them; iOS follows |
 | Spring-loaded folders while dragging | — | Planned |
 | Non-selectable folders (toggle in the Outline menu); clicking them expands and collapses | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
 | Primary action: double-click or Return toggles folders and "opens" documents (macOS) | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |

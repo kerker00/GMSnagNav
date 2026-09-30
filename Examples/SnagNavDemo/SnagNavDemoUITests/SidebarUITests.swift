@@ -119,4 +119,31 @@ final class SidebarUITests: XCTestCase {
       assertDetailLocation("Archive › Personal › Recipes")
     }
   #endif
+
+  #if os(iOS)
+    /// Long-presses a row and moves it onto another row's place, like reordering in a list.
+    private func move(_ source: String, to target: String) {
+      let source = row(source)
+      let target = row(target)
+      XCTAssertTrue(source.waitForExistence(timeout: 5))
+      XCTAssertTrue(target.waitForExistence(timeout: 5))
+      source.press(
+        forDuration: 1.0, thenDragTo: target, withVelocity: .slow, thenHoldForDuration: 0.5)
+    }
+
+    func testMovingARowUpReordersTheRootLevel() {
+      move("Ideas", to: "Work")
+      XCTAssertLessThan(row("Ideas").frame.minY, row("Work").frame.minY)
+      select("Ideas")
+      assertDetailLocation("Ideas")
+    }
+
+    func testMovingARowIntoAnExpandedFolderReparentsIt() {
+      // Rows: … Personal, Travel, Recipes, Archive, Inbox. Moving Inbox up onto Recipes places it
+      // before Recipes, inside Personal.
+      move("Inbox", to: "Recipes")
+      select("Inbox")
+      assertDetailLocation("Personal › Inbox")
+    }
+  #endif
 }

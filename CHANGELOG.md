@@ -23,6 +23,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `outlineAppKitConfiguration(_:)` on macOS to customize the underlying `NSOutlineView`.
 - `outlineDraggable(_:)` and `onOutlineDrop(validate:perform:)` for moving elements by drag and
   drop, with in-process drags that need no `Codable` identifiers (macOS).
+- Reordering and reparenting on iOS and iPadOS by long-pressing and moving rows. A gap between
+  rows inserts after the row above it, so items moved to the bottom of an expanded folder stay in
+  it.
 - Spring-loaded folders while dragging on macOS: collapsed elements open after the system's
   spring-loading delay and close again when the pointer leaves, without changing the expansion
   binding. Respects `springLoadingBehavior(_:)`.

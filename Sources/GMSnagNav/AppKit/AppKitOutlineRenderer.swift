@@ -14,6 +14,7 @@
     let selection: OutlineSelection<ID>
     @Binding var expansion: Set<ID>
     let behavior: OutlineBehavior<Element>
+    let appearance: OutlineAppearance
     let rowContent: (Element) -> RowContent
 
     func makeCoordinator() -> OutlineCoordinator<Element, RowContent> {
@@ -28,7 +29,6 @@
       outlineView.addTableColumn(column)
       outlineView.outlineTableColumn = column
       outlineView.headerView = nil
-      outlineView.style = .sourceList
       outlineView.rowSizeStyle = .default
       outlineView.floatsGroupRows = false
       outlineView.autosaveExpandedItems = false
@@ -120,10 +120,24 @@
       case .none, .single: outlineView.allowsMultipleSelection = false
       case .multiple: outlineView.allowsMultipleSelection = true
       }
+      applyAppearance(renderer.appearance, to: outlineView)
 
       outlineView.reloadData()
       applyExpansion(renderer.expansion)
       applySelection(selectedIDs(in: renderer.selection))
+    }
+
+    private func applyAppearance(_ appearance: OutlineAppearance, to outlineView: NSOutlineView) {
+      let style: NSTableView.Style =
+        switch appearance.style {
+        case .automatic, .sidebar: .sourceList
+        case .plain: .plain
+        }
+      if outlineView.style != style { outlineView.style = style }
+      if outlineView.indentationPerLevel != appearance.indentation {
+        outlineView.indentationPerLevel = appearance.indentation
+      }
+      appearance.appKitConfiguration?(outlineView)
     }
 
     private func applyExpansion(_ desired: Set<ID>) {

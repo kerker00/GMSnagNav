@@ -54,6 +54,16 @@ import Testing
     #expect(requested == ["a2"])
   }
 
+  @Test func appliesAppearanceModifiers() {
+    let outline = SnagOutline(sampleRoots, children: \.children) { Text($0.id) }
+    #expect(outline.appearance.style == .automatic)
+    #expect(outline.appearance.indentation == OutlineAppearance.defaultIndentation)
+
+    let styled = outline.outlineStyle(.plain).outlineIndentation(-5)
+    #expect(styled.appearance.style == .plain)
+    #expect(styled.appearance.indentation == 0)
+  }
+
   @Test func bindsSelectionModes() {
     var single: String? = "a"
     let outline = SnagOutline(

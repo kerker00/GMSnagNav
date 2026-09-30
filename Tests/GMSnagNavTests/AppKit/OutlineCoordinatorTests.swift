@@ -16,6 +16,7 @@
       var multiple: Set<String> = []
       var isSelectable: (TestItem) -> Bool = { _ in true }
       var primaryAction: ((Set<String>) -> Void)?
+      var appearance = OutlineAppearance()
     }
 
     let host = Host()
@@ -44,6 +45,7 @@
           selection: selection,
           expansion: Binding(get: { host.expansion }, set: { host.expansion = $0 }),
           behavior: behavior,
+          appearance: host.appearance,
           rowContent: { Text($0.id) }))
     }
 
@@ -150,6 +152,30 @@
       update()
       pressReturn()
       #expect(activated == nil)
+    }
+
+    @Test func appliesStyleAndIndentation() {
+      update()
+      #expect(outlineView.style == .sourceList)
+      #expect(outlineView.indentationPerLevel == OutlineAppearance.defaultIndentation)
+
+      host.appearance.style = .plain
+      host.appearance.indentation = 24
+      update()
+      #expect(outlineView.style == .plain)
+      #expect(outlineView.indentationPerLevel == 24)
+    }
+
+    @Test func runsAppKitConfigurationAfterEveryUpdate() {
+      var calls = 0
+      host.appearance.appKitConfiguration = { outlineView in
+        calls += 1
+        outlineView.rowSizeStyle = .large
+      }
+      update()
+      update()
+      #expect(calls == 2)
+      #expect(outlineView.rowSizeStyle == .large)
     }
 
     @Test func keepsStateWhenDataChanges() {

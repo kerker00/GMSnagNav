@@ -12,10 +12,15 @@ where Element.ID: Sendable {
   let selection: OutlineSelection<ID>
   @Binding var expansion: Set<ID>
   let behavior: OutlineBehavior<Element>
+  let appearance: OutlineAppearance
   let rowContent: (Element) -> RowContent
 
   var body: some View {
-    let rows = tree.visibleRows(expanded: expansion)
+    list(tree.visibleRows(expanded: expansion))
+      .modifier(ListStyleModifier(style: appearance.style))
+  }
+
+  @ViewBuilder private func list(_ rows: [VisibleRow<ID>]) -> some View {
     switch selection {
     case .none:
       List { rowsView(rows, hasSelection: false) }
@@ -37,6 +42,7 @@ where Element.ID: Sendable {
         let isSelectable = behavior.canSelect(element)
         OutlineRowView(
           row: row,
+          indentation: appearance.indentation,
           isExpanded: row.isExpanded,
           toggle: { toggle(row.id) },
           content: rowContent(element)
@@ -64,6 +70,19 @@ where Element.ID: Sendable {
       } else {
         expansion.insert(id)
       }
+    }
+  }
+}
+
+/// Maps ``SnagOutlineStyle`` to SwiftUI list styles.
+private struct ListStyleModifier: ViewModifier {
+  let style: SnagOutlineStyle
+
+  func body(content: Content) -> some View {
+    switch style {
+    case .automatic: content
+    case .sidebar: content.listStyle(.sidebar)
+    case .plain: content.listStyle(.plain)
     }
   }
 }
@@ -133,10 +152,9 @@ private struct RowTapBehavior: ViewModifier {
 
 /// One row: indentation, disclosure chevron and the host's content.
 struct OutlineRowView<ID: Hashable, Content: View>: View {
-  /// The horizontal distance between two nesting levels.
-  static var indentation: CGFloat { 14 }
-
   let row: VisibleRow<ID>
+  /// The horizontal distance between two nesting levels.
+  let indentation: CGFloat
   let isExpanded: Bool
   let toggle: () -> Void
   let content: Content
@@ -146,7 +164,7 @@ struct OutlineRowView<ID: Hashable, Content: View>: View {
       disclosure
       content
     }
-    .padding(.leading, CGFloat(row.depth) * Self.indentation)
+    .padding(.leading, CGFloat(row.depth) * indentation)
     .accessibilityElement(children: .combine)
     .modifier(ExpansionAccessibility(row: row, toggle: toggle))
   }

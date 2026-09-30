@@ -18,19 +18,20 @@ where Element.ID: Sendable {
     let rows = tree.visibleRows(expanded: expansion)
     switch selection {
     case .none:
-      List { rowsView(rows, activatesOnTap: true) }
+      List { rowsView(rows, hasSelection: false) }
     case .single(let binding):
-      List(selection: binding) { rowsView(rows, activatesOnTap: false) }
+      List(selection: binding) { rowsView(rows, hasSelection: true) }
         .modifier(SelectionActions(behavior: behavior))
     case .multiple(let binding):
-      List(selection: binding) { rowsView(rows, activatesOnTap: false) }
+      List(selection: binding) { rowsView(rows, hasSelection: true) }
         .modifier(SelectionActions(behavior: behavior))
     }
   }
 
-  /// - Parameter activatesOnTap: Whether rows trigger the primary action themselves. Lists with
-  ///   selection route activation through `contextMenu(forSelectionType:)` instead.
-  private func rowsView(_ rows: [VisibleRow<ID>], activatesOnTap: Bool) -> some View {
+  /// - Parameter hasSelection: Whether the list binds a selection. Lists with selection route the
+  ///   primary action and the context menu through `contextMenu(forSelectionType:)`; lists without
+  ///   one, and rows that cannot be selected, attach them to each row instead.
+  private func rowsView(_ rows: [VisibleRow<ID>], hasSelection: Bool) -> some View {
     ForEach(rows, id: \.id) { row in
       if let element = tree.element(row.id) {
         let isSelectable = behavior.canSelect(element)
@@ -44,9 +45,14 @@ where Element.ID: Sendable {
         .modifier(
           RowTapBehavior(
             togglesExpansion: !isSelectable && row.isExpandable && row.childCount > 0,
-            primaryAction: activatesOnTap
-              ? behavior.primaryAction.map { action in { action([row.id]) } } : nil,
-            toggle: { toggle(row.id) }))
+            primaryAction: hasSelection
+              ? nil : behavior.primaryAction.map { action in { action([row.id]) } },
+            toggle: { toggle(row.id) })
+        )
+        .modifier(
+          RowContextMenu(
+            menu: hasSelection && isSelectable
+              ? nil : behavior.contextMenu.map { menu in { menu([row.id]) } }))
       }
     }
   }
@@ -62,18 +68,32 @@ where Element.ID: Sendable {
   }
 }
 
-/// Routes the primary action of lists with selection through SwiftUI's selection-aware API.
+/// Routes the primary action and context menu of lists with selection through SwiftUI's
+/// selection-aware API, so a multi-selection is handled as a whole.
 private struct SelectionActions<Element: Identifiable>: ViewModifier {
   let behavior: OutlineBehavior<Element>
 
   func body(content: Content) -> some View {
-    if let primaryAction = behavior.primaryAction {
+    if behavior.primaryAction == nil && behavior.contextMenu == nil {
+      content
+    } else {
       content.contextMenu(
         forSelectionType: Element.ID.self,
-        menu: { _ in EmptyView() },
+        menu: { ids in behavior.contextMenu?(ids) },
         primaryAction: { ids in
-          if !ids.isEmpty { primaryAction(ids) }
+          if !ids.isEmpty { behavior.primaryAction?(ids) }
         })
+    }
+  }
+}
+
+/// Attaches a context menu to a single row, for lists without selection and unselectable rows.
+private struct RowContextMenu: ViewModifier {
+  let menu: (() -> AnyView)?
+
+  func body(content: Content) -> some View {
+    if let menu {
+      content.contextMenu { menu() }
     } else {
       content
     }

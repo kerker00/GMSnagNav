@@ -41,6 +41,19 @@ import Testing
     #expect(activated == ["a", "c"])
   }
 
+  @Test func storesContextMenu() {
+    var requested: Set<String>?
+    func menu(for ids: Set<String>) -> Button<Text> {
+      requested = ids
+      return Button("Delete") {}
+    }
+    let outline = SnagOutline(sampleRoots, children: \.children) { Text($0.id) }
+      .outlineContextMenu { ids in menu(for: ids) }
+    #expect(outline.behavior.contextMenu != nil)
+    _ = outline.behavior.contextMenu?(["a2"])
+    #expect(requested == ["a2"])
+  }
+
   @Test func bindsSelectionModes() {
     var single: String? = "a"
     let outline = SnagOutline(

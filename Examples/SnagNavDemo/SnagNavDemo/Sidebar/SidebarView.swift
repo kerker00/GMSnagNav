@@ -75,9 +75,9 @@ struct SidebarView: View {
     ) { item in
       Label(item.name, systemImage: item.systemImage)
         .accessibilityIdentifier("sidebar-row-\(item.name)")
-        .contextMenu { ItemActions(itemID: item.id, onError: onError) }
     }
     .outlineSelectable { item in foldersSelectable || !item.isFolder }
+    .outlineContextMenu { ids in contextMenu(for: ids) }
 
     #if os(macOS)
       // On iOS a tap already selects and navigates, so the primary action is macOS only.
@@ -85,6 +85,28 @@ struct SidebarView: View {
     #else
       return outline
     #endif
+  }
+
+  /// The context menu: item actions for one item, bulk delete for several, and adding at the root
+  /// level when the menu opens on empty space.
+  @ViewBuilder private func contextMenu(for ids: Set<LibraryItem.ID>) -> some View {
+    switch ids.count {
+    case 0:
+      Button("New Folder", systemImage: "folder.badge.plus") {
+        selection = library.add(.folder("New Folder"), into: nil)
+      }
+      Button("New Document", systemImage: "doc.badge.plus") {
+        selection = library.add(.document("New Document"), into: nil)
+      }
+    case 1:
+      if let id = ids.first {
+        ItemActions(itemID: id, onError: onError)
+      }
+    default:
+      Button("Delete \(ids.count) Items", systemImage: "trash", role: .destructive) {
+        ids.forEach(library.delete)
+      }
+    }
   }
 
   /// Double-click: folders toggle their expansion, documents are "opened".

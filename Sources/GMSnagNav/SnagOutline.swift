@@ -158,12 +158,35 @@ extension SnagOutline {
     copy.behavior.primaryAction = action
     return copy
   }
+
+  /// Adds a context menu for the elements the user right-clicks or long-presses.
+  ///
+  /// The menu receives the identifiers it applies to:
+  ///
+  /// - the whole selection when the user opens the menu on a selected row,
+  /// - only the clicked element when the row is not selected or not selectable,
+  /// - an empty set when the menu opens on empty space in an outline with selection — useful for
+  ///   actions such as "New Folder" at the root level.
+  ///
+  /// Return no content to show no menu for a set of identifiers.
+  ///
+  /// Apply this modifier directly to the `SnagOutline`, before any other view modifier.
+  ///
+  /// - Parameter menu: Builds the menu items for a set of identifiers.
+  public func outlineContextMenu<MenuContent: View>(
+    @ViewBuilder _ menu: @escaping (Set<ID>) -> MenuContent
+  ) -> Self {
+    var copy = self
+    copy.behavior.contextMenu = { AnyView(menu($0)) }
+    return copy
+  }
 }
 
 /// Optional behavior configured through `SnagOutline`'s modifiers.
 struct OutlineBehavior<Element: Identifiable> {
   var isSelectable: ((Element) -> Bool)?
   var primaryAction: ((Set<Element.ID>) -> Void)?
+  var contextMenu: ((Set<Element.ID>) -> AnyView)?
 
   func canSelect(_ element: Element) -> Bool {
     isSelectable?(element) ?? true

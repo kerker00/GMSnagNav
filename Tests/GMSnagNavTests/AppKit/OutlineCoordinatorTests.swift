@@ -84,6 +84,19 @@
       #expect(host.reportedDuplicates == [["a1"], ["a1", "c"]])
     }
 
+    @Test func sizesRowTextLikeNativeSidebarRows() throws {
+      let sizes: [(NSTableView.RowSizeStyle, CGFloat)] = [
+        (.small, 11), (.medium, 13), (.large, 15),
+      ]
+      for (style, size) in sizes {
+        outlineView.rowSizeStyle = style
+        update()
+        let cell = try #require(
+          outlineView.view(atColumn: 0, row: 0, makeIfNecessary: true) as? HostingCellView)
+        #expect(cell.fontSize == size)
+      }
+    }
+
     @Test func showsRootsCollapsedByDefault() {
       update()
       #expect(visibleIDs == ["a", "b", "c"])

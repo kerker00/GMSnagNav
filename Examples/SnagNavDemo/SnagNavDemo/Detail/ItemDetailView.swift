@@ -15,7 +15,10 @@ struct ItemDetailView: View {
             .onSubmit { library.rename(itemID, to: name) }
             .accessibilityIdentifier("detail-name")
           LabeledContent("Kind", value: item.isFolder ? "Folder" : "Document")
-          LabeledContent("Location", value: library.path(to: itemID).joined(separator: " › "))
+          LabeledContent("Location") {
+            Text(library.path(to: itemID).joined(separator: " › "))
+              .accessibilityIdentifier("detail-location")
+          }
           if let children = item.children {
             LabeledContent("Items", value: "\(children.count)")
           }
@@ -26,7 +29,7 @@ struct ItemDetailView: View {
       }
       .formStyle(.grouped)
       .navigationTitle(item.name)
-      .onChange(of: itemID, initial: true) { name = item.name }
+      .onAppear { name = item.name }
     }
   }
 }

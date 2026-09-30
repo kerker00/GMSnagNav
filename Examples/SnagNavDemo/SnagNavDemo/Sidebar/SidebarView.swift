@@ -11,46 +11,91 @@ struct SidebarView: View {
   let onError: (Error) -> Void
 
   @State private var expansion: Set<LibraryItem.ID> = []
+  @State private var openedDocument: String?
+  @AppStorage("foldersSelectable") private var foldersSelectable = true
 
   var body: some View {
-    SnagOutline(
+    outline
+      .onAppear {
+        // Start with the top-level folders open.
+        expansion = Set(library.roots.filter(\.isFolder).map(\.id))
+      }
+      .onChange(of: foldersSelectable) {
+        if !foldersSelectable, let selection, library.item(selection)?.isFolder == true {
+          self.selection = nil
+        }
+      }
+      .toolbar {
+        ToolbarItemGroup {
+          Menu {
+            Button("Expand All", systemImage: "arrow.down.right.and.arrow.up.left") {
+              expansion = Set(library.allFolders.map(\.item.id))
+            }
+            Button("Collapse All", systemImage: "arrow.up.left.and.arrow.down.right") {
+              expansion = []
+            }
+            Divider()
+            Toggle("Folders Are Selectable", isOn: $foldersSelectable)
+          } label: {
+            Label("Outline", systemImage: "list.bullet.indent")
+          }
+
+          Menu {
+            Button("New Folder", systemImage: "folder.badge.plus") { add(.folder("New Folder")) }
+            Button("New Document", systemImage: "doc.badge.plus") {
+              add(.document("New Document"))
+            }
+          } label: {
+            Label("Add", systemImage: "plus")
+          }
+        }
+      }
+      .alert(
+        "Opened \"\(openedDocument ?? "")\"",
+        isPresented: Binding(
+          get: { openedDocument != nil },
+          set: { if !$0 { openedDocument = nil } })
+      ) {
+        Button("OK", role: .cancel) {}
+      } message: {
+        Text("A real app would open the document here.")
+      }
+      .safeAreaInset(edge: .bottom) {
+        Text("GMSnagNav \(GMSnagNav.version)")
+          .font(.footnote)
+          .foregroundStyle(.secondary)
+          .frame(maxWidth: .infinity)
+          .padding(8)
+      }
+  }
+
+  private var outline: some View {
+    let outline = SnagOutline(
       library.roots, children: \.children, selection: $selection, expansion: $expansion
     ) { item in
       Label(item.name, systemImage: item.systemImage)
         .accessibilityIdentifier("sidebar-row-\(item.name)")
         .contextMenu { ItemActions(itemID: item.id, onError: onError) }
     }
-    .onAppear {
-      // Start with the top-level folders open.
-      expansion = Set(library.roots.filter(\.isFolder).map(\.id))
-    }
-    .toolbar {
-      ToolbarItemGroup {
-        Menu {
-          Button("Expand All", systemImage: "arrow.down.right.and.arrow.up.left") {
-            expansion = Set(library.allFolders.map(\.item.id))
-          }
-          Button("Collapse All", systemImage: "arrow.up.left.and.arrow.down.right") {
-            expansion = []
-          }
-        } label: {
-          Label("Outline", systemImage: "list.bullet.indent")
-        }
+    .outlineSelectable { item in foldersSelectable || !item.isFolder }
 
-        Menu {
-          Button("New Folder", systemImage: "folder.badge.plus") { add(.folder("New Folder")) }
-          Button("New Document", systemImage: "doc.badge.plus") { add(.document("New Document")) }
-        } label: {
-          Label("Add", systemImage: "plus")
-        }
+    #if os(macOS)
+      // On iOS a tap already selects and navigates, so the primary action is macOS only.
+      return outline.outlinePrimaryAction(open)
+    #else
+      return outline
+    #endif
+  }
+
+  /// Double-click: folders toggle their expansion, documents are "opened".
+  private func open(_ ids: Set<LibraryItem.ID>) {
+    for id in ids {
+      guard let item = library.item(id) else { continue }
+      if item.isFolder {
+        if expansion.contains(id) { expansion.remove(id) } else { expansion.insert(id) }
+      } else {
+        openedDocument = item.name
       }
-    }
-    .safeAreaInset(edge: .bottom) {
-      Text("GMSnagNav \(GMSnagNav.version)")
-        .font(.footnote)
-        .foregroundStyle(.secondary)
-        .frame(maxWidth: .infinity)
-        .padding(8)
     }
   }
 

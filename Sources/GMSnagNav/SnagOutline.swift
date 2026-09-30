@@ -29,6 +29,7 @@ where Data.Element: Identifiable, Data.Element.ID: Sendable {
   let selection: OutlineSelection<ID>
   let expansion: Binding<Set<ID>>?
   let rowContent: (Element) -> RowContent
+  var behavior = OutlineBehavior<Element>()
 
   @State private var internalExpansion: Set<ID> = []
 
@@ -115,7 +116,57 @@ where Data.Element: Identifiable, Data.Element.ID: Sendable {
       tree: OutlineTree(data, children: children),
       selection: selection,
       expansion: expansion ?? $internalExpansion,
+      behavior: behavior,
       rowContent: rowContent)
+  }
+}
+
+// MARK: - Behavior modifiers
+
+extension SnagOutline {
+  /// Decides which elements can be selected.
+  ///
+  /// Rows of elements that are not selectable ignore clicks and taps for selection; clicking an
+  /// expandable, non-selectable row toggles its expansion instead. Use this for grouping elements,
+  /// such as folders in a project list, that have no detail view of their own.
+  ///
+  /// Apply this modifier directly to the `SnagOutline`, before any other view modifier.
+  ///
+  /// - Parameter isSelectable: Returns whether an element can be selected. All elements are
+  ///   selectable by default.
+  public func outlineSelectable(_ isSelectable: @escaping (Element) -> Bool) -> Self {
+    var copy = self
+    copy.behavior.isSelectable = isSelectable
+    return copy
+  }
+
+  /// Performs an action when the user activates elements.
+  ///
+  /// The action runs on a double-click on macOS and on a tap on iOS. For outlines with selection,
+  /// it receives the selected elements when the activated row is part of the selection, otherwise
+  /// the activated element alone.
+  ///
+  /// On iOS, a tap then runs the action instead of selecting the row, as with SwiftUI's
+  /// `contextMenu(forSelectionType:menu:primaryAction:)`. Only add a primary action on iOS when
+  /// rows do not navigate through their selection.
+  ///
+  /// Apply this modifier directly to the `SnagOutline`, before any other view modifier.
+  ///
+  /// - Parameter action: Receives the identifiers of the activated elements.
+  public func outlinePrimaryAction(_ action: @escaping (Set<ID>) -> Void) -> Self {
+    var copy = self
+    copy.behavior.primaryAction = action
+    return copy
+  }
+}
+
+/// Optional behavior configured through `SnagOutline`'s modifiers.
+struct OutlineBehavior<Element: Identifiable> {
+  var isSelectable: ((Element) -> Bool)?
+  var primaryAction: ((Set<Element.ID>) -> Void)?
+
+  func canSelect(_ element: Element) -> Bool {
+    isSelectable?(element) ?? true
   }
 }
 

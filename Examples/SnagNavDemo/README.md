@@ -46,7 +46,9 @@ Then `import GMSnagNav` wherever you build your sidebar.
 | `SnagOutline` with selection and expansion bindings, expand/collapse all, revealing new items | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ SwiftUI renderer on both platforms; native `NSOutlineView` on macOS planned |
 | Drag and drop onto items, between rows and into the root | — | Planned |
 | Spring-loaded folders while dragging | — | Planned |
-| Context menus, primary action, non-selectable rows | — | Planned |
+| Non-selectable folders (toggle in the Outline menu); clicking them expands and collapses | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
+| Primary action: double-click toggles folders and "opens" documents (macOS) | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
+| Context menus for the selection | — | Planned |
 
 The key idea: the demo's `Library` store — not GMSnagNav — decides whether a move is allowed and
 performs it. Replace it with your Core Data, SwiftData or file-system layer in a real app.

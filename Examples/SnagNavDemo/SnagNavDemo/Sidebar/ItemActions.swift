@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Menu actions for one item, shared by the sidebar context menu and the detail view.
+/// Actions for one item in the detail view.
 ///
 /// "Move to" is the keyboard- and menu-friendly fallback for drag and drop, which every outline
 /// should offer for accessibility.
@@ -21,7 +21,6 @@ struct ItemActions: View {
         .disabled(!library.canMove(itemID, into: folder.item.id))
       }
     }
-    Divider()
     Button("Delete", systemImage: "trash", role: .destructive) {
       library.delete(itemID)
     }

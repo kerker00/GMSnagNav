@@ -11,9 +11,14 @@ struct ItemDetailView: View {
     if let item = library.item(itemID) {
       Form {
         Section {
-          TextField("Name", text: $name)
-            .onSubmit { library.rename(itemID, to: name) }
-            .accessibilityIdentifier("detail-name")
+          #if os(macOS)
+            nameField
+          #else
+            // iOS forms show a text field's title only as a placeholder, so label it explicitly.
+            LabeledContent("Name") {
+              nameField.multilineTextAlignment(.trailing)
+            }
+          #endif
           LabeledContent("Kind", value: item.isFolder ? "Folder" : "Document")
           LabeledContent("Location") {
             Text(library.path(to: itemID).joined(separator: " › "))
@@ -31,5 +36,11 @@ struct ItemDetailView: View {
       .navigationTitle(item.name)
       .onAppear { name = item.name }
     }
+  }
+
+  private var nameField: some View {
+    TextField("Name", text: $name)
+      .onSubmit { library.rename(itemID, to: name) }
+      .accessibilityIdentifier("detail-name")
   }
 }

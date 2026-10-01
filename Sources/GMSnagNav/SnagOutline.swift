@@ -224,6 +224,8 @@ struct OutlineBehavior<Element: Identifiable> where Element.ID: Sendable {
   var canDrag: ((Element) -> Bool)?
   var drop: OutlineDropHandler<Element.ID>?
   var duplicateIDs: ((Set<Element.ID>) -> Void)?
+  var leadingSwipeActions: OutlineSwipeActions<Element.ID>?
+  var trailingSwipeActions: OutlineSwipeActions<Element.ID>?
 
   func canSelect(_ element: Element) -> Bool {
     isSelectable?(element) ?? true

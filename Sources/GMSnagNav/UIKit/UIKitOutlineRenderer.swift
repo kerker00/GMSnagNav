@@ -59,7 +59,12 @@
     /// those changes are not mistaken for user interaction and written back into the bindings.
     private var isApplyingUpdate = false
 
-    static func layout(for style: SnagOutlineStyle) -> UICollectionViewCompositionalLayout {
+    /// A list layout in the style's appearance, asking `swipeActions` for each row's swipe
+    /// actions at the leading and trailing edge.
+    static func layout(
+      for style: SnagOutlineStyle,
+      swipeActions: ((IndexPath, HorizontalEdge) -> UISwipeActionsConfiguration?)? = nil
+    ) -> UICollectionViewCompositionalLayout {
       let appearance: UICollectionLayoutListConfiguration.Appearance =
         switch style {
         case .automatic, .sidebar: .sidebar
@@ -67,6 +72,10 @@
         }
       var configuration = UICollectionLayoutListConfiguration(appearance: appearance)
       configuration.backgroundColor = .clear
+      if let swipeActions {
+        configuration.leadingSwipeActionsConfigurationProvider = { swipeActions($0, .leading) }
+        configuration.trailingSwipeActionsConfigurationProvider = { swipeActions($0, .trailing) }
+      }
       return UICollectionViewCompositionalLayout.list(using: configuration)
     }
 
@@ -109,10 +118,13 @@
       defer { isApplyingUpdate = false }
 
       if appliedStyle != renderer.appearance.style {
-        if appliedStyle != nil {
-          collectionView.setCollectionViewLayout(
-            Self.layout(for: renderer.appearance.style), animated: false)
-        }
+        // Also on the first update: the layout from `makeUIView` cannot reach the coordinator for
+        // swipe actions yet.
+        collectionView.setCollectionViewLayout(
+          Self.layout(for: renderer.appearance.style) { [weak self] indexPath, edge in
+            self?.swipeActionsConfiguration(at: indexPath, edge: edge)
+          },
+          animated: false)
         appliedStyle = renderer.appearance.style
       }
       switch renderer.selection {
@@ -653,6 +665,39 @@
       return UIContextMenuConfiguration(actionProvider: { _ in
         UIMenu(children: Self.menuElements(for: items))
       })
+    }
+
+    // MARK: Swipe actions
+
+    /// The host's swipe actions for a row at one edge, or `nil` for no swipe.
+    func swipeActionsConfiguration(
+      at indexPath: IndexPath, edge: HorizontalEdge
+    ) -> UISwipeActionsConfiguration? {
+      let swipe =
+        switch edge {
+        case .leading: renderer?.behavior.leadingSwipeActions
+        case .trailing: renderer?.behavior.trailingSwipeActions
+        }
+      guard let swipe, let id = dataSource?.itemIdentifier(for: indexPath) else { return nil }
+      let actions = swipe.actions(id).compactMap(Self.contextualAction(for:))
+      guard !actions.isEmpty else { return nil }
+      let configuration = UISwipeActionsConfiguration(actions: actions)
+      configuration.performsFirstActionWithFullSwipe = swipe.allowsFullSwipe
+      return configuration
+    }
+
+    /// A swipe action for a menu action; `nil` for submenus, dividers and disabled actions,
+    /// which swiping has no place for.
+    static func contextualAction(for item: OutlineMenuItem) -> UIContextualAction? {
+      guard case .action(let perform) = item.kind, !item.isDisabled else { return nil }
+      let action = UIContextualAction(
+        style: item.isDestructive ? .destructive : .normal, title: item.title
+      ) { _, _, completion in
+        MainActor.assumeIsolated { perform() }
+        completion(true)
+      }
+      action.image = item.systemImage.flatMap { UIImage(systemName: $0) }
+      return action
     }
 
     /// Converts menu items to UIKit menu elements; dividers start inline sections.

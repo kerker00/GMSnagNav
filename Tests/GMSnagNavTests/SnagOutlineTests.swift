@@ -128,6 +128,26 @@ import Testing
     #expect(reported == [["c"]])
   }
 
+  @Test func storesSwipeActionsPerEdge() throws {
+    var swiped: String?
+    let outline = SnagOutline(sampleRoots, children: \.children) { Text($0.id) }
+      .outlineSwipeActions { id in [.action("Delete") { swiped = id }] }
+      .outlineSwipeActions(edge: .leading, allowsFullSwipe: false) { _ in [] }
+
+    let trailing = try #require(outline.behavior.trailingSwipeActions)
+    let leading = try #require(outline.behavior.leadingSwipeActions)
+    #expect(trailing.allowsFullSwipe)
+    #expect(!leading.allowsFullSwipe)
+    #expect(leading.actions("c").isEmpty)
+    let actions = trailing.actions("c")
+    guard case .action(let perform) = actions.first?.kind else {
+      Issue.record("Expected an action")
+      return
+    }
+    perform()
+    #expect(swiped == "c")
+  }
+
   @Test func storesMenuItemsAndDerivesASwiftUIMenu() {
     var requested: Set<String>?
     let outline = SnagOutline(sampleRoots, children: \.children) { Text($0.id) }

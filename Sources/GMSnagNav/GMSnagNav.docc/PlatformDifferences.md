@@ -32,6 +32,12 @@ On iPhone, a tap usually opens the detail of a collapsed `NavigationSplitView`. 
 ``SwiftUICore/View/outlineCompactNavigation(selection:column:)`` for that instead of a primary
 action.
 
+### Swipe actions
+
+``SnagOutline/outlineSwipeActions(edge:allowsFullSwipe:_:)`` shows actions when the user swipes a
+row on iOS and iPadOS, at the leading or trailing edge, like in Mail. macOS shows no swipe
+actions, so offer the same actions in a context menu there.
+
 ### Context menus
 
 Both context menu modifiers receive the same identifiers: the selection when the pressed row is

@@ -25,6 +25,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `outlineContextMenuItems(_:)` with `OutlineMenuItem` (actions, submenus, dividers) for a native
   context menu on both platforms. On iOS it shares the long press with dragging, like the Files
   app: moving the finger drags the row, holding it still opens the menu.
+- `outlineSwipeActions(edge:allowsFullSwipe:_:)` for actions that appear when swiping a row on
+  iOS and iPadOS, such as deleting it.
 - `outlineStyle(_:)` with `SnagOutlineStyle` (automatic, sidebar, plain) and
   `outlineIndentation(_:)`.
 - `outlineAppKitConfiguration(_:)` on macOS to customize the underlying `NSOutlineView`.

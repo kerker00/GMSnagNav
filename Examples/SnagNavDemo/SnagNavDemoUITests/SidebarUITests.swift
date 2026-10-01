@@ -207,6 +207,10 @@ final class SidebarUITests: XCTestCase {
     }
 
     func testLongPressShowsTheContextMenu() {
+      // Without animations, the app becomes idle while the menu is open.
+      app.terminate()
+      app.launchArguments.append("-disable-animations")
+      app.launch()
       let inbox = row("Inbox")
       XCTAssertTrue(inbox.waitForExistence(timeout: 5))
       inbox.press(forDuration: 1.2)

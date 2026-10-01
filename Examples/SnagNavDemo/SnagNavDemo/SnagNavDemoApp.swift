@@ -2,6 +2,8 @@ import SwiftUI
 
 #if os(macOS)
   import AppKit
+#else
+  import UIKit
 #endif
 
 @main
@@ -23,6 +25,13 @@ struct SnagNavDemoApp: App {
     if isUITesting, let domain = Bundle.main.bundleIdentifier {
       UserDefaults.standard.removePersistentDomain(forName: domain)
     }
+    #if os(iOS)
+      // An open context menu keeps animating, so UI tests that open one would wait a minute for
+      // the app to become idle.
+      if CommandLine.arguments.contains("-disable-animations") {
+        UIView.setAnimationsEnabled(false)
+      }
+    #endif
   }
 
   #if os(macOS)

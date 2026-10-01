@@ -16,6 +16,7 @@
       var primaryAction: ((Set<String>) -> Void)?
       var springLoading = SpringLoadingBehavior.automatic
       var drop: OutlineDropHandler<String>?
+      var trailingSwipeActions: OutlineSwipeActions<String>?
     }
 
     let host = Host()
@@ -34,6 +35,7 @@
       behavior.isSelectable = host.isSelectable
       behavior.primaryAction = host.primaryAction
       behavior.drop = host.drop
+      behavior.trailingSwipeActions = host.trailingSwipeActions
       coordinator.update(
         with: UIKitOutlineRenderer(
           tree: OutlineTree(host.roots, children: \.children),
@@ -326,6 +328,43 @@
       #expect(
         coordinator.indicator(for: .insert(into: "a", at: 0), near: (1, 0.1), in: rows)
           == .line("a1", atBottom: false, depth: 1))
+    }
+
+    @Test func offersTheHostsSwipeActionsForARow() throws {
+      var deleted: String?
+      host.trailingSwipeActions = OutlineSwipeActions(
+        actions: { id in
+          [
+            .action("Delete", systemImage: "trash", role: .destructive) { deleted = id },
+            .action("Flag", isDisabled: true) {},
+            .menu("More", children: []),
+            .divider,
+            .action("Pin") {},
+          ]
+        },
+        allowsFullSwipe: false)
+      update()
+
+      // Row 2 is c.
+      let configuration = try #require(
+        coordinator.swipeActionsConfiguration(at: IndexPath(item: 2, section: 0), edge: .trailing))
+      #expect(configuration.actions.map(\.title) == ["Delete", "Pin"])
+      #expect(configuration.actions.first?.style == .destructive)
+      #expect(configuration.actions.last?.style == .normal)
+      #expect(configuration.actions.first?.image != nil)
+      #expect(!configuration.performsFirstActionWithFullSwipe)
+
+      let delete = try #require(configuration.actions.first)
+      delete.handler(delete, UIView()) { _ in }
+      #expect(deleted == "c")
+    }
+
+    @Test func offersNoSwipeWithoutActions() {
+      host.trailingSwipeActions = OutlineSwipeActions(actions: { _ in [] }, allowsFullSwipe: true)
+      update()
+      let row = IndexPath(item: 0, section: 0)
+      #expect(coordinator.swipeActionsConfiguration(at: row, edge: .trailing) == nil)
+      #expect(coordinator.swipeActionsConfiguration(at: row, edge: .leading) == nil)
     }
 
     @Test func convertsMenuItemsToUIKitMenus() {

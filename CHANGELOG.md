@@ -7,9 +7,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-01
+
+The first release: a native, drag-and-drop capable outline for SwiftUI on macOS, iOS and iPadOS.
+It requires macOS 26 or iOS 26 and Swift 6.2.
+
 ### Added
 
-- Swift package skeleton for macOS 26 and iOS 26.
 - `SnagOutline`, a SwiftUI view for nested outlines of the host's own data, with single, multiple
   or no selection and an optional expansion binding. Children are read through a key path or a
   closure. It renders natively on both platforms: with an `NSOutlineView` in source-list style on
@@ -50,3 +54,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   in debug builds.
 - English and German texts for what VoiceOver reads on iOS. They follow the host app's language.
 - `SnagNavDemo`, a multiplatform demo app in `Examples/`.
+
+[Unreleased]: https://github.com/kerker00/GMSnagNav/compare/0.1.0...HEAD
+[0.1.0]: https://github.com/kerker00/GMSnagNav/releases/tag/0.1.0

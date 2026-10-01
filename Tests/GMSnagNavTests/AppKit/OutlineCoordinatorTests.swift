@@ -182,9 +182,10 @@
 
     @Test func showsNoDisclosureForEmptyContainers() throws {
       update()
+      let a = try #require(item("a"))
       let b = try #require(item("b"))
       #expect(!outlineView.isExpandable(b))
-      #expect(outlineView.isExpandable(try #require(item("a"))))
+      #expect(outlineView.isExpandable(a))
     }
 
     @Test func appliesAndWritesSingleSelection() {
@@ -282,24 +283,16 @@
     @Test func resolvesDraggedElementsFromTokensOnThePasteboard() {
       host.canDrag = { _ in true }
       update()
-      let writers = ["c", "a"].compactMap(writer(for:))
+      let writers = ["c", "a"].compactMap { writer(for: $0) as? NSPasteboardItem }
       #expect(writers.count == 2)
-      let pasteboard = NSPasteboard(name: NSPasteboard.Name("GMSnagNavTests-\(UUID().uuidString)"))
-      defer { pasteboard.releaseGlobally() }
-      pasteboard.clearContents()
-      pasteboard.writeObjects(writers)
-      #expect(coordinator.draggedIDs(on: pasteboard) == ["c", "a"])
+      #expect(coordinator.draggedIDs(in: writers) == ["c", "a"])
     }
 
     @Test func ignoresForeignPasteboardContent() {
       update()
-      let pasteboard = NSPasteboard(name: NSPasteboard.Name("GMSnagNavTests-\(UUID().uuidString)"))
-      defer { pasteboard.releaseGlobally() }
-      pasteboard.clearContents()
       let foreign = NSPasteboardItem()
       foreign.setString("not-a-token", forType: OutlineCoordinator<TestItem, Text>.draggedRowType)
-      pasteboard.writeObjects([foreign])
-      #expect(coordinator.draggedIDs(on: pasteboard).isEmpty)
+      #expect(coordinator.draggedIDs(in: [foreign]).isEmpty)
     }
 
     private func acceptAll(

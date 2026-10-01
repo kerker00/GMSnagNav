@@ -446,7 +446,12 @@
 
     /// The elements of this outline that are being dragged on `pasteboard`, in pasteboard order.
     func draggedIDs(on pasteboard: NSPasteboard) -> [ID] {
-      (pasteboard.pasteboardItems ?? []).compactMap { item in
+      draggedIDs(in: pasteboard.pasteboardItems ?? [])
+    }
+
+    /// Resolves this outline's private drag tokens without depending on a pasteboard server.
+    func draggedIDs(in items: [NSPasteboardItem]) -> [ID] {
+      items.compactMap { item in
         item.string(forType: Self.draggedRowType).flatMap { draggedIDsByToken[$0] }
       }
     }

@@ -5,5 +5,5 @@
 /// supplies the interaction mechanics.
 public enum GMSnagNav {
   /// The version of the package, following Semantic Versioning.
-  public static let version = "0.0.0"
+  public static let version = "0.1.0"
 }

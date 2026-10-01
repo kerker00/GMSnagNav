@@ -21,9 +21,6 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/kerker00/GMSnagNav" alt="License"></a>
 </p>
 
-> **Status: pre-release.** The API is under active development and will change before `0.1.0`.
-> It is not ready for production use yet.
-
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/macos-dark.png">
@@ -84,8 +81,6 @@ dependencies: [
     .package(url: "https://github.com/kerker00/GMSnagNav.git", from: "0.1.0")
 ]
 ```
-
-> No release has been tagged yet. Until then, depend on a specific commit.
 
 ## Usage
 
@@ -166,7 +161,7 @@ The package's DocC catalog documents the whole API. Build it in Xcode with
 
 ## Roadmap
 
-GMSnagNav is heading for its first release, `0.1.0`. Ideas for later versions, all planned to be
+Ideas for versions after `0.1.0`, all planned to be
 backward compatible:
 
 - Drops from other apps, such as file URLs

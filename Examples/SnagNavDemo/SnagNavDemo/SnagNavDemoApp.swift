@@ -38,7 +38,7 @@ struct SnagNavDemoApp: App {
     private static func resizeWindowForUITests() {
       DispatchQueue.main.async {
         guard let window = NSApplication.shared.windows.first(where: \.isVisible) else { return }
-        window.setFrame(NSRect(x: 80, y: 80, width: 960, height: 700), display: true)
+        window.setFrame(NSRect(x: 80, y: 80, width: 960, height: 760), display: true)
       }
     }
   #endif

@@ -15,9 +15,8 @@
 
 <p align="center">
   <a href="https://github.com/kerker00/GMSnagNav/actions/workflows/ci.yml?query=event%3Apull_request"><img src="https://github.com/kerker00/GMSnagNav/actions/workflows/ci.yml/badge.svg?event=pull_request" alt="CI"></a>
-  <img src="https://img.shields.io/badge/Swift-6.2-F05138?logo=swift&amp;logoColor=white" alt="Swift 6.2">
-  <img src="https://img.shields.io/badge/platforms-macOS%2026%20%7C%20iOS%2026-0A84FF" alt="Platforms: macOS 26 and iOS 26">
-  <img src="https://img.shields.io/badge/SwiftPM-compatible-34C759" alt="Swift Package Manager compatible">
+  <a href="https://swiftpackageindex.com/kerker00/GMSnagNav"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fkerker00%2FGMSnagNav%2Fbadge%3Ftype%3Dswift-versions" alt="Swift versions"></a>
+  <a href="https://swiftpackageindex.com/kerker00/GMSnagNav"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fkerker00%2FGMSnagNav%2Fbadge%3Ftype%3Dplatforms" alt="Platforms"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/kerker00/GMSnagNav" alt="License"></a>
 </p>
 
@@ -149,15 +148,15 @@ macOS and an iPad simulator, in light and dark appearance.
 
 ## Documentation
 
-The package's DocC catalog documents the whole API. Build it in Xcode with
-**Product > Build Documentation**, or start with these articles:
+The [documentation](https://swiftpackageindex.com/kerker00/GMSnagNav/documentation/gmsnagnav) on the Swift Package Index covers the whole API; in Xcode, build it
+with **Product > Build Documentation**. Start with these articles:
 
-- [Drag and Drop](Sources/GMSnagNav/GMSnagNav.docc/DragAndDrop.md) — reading proposals,
-  validating, redirecting and performing drops.
-- [Platform Differences](Sources/GMSnagNav/GMSnagNav.docc/PlatformDifferences.md) — where macOS
-  and iOS behave differently, following the conventions of each platform.
-- [Designing a Sidebar](Sources/GMSnagNav/GMSnagNav.docc/DesigningASidebar.md) — recommendations
-  for the app around the outline, after Mario Guzmán's Mac design guidelines.
+- [Drag and Drop](https://swiftpackageindex.com/kerker00/GMSnagNav/documentation/gmsnagnav/draganddrop) — reading proposals, validating, redirecting and performing
+  drops.
+- [Platform Differences](https://swiftpackageindex.com/kerker00/GMSnagNav/documentation/gmsnagnav/platformdifferences) — where macOS and iOS behave differently,
+  following the conventions of each platform.
+- [Designing a Sidebar](https://swiftpackageindex.com/kerker00/GMSnagNav/documentation/gmsnagnav/designingasidebar) — recommendations for the app around the
+  outline, after Mario Guzmán's Mac design guidelines.
 
 ## Roadmap
 

@@ -218,6 +218,16 @@ final class SidebarUITests: XCTestCase {
       XCTAssertTrue(app.buttons["Move to"].exists)
     }
 
+    func testSwipingARowLeftDeletesIt() {
+      let ideas = cell(containing: "Ideas")
+      XCTAssertTrue(ideas.waitForExistence(timeout: 5))
+      ideas.swipeLeft()
+      let delete = app.buttons["Delete"].firstMatch
+      XCTAssertTrue(delete.waitForExistence(timeout: 5), "No swipe action appeared")
+      delete.tap()
+      XCTAssertTrue(row("Ideas").waitForNonExistence(timeout: 5))
+    }
+
     func testDroppingARowOntoAFolderMovesItInside() {
       // Archive is an empty folder, so only a drop onto it can place Inbox inside.
       drag("Inbox", to: "Archive")

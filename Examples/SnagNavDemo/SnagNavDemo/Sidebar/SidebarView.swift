@@ -214,6 +214,10 @@ struct SidebarView: View {
     }
     .outlineSelectable { item in foldersSelectable || !item.isFolder }
     .outlineContextMenuItems { ids in menuItems(for: ids) }
+    // iOS only: swiping a row to the left deletes it, like in Mail.
+    .outlineSwipeActions { id in
+      [.action("Delete", systemImage: "trash", role: .destructive) { delete(id) }]
+    }
     .outlineStyle(style.outlineStyle)
     .outlineIndentation(indentationStep.width)
     .outlineDraggable { _ in !isSearching }
@@ -336,6 +340,11 @@ struct SidebarView: View {
 
   private func newDocument() {
     add(.document("New Document"), near: selection)
+  }
+
+  private func delete(_ id: LibraryItem.ID) {
+    library.delete(id)
+    if selection == id { selection = nil }
   }
 
   private func deleteSelection() {

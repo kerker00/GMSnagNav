@@ -1,0 +1,6 @@
+version: 1
+builder:
+  configs:
+    # GMSnagNav needs SwiftUI with AppKit or UIKit, so its documentation builds on macOS.
+    - documentation_targets: [GMSnagNav]
+      platform: macos-spm

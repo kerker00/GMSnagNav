@@ -18,6 +18,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Revealing the app's selection is on by default. Pass `false` to `outlineRevealsSelection(_:)`
   to keep the expansion exactly as the user left it.
 
+### Fixed
+
+- Renaming in place on iOS and iPadOS starts with the whole name selected, so typing replaces it.
+  UIKit dropped the selection when the text field became first responder and put the cursor at
+  the end.
+- Section headers on iOS and iPadOS open their context menu when pressed anywhere in the row, not
+  only on the title.
+
 ## [0.2.0] - 2026-10-04
 
 Sidebars that feel at home on macOS: sections, renaming in place, type select, copying by

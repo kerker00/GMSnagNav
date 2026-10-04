@@ -150,14 +150,29 @@ private struct OutlineRenameField: View {
       .onExitCommand { end(commit: false, returnsFocus: true) }
     #endif
     .onChange(of: isFocused) {
-      // Clicking elsewhere ends renaming and keeps the new name, as in the Finder; the focus
-      // stays where the user moved it.
-      if !isFocused { end(commit: true, returnsFocus: false) }
+      if isFocused {
+        selectAll()
+      } else {
+        // Clicking elsewhere ends renaming and keeps the new name, as in the Finder; the focus
+        // stays where the user moved it.
+        end(commit: true, returnsFocus: false)
+      }
     }
     .onAppear {
-      selection = TextSelection(range: name.startIndex..<name.endIndex)
+      selectAll()
       isFocused = true
     }
+  }
+
+  /// Selects the whole name, so typing replaces it.
+  private func selectAll() {
+    #if os(iOS)
+      // UIKit puts the cursor at the end once the field becomes first responder, which drops a
+      // selection made before; selecting after that keeps it.
+      DispatchQueue.main.async { selection = TextSelection(range: name.startIndex..<name.endIndex) }
+    #else
+      selection = TextSelection(range: name.startIndex..<name.endIndex)
+    #endif
   }
 
   private func end(commit: Bool, returnsFocus: Bool) {

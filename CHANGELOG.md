@@ -7,6 +7,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-04
+
+Sidebars that feel at home on macOS: sections, renaming in place, type select, copying by
+dragging with the Option key, and empty states. Everything is opt-in; existing outlines behave as
+before.
+
 ### Added
 
 - `OutlineDropProposal.isCopyRequested`, set on macOS while the user holds the Option key during a
@@ -15,6 +21,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `outlineEmptyContent(_:)` to show content such as a `ContentUnavailableView` while the outline
   has no elements. It lets clicks and drops through, so dropping onto the root level and the
   context menu for empty space keep working.
+- `outlineTypeSelect(_:)` to select a row by typing the start of its text on macOS, as in the
+  Finder. Rows that cannot be selected are skipped.
+- `outlineSections(_:)` to show top-level elements as section headers, like "Favorites" in the
+  Finder's sidebar: group rows on macOS and bold headings on iOS, never selected, collapsible
+  through the expansion binding, and draggable when `outlineDraggable(_:)` allows it.
+- `outlineRenaming(_:canRename:onRename:)` to rename elements in a text field within their row,
+  started through a binding and, on macOS, with Return as in the Finder: while it is on, Return
+  renames a single selected row instead of running the primary action, which stays on
+  double-click. `OutlineLabel` and section headers turn into the text field by themselves;
+  `OutlineRenamableText` does the same in custom rows.
 
 ## [0.1.1] - 2026-10-02
 
@@ -71,6 +87,7 @@ It requires macOS 26 or iOS 26 and Swift 6.2.
 - English and German texts for what VoiceOver reads on iOS. They follow the host app's language.
 - `SnagNavDemo`, a multiplatform demo app in `Examples/`.
 
-[Unreleased]: https://github.com/kerker00/GMSnagNav/compare/0.1.1...HEAD
+[Unreleased]: https://github.com/kerker00/GMSnagNav/compare/0.2.0...HEAD
+[0.2.0]: https://github.com/kerker00/GMSnagNav/releases/tag/0.2.0
 [0.1.1]: https://github.com/kerker00/GMSnagNav/releases/tag/0.1.1
 [0.1.0]: https://github.com/kerker00/GMSnagNav/releases/tag/0.1.0

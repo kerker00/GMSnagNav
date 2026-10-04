@@ -7,15 +7,28 @@
     /// The horizontal distance between two nesting levels.
     let indentation: CGFloat
     let isExpanded: Bool
+    /// The title of a section header, shown instead of the host's content; `nil` for other rows.
+    var sectionTitle: String?
     let toggle: () -> Void
     let content: Content
 
     var body: some View {
-      HStack(spacing: 4) {
-        disclosure
-        content
+      Group {
+        if let sectionTitle {
+          // Like the headers of a sidebar list: the title, with the disclosure at the trailing edge.
+          HStack(spacing: 4) {
+            OutlineSectionHeader(title: sectionTitle)
+            Spacer(minLength: 0)
+            disclosure
+          }
+        } else {
+          HStack(spacing: 4) {
+            disclosure
+            content
+          }
+          .padding(.leading, CGFloat(row.depth) * indentation)
+        }
       }
-      .padding(.leading, CGFloat(row.depth) * indentation)
       .accessibilityElement(children: .combine)
       .modifier(ExpansionAccessibility(row: row, toggle: toggle))
     }

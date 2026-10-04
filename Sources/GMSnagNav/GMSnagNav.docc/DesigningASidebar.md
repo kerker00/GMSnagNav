@@ -17,6 +17,12 @@ consider whether part of it belongs in the content column, or in a second list, 
 the sidebar. GMSnagNav handles any depth, so this is a decision about your data, not a limit of
 the outline.
 
+Group the top level into sections when it holds different kinds of items, like "Favorites" and
+"Locations" in the Finder. ``SnagOutline/outlineSections(_:)`` shows top-level elements as section
+headers whose entries are not indented, so sections organize the sidebar without adding a
+visible level of nesting. Keep the number of sections small, and let people hide the ones they
+don't need.
+
 ### Make actions available in more than one place
 
 - **Bottom bar:** On macOS, keep the toolbar above the sidebar for the sidebar toggle and put

@@ -19,7 +19,11 @@ struct ItemDetailView: View {
   }
 
   private func kind(of item: LibraryItem) -> String {
-    item.isFolder ? "Folder" : "Document"
+    switch item.kind {
+    case .section: "Section"
+    case .folder: "Folder"
+    case .document: "Document"
+    }
   }
 
   private var location: some View {

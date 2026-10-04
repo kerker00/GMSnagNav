@@ -61,6 +61,12 @@ import Testing
     #expect(outline.behavior.emptyContent != nil)
   }
 
+  @Test func storesTypeSelectText() {
+    let outline = SnagOutline(sampleRoots, children: \.children) { Text($0.id) }
+      .outlineTypeSelect { $0.id.uppercased() }
+    #expect(outline.behavior.typeSelectText?(.leaf("c")) == "C")
+  }
+
   @Test func appliesAppearanceModifiers() {
     let outline = SnagOutline(sampleRoots, children: \.children) { Text($0.id) }
     #expect(outline.appearance.style == .automatic)

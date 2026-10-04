@@ -13,6 +13,9 @@ import SwiftUI
 /// A title that does not fit ends in an ellipsis, and resting the pointer on it shows the whole
 /// title in a tooltip, like the rows of native sidebars on macOS. A title that fits shows no
 /// tooltip. On iPhone, which has no pointer, it behaves like a plain `Label`.
+///
+/// While its row is being renamed — see `outlineRenaming(_:canRename:onRename:)` — the title
+/// turns into a text field.
 public struct OutlineLabel: View {
   private let title: String
   private let systemImage: String
@@ -23,20 +26,30 @@ public struct OutlineLabel: View {
     self.systemImage = systemImage
   }
 
+  @Environment(\.outlineRenameSession) private var renameSession
+
   /// The content of the label.
   public var body: some View {
     Label {
-      // Pure SwiftUI on purpose: an AppKit text field in a row breaks the row's context menu.
-      ViewThatFits(in: .horizontal) {
-        Text(title)
-          .fixedSize()
-        Text(title)
-          .lineLimit(1)
-          .truncationMode(.tail)
-          .help(title)
+      if renameSession != nil {
+        OutlineRenamableText(title)
+      } else {
+        fittingTitle
       }
     } icon: {
       Image(systemName: systemImage)
+    }
+  }
+
+  private var fittingTitle: some View {
+    // Pure SwiftUI on purpose: an AppKit text field in a row breaks the row's context menu.
+    ViewThatFits(in: .horizontal) {
+      Text(title)
+        .fixedSize()
+      Text(title)
+        .lineLimit(1)
+        .truncationMode(.tail)
+        .help(title)
     }
   }
 }

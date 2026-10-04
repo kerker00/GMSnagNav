@@ -168,9 +168,15 @@
         return
       }
 
-      // The data source already answers with the new snapshot; every step keeps the outline
-      // consistent with it for the rows it has touched so far.
+      // Starting the update can make AppKit load rows it has not cached yet — for example to ask
+      // the delegate which rows are group rows — while its row counts still describe the old
+      // snapshot. Let the data source answer with that snapshot until the update has begun.
+      let newTree = tree
+      tree = oldTree
       outlineView.beginUpdates()
+      tree = newTree
+      // From here on the data source answers with the new snapshot; every step keeps the outline
+      // consistent with it for the rows it has touched so far.
       for change in changes {
         switch change {
         case .remove(let parent, let index):
@@ -207,10 +213,19 @@
     /// The host's row content for an element, with the context menu attached.
     private func rowContent(for id: ID) -> AnyView? {
       guard let renderer, let element = tree.element(id) else { return nil }
-      let content = renderer.rowContent(element)
-      guard let menu = renderer.behavior.contextMenu else { return AnyView(content) }
+      let content =
+        if let title = renderer.behavior.sectionTitle(of: id, in: tree) {
+          AnyView(OutlineSectionHeader(title: title))
+        } else {
+          AnyView(renderer.rowContent(element))
+        }
+      let session = renderer.behavior.renameSession(for: id, in: tree) { [weak self] in
+        self?.takeFocusBack()
+      }
+      let row = AnyView(content.environment(\.outlineRenameSession, session))
+      guard let menu = renderer.behavior.contextMenu else { return row }
       let ids = activatedIDs(for: id)
-      return AnyView(content.contextMenu { menu(ids) })
+      return AnyView(row.contextMenu { menu(ids) })
     }
 
     /// Applies the style, the host's configuration and the indentation.
@@ -491,10 +506,30 @@
       guard let renderer else { return [] }
       if case .none = renderer.selection { return [] }
       return proposedSelectionIndexes.filteredIndexSet { row in
-        guard let id = id(of: outlineView.item(atRow: row)), let element = tree.element(id)
-        else { return false }
-        return renderer.behavior.canSelect(element)
+        guard let id = id(of: outlineView.item(atRow: row)) else { return false }
+        return renderer.behavior.canSelect(id, in: tree)
       }
+    }
+
+    func outlineView(
+      _ outlineView: NSOutlineView, typeSelectStringFor tableColumn: NSTableColumn?, item: Any
+    ) -> String? {
+      typeSelectText(for: id(of: item))
+    }
+
+    /// The text that type select matches for an element, or `nil` to skip its row: without the
+    /// host's text, and for rows that cannot be selected.
+    func typeSelectText(for id: ID?) -> String? {
+      guard let renderer, let text = renderer.behavior.typeSelectText,
+        let id, let element = tree.element(id), renderer.behavior.canSelect(id, in: tree)
+      else { return nil }
+      if case .none = renderer.selection { return nil }
+      return text(element)
+    }
+
+    func outlineView(_ outlineView: NSOutlineView, isGroupItem item: Any) -> Bool {
+      guard let renderer, let id = id(of: item) else { return false }
+      return renderer.behavior.sectionTitle(of: id, in: tree) != nil
     }
 
     func outlineViewSelectionDidChange(_ notification: Notification) {
@@ -549,8 +584,7 @@
       guard let renderer, let outlineView else { return }
       let row = outlineView.clickedRow
       guard row >= 0, let id = id(of: outlineView.item(atRow: row)),
-        let element = tree.element(id),
-        !renderer.behavior.canSelect(element), !tree.children(of: id).isEmpty
+        !renderer.behavior.canSelect(id, in: tree), !tree.children(of: id).isEmpty
       else { return }
 
       // The disclosure triangle toggles on its own; do not toggle a second time.
@@ -580,11 +614,30 @@
       primaryAction(activatedIDs(for: id))
     }
 
-    /// Runs the primary action for the selection; returns whether it handled the key press.
-    private func handleReturn() -> Bool {
-      guard let renderer, let primaryAction = renderer.behavior.primaryAction else { return false }
+    /// Makes the outline the first responder again after renaming ended with the keyboard;
+    /// otherwise no view keeps the focus, the selection turns gray, and Return no longer reaches
+    /// the outline.
+    private func takeFocusBack() {
+      // After SwiftUI has removed the text field, which would otherwise keep the focus.
+      Task { @MainActor [weak self] in
+        guard let outlineView = self?.outlineView else { return }
+        outlineView.window?.makeFirstResponder(outlineView)
+      }
+    }
+
+    /// Renames the selected row, as in the Finder, or runs the primary action for the selection;
+    /// returns whether it handled the key press.
+    func handleReturn() -> Bool {
+      guard let renderer else { return false }
       let selected = selectedIDs(in: renderer.selection)
-      guard !selected.isEmpty else { return false }
+      if selected.count == 1, let id = selected.first,
+        renderer.behavior.startRenaming(id, in: tree)
+      {
+        return true
+      }
+      guard let primaryAction = renderer.behavior.primaryAction, !selected.isEmpty else {
+        return false
+      }
       primaryAction(selected)
       return true
     }

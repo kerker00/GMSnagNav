@@ -2,6 +2,7 @@ import SwiftUI
 
 /// The sidebar's actions, published to the menu bar while its window is active.
 struct SidebarActions {
+  let newSection: () -> Void
   let newFolder: () -> Void
   let newDocument: () -> Void
   /// Deletes the selected item, or `nil` while nothing is selected.
@@ -28,6 +29,8 @@ struct DemoCommands: Commands {
     SidebarCommands()
 
     CommandGroup(after: .newItem) {
+      Button("New Section") { actions?.newSection() }
+        .disabled(actions == nil)
       Button("New Folder") { actions?.newFolder() }
         .keyboardShortcut("n", modifiers: [.command, .shift])
         .disabled(actions == nil)

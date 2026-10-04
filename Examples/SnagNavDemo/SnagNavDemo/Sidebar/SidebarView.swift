@@ -25,6 +25,8 @@ struct SidebarView: View {
   @State private var openedDocument: String?
   /// Items waiting for the user to confirm their deletion, because they contain other items.
   @State private var pendingDeletion: [LibraryItem.ID] = []
+  /// The item being renamed in its row.
+  @State private var renamingID: LibraryItem.ID?
   @AppStorage("foldersSelectable") private var foldersSelectable = true
   @AppStorage("outlineStyle") private var style = DemoOutlineStyle.automatic
   @AppStorage("indentationStep") private var indentationStep = IndentationStep.regular
@@ -97,7 +99,8 @@ struct SidebarView: View {
       delete = { deleteSelection() }
     }
     return SidebarActions(
-      newFolder: { newFolder() }, newDocument: { newDocument() }, deleteSelection: delete,
+      newSection: { newSection() }, newFolder: { newFolder() }, newDocument: { newDocument() },
+      deleteSelection: delete,
       expandAll: { expandAll() }, collapseAll: { collapseAll() })
   }
 
@@ -122,6 +125,7 @@ struct SidebarView: View {
   }
 
   @ViewBuilder private var addMenuContent: some View {
+    Button("New Section", systemImage: "rectangle.stack.badge.plus", action: newSection)
     Button("New Folder", systemImage: "folder.badge.plus", action: newFolder)
     Button("New Document", systemImage: "doc.badge.plus", action: newDocument)
   }
@@ -141,7 +145,7 @@ struct SidebarView: View {
           .menuStyle(.button)
           .menuIndicator(.hidden)
           .frame(width: 31, height: 18)
-          .help("Add a folder or document")
+          .help("Add a section, folder or document")
           .accessibilityLabel("Add")
 
           Button(action: deleteSelection) {
@@ -211,6 +215,13 @@ struct SidebarView: View {
         .accessibilityIdentifier("sidebar-row-\(item.name)")
     }
     .outlineSelectable { item in foldersSelectable || !item.isFolder }
+    // Top-level sections, like "Favorites" in the Finder; the outline draws their headers.
+    .outlineSections { item in item.isSection ? item.name : nil }
+    // Renaming in the row: from the context menu, and on macOS with Return, as in the Finder.
+    // Sections are never selected, so this is their only way to be renamed.
+    .outlineRenaming($renamingID) { id, name in library.rename(id, to: name) }
+    // macOS: typing letters selects the next matching row, as in the Finder.
+    .outlineTypeSelect { item in item.name }
     .outlineContextMenuItems { ids in menuItems(for: ids) }
     // iOS only: swiping a row to the left deletes it, like in Mail.
     .outlineSwipeActions { id in
@@ -273,6 +284,7 @@ struct SidebarView: View {
         }
       return addMenuItems(near: id) + [
         .divider,
+        .action("Rename", systemImage: "pencil") { renamingID = id },
         .menu("Move to", systemImage: "folder", children: destinations),
         .divider,
         .action("Delete", systemImage: "trash", role: .destructive) { requestDelete([id]) },
@@ -289,6 +301,7 @@ struct SidebarView: View {
   /// "New Folder" and "New Document", adding into `id` if it is a folder, and next to it otherwise.
   private func addMenuItems(near id: LibraryItem.ID?) -> [OutlineMenuItem] {
     [
+      .action("New Section", systemImage: "rectangle.stack.badge.plus") { newSection() },
       .action("New Folder", systemImage: "folder.badge.plus") {
         add(.folder("New Folder"), near: id)
       },
@@ -342,6 +355,14 @@ struct SidebarView: View {
     expansion = []
   }
 
+  /// Adds a section at the end of the top level and asks for its name; sections are never
+  /// selected, so they cannot be renamed in the detail view.
+  private func newSection() {
+    let id = library.add(.section("New Section"), into: nil)
+    expansion.insert(id)
+    renamingID = id
+  }
+
   private func newFolder() {
     add(.folder("New Folder"), near: selection)
   }
@@ -372,13 +393,15 @@ struct SidebarView: View {
   }
 
   /// Adds the item into `id` if it is a folder and next to it otherwise, or at the root level for
-  /// `nil`, then opens the folder and selects the new item so it is visible.
+  /// `nil`, then opens the folder, selects the new item and lets the user name it, as in the
+  /// Finder.
   private func add(_ item: LibraryItem, near id: LibraryItem.ID?) {
     let folder = id.flatMap { library.item($0)?.isFolder == true ? $0 : library.parent(of: $0) }
     if let folder {
       expansion.insert(folder)
     }
     selection = library.add(item, into: folder)
+    renamingID = item.id
   }
 }
 

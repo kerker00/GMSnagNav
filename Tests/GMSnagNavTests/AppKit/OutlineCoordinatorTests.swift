@@ -22,6 +22,10 @@
       var drop: OutlineDropHandler<String>?
       var springLoading = SpringLoadingBehavior.automatic
       var reportedDuplicates: [Set<String>] = []
+      var typeSelectText: ((TestItem) -> String?)?
+      var sectionTitle: ((TestItem) -> String?)?
+      var renaming: String?
+      var canRename: ((TestItem) -> Bool)?
     }
 
     let host = Host()
@@ -43,6 +47,13 @@
       behavior.canDrag = host.canDrag
       behavior.drop = host.drop
       behavior.duplicateIDs = { host.reportedDuplicates.append($0) }
+      behavior.typeSelectText = host.typeSelectText
+      behavior.sectionTitle = host.sectionTitle
+      if let canRename = host.canRename {
+        behavior.renaming = OutlineRenameHandler(
+          renaming: Binding(get: { host.renaming }, set: { host.renaming = $0 }),
+          canRename: canRename, onRename: { _, _ in })
+      }
       let selection: OutlineSelection<String> =
         multipleSelection
         ? .multiple(Binding(get: { host.multiple }, set: { host.multiple = $0 }))
@@ -67,6 +78,21 @@
     private func item(_ id: String) -> Any? {
       (0..<outlineView.numberOfRows).lazy.compactMap { outlineView.item(atRow: $0) }
         .first { ($0 as? NodeBox<String>)?.id == id }
+    }
+
+    @Test func providesTheHostsTextForTypeSelect() {
+      update()
+      #expect(coordinator.typeSelectText(for: "c") == nil)
+
+      host.typeSelectText = { $0.id.uppercased() }
+      host.isSelectable = { $0.children == nil }
+      update()
+      #expect(coordinator.typeSelectText(for: "c") == "C")
+      // Rows that cannot be selected are skipped, as are unknown elements.
+      #expect(coordinator.typeSelectText(for: "a") == nil)
+      #expect(coordinator.typeSelectText(for: "missing") == nil)
+      #expect(
+        coordinator.outlineView(outlineView, typeSelectStringFor: nil, item: item("c")!) == "C")
     }
 
     @Test func reportsRepeatedIdentifiersOncePerChange() {
@@ -205,6 +231,48 @@
 
       outlineView.selectRowIndexes([1, 2], byExtendingSelection: false)
       #expect(host.multiple == ["b", "c"])
+    }
+
+    @Test func showsSectionsAsUnselectableGroupRows() {
+      host.sectionTitle = { $0.id == "a" ? "A" : nil }
+      host.expansion = ["a"]
+      update()
+      #expect(coordinator.outlineView(outlineView, isGroupItem: item("a")!))
+      #expect(!coordinator.outlineView(outlineView, isGroupItem: item("a1")!))
+      // Rows: a, a1, a2, b, c.
+      let proposed = coordinator.outlineView(
+        outlineView, selectionIndexesForProposedSelection: [0, 1])
+      #expect(proposed == [1])
+    }
+
+    @Test func renamesTheSelectedRowOnReturnLikeTheFinder() {
+      var activated: Set<String>?
+      host.primaryAction = { activated = $0 }
+      host.canRename = { $0.id != "a" }
+      host.single = "c"
+      update()
+      #expect(coordinator.handleReturn())
+      #expect(host.renaming == "c")
+      #expect(activated == nil)
+
+      // Rows that cannot be renamed keep running the primary action.
+      host.renaming = nil
+      host.single = "a"
+      update()
+      #expect(coordinator.handleReturn())
+      #expect(host.renaming == nil)
+      #expect(activated == ["a"])
+    }
+
+    @Test func runsThePrimaryActionOnReturnForSeveralSelectedRows() {
+      var activated: Set<String>?
+      host.primaryAction = { activated = $0 }
+      host.canRename = { _ in true }
+      host.multiple = ["a", "c"]
+      update(multipleSelection: true)
+      #expect(coordinator.handleReturn())
+      #expect(host.renaming == nil)
+      #expect(activated == ["a", "c"])
     }
 
     @Test func filtersUnselectableRows() {
@@ -502,6 +570,10 @@
       host.roots = RandomTree.make(using: &random)
       let ids = RandomTree.allIDs(host.roots)
       host.expansion = Set(ids.filter { _ in random.next() % 2 == 0 })
+      // Group rows make AppKit load rows while it starts an update; cover them as well.
+      if seed % 2 == 0 {
+        host.sectionTitle = { $0.children != nil ? $0.id : nil }
+      }
       update()
 
       for _ in 0..<3 {

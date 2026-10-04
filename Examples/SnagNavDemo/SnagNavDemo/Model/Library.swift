@@ -13,12 +13,14 @@ final class Library {
     case itemNotFound
     case targetIsNotAFolder
     case wouldCreateCycle
+    case sectionsStayAtTopLevel
 
     var errorDescription: String? {
       switch self {
       case .itemNotFound: "The item no longer exists."
       case .targetIsNotAFolder: "Items can only be moved into folders."
       case .wouldCreateCycle: "A folder cannot be moved into itself or one of its subfolders."
+      case .sectionsStayAtTopLevel: "Sections can only be at the top level."
       }
     }
   }
@@ -52,8 +54,10 @@ final class Library {
   }
 
   /// Whether deleting the items would also delete items inside them.
+  ///
+  /// Sections never need it: deleting one keeps its items, see `delete(_:)`.
   func needsDeleteConfirmation(_ ids: [LibraryItem.ID]) -> Bool {
-    ids.contains { descendantCount(of: $0) > 0 }
+    ids.contains { item($0)?.isSection == false && descendantCount(of: $0) > 0 }
   }
 
   /// The folder that contains the item, or `nil` at the root level.
@@ -141,14 +145,17 @@ final class Library {
     // Moving a folder into itself or one of its subfolders would create a cycle. A copy would
     // not, but it would grow every time it is dropped again, so the demo rejects both.
     if proposal.isDroppingIntoOwnSubtree { return .reject }
+    // Sections head the outline; they can be reordered, but never put inside anything.
+    let movesSections = proposal.draggedIDs.contains { item($0)?.isSection == true }
 
     guard let parent = proposal.target.parent, let target = item(parent) else {
       return .accept(operation)
     }
-    if target.isFolder { return .accept(operation) }
+    if target.isFolder { return movesSections ? .reject : .accept(operation) }
 
     // Documents cannot contain items: dropping onto one inserts right after it instead.
     guard let location = Self.location(of: parent, in: roots) else { return .reject }
+    if movesSections, location.parent != nil { return .reject }
     return .redirect(
       to: .insert(into: location.parent, at: location.index + 1), operation: operation)
   }
@@ -174,7 +181,14 @@ final class Library {
     Self.update(id, in: &roots) { $0.name = trimmed }
   }
 
+  /// Deletes an item with everything inside it — except a section, whose items move to the top
+  /// level in its place.
   func delete(_ id: LibraryItem.ID) {
+    if let index = roots.firstIndex(where: { $0.id == id }), roots[index].isSection {
+      let section = roots.remove(at: index)
+      roots.insert(contentsOf: section.children ?? [], at: index)
+      return
+    }
     _ = Self.remove(id, from: &roots)
   }
 
@@ -189,8 +203,9 @@ final class Library {
   // MARK: Validation
 
   private func validateMove(_ id: LibraryItem.ID, into folder: LibraryItem.ID?) throws {
-    guard item(id) != nil else { throw MoveError.itemNotFound }
+    guard let moved = item(id) else { throw MoveError.itemNotFound }
     guard let folder else { return }
+    if moved.isSection { throw MoveError.sectionsStayAtTopLevel }
     guard let target = item(folder) else { throw MoveError.itemNotFound }
     guard target.isFolder else { throw MoveError.targetIsNotAFolder }
     if folder == id || Self.path(to: folder, in: item(id)?.children ?? []) != nil {

@@ -35,7 +35,9 @@ struct DeleteConfirmation: ViewModifier {
   }
 
   private var message: String {
-    let contained = pending.reduce(0) { $0 + library.descendantCount(of: $1) }
+    // A section's items stay; only folders take their contents with them.
+    let contained = pending.filter { library.item($0)?.isSection == false }
+      .reduce(0) { $0 + library.descendantCount(of: $1) }
     return contained == 1
       ? "1 item inside will be deleted as well."
       : "\(contained) items inside will be deleted as well."

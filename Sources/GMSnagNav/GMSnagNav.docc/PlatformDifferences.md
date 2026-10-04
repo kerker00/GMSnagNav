@@ -16,6 +16,7 @@ iPad — so some interactions differ. Your bindings and callbacks receive the sa
 | Select | Click, or the arrow keys | Tap |
 | Select several | Command-click and Shift-click | Tap each row; tapping a selected row deselects it |
 | Row that can't be selected | A click on a container expands or collapses it | A tap on a container expands or collapses it |
+| Select by typing | Typing the start of a row's text, with ``SnagOutline/outlineTypeSelect(_:)`` | Not available |
 
 Rows that ``SnagOutline/outlineSelectable(_:)`` excludes never become part of the selection. On
 macOS, when the outline also has a primary action, a single click on such a container toggles it
@@ -27,6 +28,15 @@ only after the double-click interval has passed, so a double-click can run the a
 on a tap on iOS and iPadOS, where the tap selects the row first. The action receives the whole
 selection when the row is part of it, and the row alone otherwise. Return applies to the current
 selection.
+
+### Renaming
+
+With ``SnagOutline/outlineRenaming(_:canRename:onRename:)``, a row turns into a text field while
+it is renamed, on both platforms. Your app starts renaming by setting the binding, for example
+from a context menu item. On macOS, Return also starts renaming when exactly one renamable row is
+selected, as in the Finder; the primary action then runs on a double-click, and Return still runs
+it for several selected rows. Escape cancels renaming on macOS; on iOS and iPadOS, the text field
+commits when it loses focus.
 
 On iPhone, a tap usually opens the detail of a collapsed `NavigationSplitView`. Use
 ``SwiftUICore/View/outlineCompactNavigation(selection:column:)`` for that instead of a primary
@@ -107,3 +117,11 @@ that other apps can read.
 ``SnagOutline/outlineStyle(_:)`` selects the source-list style of `NSOutlineView` or the sidebar
 style of `UICollectionView`. On macOS, `outlineAppKitConfiguration(_:)` gives access to the
 underlying `NSOutlineView` for settings the package does not cover.
+
+### Section headers
+
+| | macOS | iOS and iPadOS |
+|---|---|---|
+| Header | A group row in the source list's header style | A bold heading |
+| Show and hide | Click the header, or its show and hide button while the pointer rests on it | Tap the header, or its chevron at the trailing edge |
+| Entries | Not indented below the header | Not indented below the header |

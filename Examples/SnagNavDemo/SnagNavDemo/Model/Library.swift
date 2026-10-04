@@ -101,29 +101,58 @@ final class Library {
     }
   }
 
+  /// Inserts copies of several items into a folder (or the root level for `nil`), keeping their
+  /// order. Copied folders bring copies of their contents; every copy gets a new identifier.
+  ///
+  /// `index` refers to the destination's children as they are — the originals stay in place.
+  /// `nil` appends.
+  func copy(_ ids: [LibraryItem.ID], into folder: LibraryItem.ID?, at index: Int?) throws {
+    if let folder, item(folder)?.isFolder != true { throw MoveError.targetIsNotAFolder }
+    let copies = try ids.map { id in
+      guard let item = item(id) else { throw MoveError.itemNotFound }
+      return item.copy()
+    }
+    for (offset, copy) in copies.enumerated() {
+      Self.insert(copy, into: folder, at: index.map { $0 + offset }, in: &roots)
+    }
+  }
+
   // MARK: Drag and drop
 
   /// Decides whether and where a drag may be dropped — called on every pointer movement.
   func dropResult(
     for proposal: OutlineDropProposal<LibraryItem.ID>
   ) -> OutlineDropResult<LibraryItem.ID> {
-    // Moving a folder into itself or one of its subfolders would create a cycle.
+    // Holding Option on macOS copies, as in the Finder.
+    let operation: OutlineDropOperation = proposal.isCopyRequested ? .copy : .move
+    // Moving a folder into itself or one of its subfolders would create a cycle. A copy would
+    // not, but it would grow every time it is dropped again, so the demo rejects both.
     if proposal.isDroppingIntoOwnSubtree { return .reject }
 
     guard let parent = proposal.target.parent, let target = item(parent) else {
-      return .accept(.move)
+      return .accept(operation)
     }
-    if target.isFolder { return .accept(.move) }
+    if target.isFolder { return .accept(operation) }
 
     // Documents cannot contain items: dropping onto one inserts right after it instead.
     guard let location = Self.location(of: parent, in: roots) else { return .reject }
-    return .redirect(to: .insert(into: location.parent, at: location.index + 1), operation: .move)
+    return .redirect(
+      to: .insert(into: location.parent, at: location.index + 1), operation: operation)
   }
 
   /// Performs an accepted drop.
-  func performDrop(_ proposal: OutlineDropProposal<LibraryItem.ID>) throws {
-    try move(
-      proposal.draggedIDs, into: proposal.target.parent, at: proposal.insertionIndexAfterRemoval)
+  func performDrop(
+    _ proposal: OutlineDropProposal<LibraryItem.ID>, operation: OutlineDropOperation
+  ) throws {
+    switch operation {
+    case .move:
+      try move(
+        proposal.draggedIDs, into: proposal.target.parent,
+        at: proposal.insertionIndexAfterRemoval)
+    case .copy:
+      // The originals stay, so the index before removal is the right one.
+      try copy(proposal.draggedIDs, into: proposal.target.parent, at: proposal.target.childIndex)
+    }
   }
 
   func rename(_ id: LibraryItem.ID, to name: String) {

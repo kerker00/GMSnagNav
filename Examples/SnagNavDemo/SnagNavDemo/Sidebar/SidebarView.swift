@@ -303,7 +303,7 @@ struct SidebarView: View {
     _ proposal: OutlineDropProposal<LibraryItem.ID>, operation: OutlineDropOperation
   ) -> Bool {
     do {
-      try library.performDrop(proposal)
+      try library.performDrop(proposal, operation: operation)
       if let folder = proposal.target.parent {
         expansion.insert(folder)
       }

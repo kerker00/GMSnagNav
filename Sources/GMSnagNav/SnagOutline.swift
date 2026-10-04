@@ -230,6 +230,7 @@ struct OutlineBehavior<Element: Identifiable> where Element.ID: Sendable {
   var leadingSwipeActions: OutlineSwipeActions<Element.ID>?
   var trailingSwipeActions: OutlineSwipeActions<Element.ID>?
   var emptyContent: (() -> AnyView)?
+  var typeSelectText: ((Element) -> String?)?
 
   func canSelect(_ element: Element) -> Bool {
     isSelectable?(element) ?? true

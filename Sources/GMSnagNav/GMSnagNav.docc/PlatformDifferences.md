@@ -16,6 +16,7 @@ iPad — so some interactions differ. Your bindings and callbacks receive the sa
 | Select | Click, or the arrow keys | Tap |
 | Select several | Command-click and Shift-click | Tap each row; tapping a selected row deselects it |
 | Row that can't be selected | A click on a container expands or collapses it | A tap on a container expands or collapses it |
+| Select by typing | Typing the start of a row's text, with ``SnagOutline/outlineTypeSelect(_:)`` | Not available |
 
 Rows that ``SnagOutline/outlineSelectable(_:)`` excludes never become part of the selection. On
 macOS, when the outline also has a primary action, a single click on such a container toggles it

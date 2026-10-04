@@ -43,6 +43,19 @@ final class Library {
     return count(roots)
   }
 
+  /// The number of items inside the item, at any depth; 0 for documents and empty folders.
+  func descendantCount(of id: LibraryItem.ID) -> Int {
+    func count(_ items: [LibraryItem]) -> Int {
+      items.reduce(items.count) { $0 + count($1.children ?? []) }
+    }
+    return count(item(id)?.children ?? [])
+  }
+
+  /// Whether deleting the items would also delete items inside them.
+  func needsDeleteConfirmation(_ ids: [LibraryItem.ID]) -> Bool {
+    ids.contains { descendantCount(of: $0) > 0 }
+  }
+
   /// The folder that contains the item, or `nil` at the root level.
   func parent(of id: LibraryItem.ID) -> LibraryItem.ID? {
     Self.location(of: id, in: roots)?.parent

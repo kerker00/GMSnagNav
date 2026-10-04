@@ -23,6 +23,8 @@ struct SidebarView: View {
   @State private var searchExpansion: Set<LibraryItem.ID> = []
   @State private var didSetInitialExpansion = false
   @State private var openedDocument: String?
+  /// Items waiting for the user to confirm their deletion, because they contain other items.
+  @State private var pendingDeletion: [LibraryItem.ID] = []
   @AppStorage("foldersSelectable") private var foldersSelectable = true
   @AppStorage("outlineStyle") private var style = DemoOutlineStyle.automatic
   @AppStorage("indentationStep") private var indentationStep = IndentationStep.regular
@@ -74,6 +76,7 @@ struct SidebarView: View {
       } message: {
         Text("A real app would open the document here.")
       }
+      .deleteConfirmation(pending: $pendingDeletion, delete: delete)
       #if os(macOS)
         .safeAreaBar(edge: .bottom, spacing: 0) { bottomBar }
       #else
@@ -211,7 +214,7 @@ struct SidebarView: View {
     .outlineContextMenuItems { ids in menuItems(for: ids) }
     // iOS only: swiping a row to the left deletes it, like in Mail.
     .outlineSwipeActions { id in
-      [.action("Delete", systemImage: "trash", role: .destructive) { delete(id) }]
+      [.action("Delete", systemImage: "trash", role: .destructive) { requestDelete([id]) }]
     }
     .outlineStyle(style.outlineStyle)
     .outlineIndentation(indentationStep.width)
@@ -272,12 +275,12 @@ struct SidebarView: View {
         .divider,
         .menu("Move to", systemImage: "folder", children: destinations),
         .divider,
-        .action("Delete", systemImage: "trash", role: .destructive) { library.delete(id) },
+        .action("Delete", systemImage: "trash", role: .destructive) { requestDelete([id]) },
       ]
     default:
       return [
         .action("Delete \(ids.count) Items", systemImage: "trash", role: .destructive) {
-          ids.forEach(library.delete)
+          requestDelete(Array(ids))
         }
       ]
     }
@@ -347,15 +350,25 @@ struct SidebarView: View {
     add(.document("New Document"), near: selection)
   }
 
-  private func delete(_ id: LibraryItem.ID) {
-    library.delete(id)
-    if selection == id { selection = nil }
+  /// Deletes the items right away, or asks first if any of them contains other items.
+  private func requestDelete(_ ids: [LibraryItem.ID]) {
+    if library.needsDeleteConfirmation(ids) {
+      pendingDeletion = ids
+    } else {
+      delete(ids)
+    }
+  }
+
+  private func delete(_ ids: [LibraryItem.ID]) {
+    for id in ids {
+      library.delete(id)
+      if selection == id { selection = nil }
+    }
   }
 
   private func deleteSelection() {
     guard let selection else { return }
-    library.delete(selection)
-    self.selection = nil
+    requestDelete([selection])
   }
 
   /// Adds the item into `id` if it is a folder and next to it otherwise, or at the root level for

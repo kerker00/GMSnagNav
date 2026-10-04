@@ -8,6 +8,7 @@ struct ItemActions: View {
   @Environment(Library.self) private var library
   let itemID: LibraryItem.ID
   let onError: (Error) -> Void
+  @State private var pendingDeletion: [LibraryItem.ID] = []
 
   var body: some View {
     Menu {
@@ -24,11 +25,16 @@ struct ItemActions: View {
       Label("Move to", systemImage: "folder")
     }
     Button(role: .destructive) {
-      library.delete(itemID)
+      if library.needsDeleteConfirmation([itemID]) {
+        pendingDeletion = [itemID]
+      } else {
+        library.delete(itemID)
+      }
     } label: {
       Label("Delete", systemImage: "trash")
         .frame(maxWidth: Self.fillsWidth, alignment: .leading)
     }
+    .deleteConfirmation(pending: $pendingDeletion) { ids in ids.forEach(library.delete) }
   }
 
   /// On macOS, the button fills the width its container gives it, so it can match the menu.

@@ -44,7 +44,8 @@ alone while the tests run.
 
 ## Making changes
 
-1. Fork the repository and create a branch from `main`.
+1. Fork the repository and create a branch from `dev`, and open your pull request against `dev`.
+   `main` only receives release merges.
 2. Keep each pull request focused on one change. Small, reviewable commits are preferred over one
    large commit.
 3. Add or update tests. Platform-neutral logic lives in `Core/` and must be covered by unit tests

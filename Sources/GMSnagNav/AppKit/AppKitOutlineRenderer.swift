@@ -497,6 +497,22 @@
       }
     }
 
+    func outlineView(
+      _ outlineView: NSOutlineView, typeSelectStringFor tableColumn: NSTableColumn?, item: Any
+    ) -> String? {
+      typeSelectText(for: id(of: item))
+    }
+
+    /// The text that type select matches for an element, or `nil` to skip its row: without the
+    /// host's text, and for rows that cannot be selected.
+    func typeSelectText(for id: ID?) -> String? {
+      guard let renderer, let text = renderer.behavior.typeSelectText,
+        let id, let element = tree.element(id), renderer.behavior.canSelect(element)
+      else { return nil }
+      if case .none = renderer.selection { return nil }
+      return text(element)
+    }
+
     func outlineViewSelectionDidChange(_ notification: Notification) {
       guard !isApplyingUpdate, let renderer, let outlineView else { return }
       let ids = outlineView.selectedRowIndexes.compactMap { id(of: outlineView.item(atRow: $0)) }

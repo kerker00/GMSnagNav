@@ -211,6 +211,8 @@ struct SidebarView: View {
         .accessibilityIdentifier("sidebar-row-\(item.name)")
     }
     .outlineSelectable { item in foldersSelectable || !item.isFolder }
+    // macOS: typing letters selects the next matching row, as in the Finder.
+    .outlineTypeSelect { item in item.name }
     .outlineContextMenuItems { ids in menuItems(for: ids) }
     // iOS only: swiping a row to the left deletes it, like in Mail.
     .outlineSwipeActions { id in

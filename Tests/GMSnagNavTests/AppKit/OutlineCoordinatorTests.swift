@@ -22,6 +22,7 @@
       var drop: OutlineDropHandler<String>?
       var springLoading = SpringLoadingBehavior.automatic
       var reportedDuplicates: [Set<String>] = []
+      var typeSelectText: ((TestItem) -> String?)?
     }
 
     let host = Host()
@@ -43,6 +44,7 @@
       behavior.canDrag = host.canDrag
       behavior.drop = host.drop
       behavior.duplicateIDs = { host.reportedDuplicates.append($0) }
+      behavior.typeSelectText = host.typeSelectText
       let selection: OutlineSelection<String> =
         multipleSelection
         ? .multiple(Binding(get: { host.multiple }, set: { host.multiple = $0 }))
@@ -67,6 +69,21 @@
     private func item(_ id: String) -> Any? {
       (0..<outlineView.numberOfRows).lazy.compactMap { outlineView.item(atRow: $0) }
         .first { ($0 as? NodeBox<String>)?.id == id }
+    }
+
+    @Test func providesTheHostsTextForTypeSelect() {
+      update()
+      #expect(coordinator.typeSelectText(for: "c") == nil)
+
+      host.typeSelectText = { $0.id.uppercased() }
+      host.isSelectable = { $0.children == nil }
+      update()
+      #expect(coordinator.typeSelectText(for: "c") == "C")
+      // Rows that cannot be selected are skipped, as are unknown elements.
+      #expect(coordinator.typeSelectText(for: "a") == nil)
+      #expect(coordinator.typeSelectText(for: "missing") == nil)
+      #expect(
+        coordinator.outlineView(outlineView, typeSelectStringFor: nil, item: item("c")!) == "C")
     }
 
     @Test func reportsRepeatedIdentifiersOncePerChange() {

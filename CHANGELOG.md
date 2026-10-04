@@ -7,6 +7,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `outlineRevealsSelection(_:)`: when the app selects an element — after adding it, from a link,
+  or restored at launch — the outline expands the collapsed containers above it, adding them to
+  the expansion binding, and scrolls it into view. Selections the user makes are left alone.
+
+### Changed
+
+- Revealing the app's selection is on by default. Pass `false` to `outlineRevealsSelection(_:)`
+  to keep the expansion exactly as the user left it.
+
 ## [0.2.0] - 2026-10-04
 
 Sidebars that feel at home on macOS: sections, renaming in place, type select, copying by

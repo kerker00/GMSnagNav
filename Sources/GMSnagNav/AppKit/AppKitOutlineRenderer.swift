@@ -146,7 +146,24 @@
       boxes = boxes.filter { tree.contains($0.key) }
       refreshVisibleRows()
       applyExpansion(renderer.expansion)
-      applySelection(selectedIDs(in: renderer.selection))
+      let selected = selectedIDs(in: renderer.selection)
+      applySelection(selected)
+      reveal.hostSelected(
+        selected, in: tree, expansion: renderer.$expansion,
+        reveals: renderer.behavior.revealsSelection)
+      scrollToRevealedElement()
+    }
+
+    /// Reveals elements the host selects; see `outlineRevealsSelection(_:)`.
+    private var reveal = SelectionReveal<ID>()
+
+    /// Scrolls the element waiting to be revealed into view once its row exists.
+    private func scrollToRevealedElement() {
+      guard let outlineView, let id = reveal.pending else { return }
+      let row = outlineView.row(forItem: box(for: id))
+      guard row >= 0 else { return }
+      reveal.didReveal()
+      outlineView.scrollRowToVisible(row)
     }
 
     /// Brings the outline's rows from the old snapshot to the current one, animated when possible.
@@ -535,6 +552,7 @@
     func outlineViewSelectionDidChange(_ notification: Notification) {
       guard !isApplyingUpdate, let renderer, let outlineView else { return }
       let ids = outlineView.selectedRowIndexes.compactMap { id(of: outlineView.item(atRow: $0)) }
+      reveal.userSelected(Set(ids))
       switch renderer.selection {
       case .none:
         break

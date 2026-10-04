@@ -18,6 +18,7 @@
       var drop: OutlineDropHandler<String>?
       var trailingSwipeActions: OutlineSwipeActions<String>?
       var sectionTitle: ((TestItem) -> String?)?
+      var revealsSelection = true
     }
 
     let host = Host()
@@ -38,6 +39,7 @@
       behavior.drop = host.drop
       behavior.trailingSwipeActions = host.trailingSwipeActions
       behavior.sectionTitle = host.sectionTitle
+      behavior.revealsSelection = host.revealsSelection
       coordinator.update(
         with: UIKitOutlineRenderer(
           tree: OutlineTree(host.roots, children: \.children),
@@ -99,6 +101,25 @@
       #expect(
         !coordinator.collectionView(
           collectionView, shouldSelectItemAt: IndexPath(item: 2, section: 0)))
+    }
+
+    @Test func revealsElementsTheHostSelects() async {
+      update()
+      host.single = "a2x"
+      update()
+      for _ in 0..<5 { await Task.yield() }
+      #expect(host.expansion == ["a", "a2"])
+      update()
+      #expect(coordinator.selectedItemIDs == ["a2x"])
+    }
+
+    @Test func leavesTheExpansionAloneWhenRevealingIsOff() async {
+      host.revealsSelection = false
+      update()
+      host.single = "a2x"
+      update()
+      for _ in 0..<5 { await Task.yield() }
+      #expect(host.expansion.isEmpty)
     }
 
     @Test func writesUserSelectionIntoTheBinding() {

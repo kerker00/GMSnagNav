@@ -45,6 +45,7 @@ rows to their new place.
 ### Selection and actions
 
 - ``SnagOutline/outlineSelectable(_:)``
+- ``SnagOutline/outlineRevealsSelection(_:)``
 - ``SnagOutline/outlinePrimaryAction(_:)``
 - ``SnagOutline/outlineTypeSelect(_:)``
 - ``SnagOutline/outlineRenaming(_:canRename:onRename:)``

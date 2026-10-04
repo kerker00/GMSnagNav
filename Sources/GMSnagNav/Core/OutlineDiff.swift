@@ -124,9 +124,13 @@ private struct DiffState<Element: Identifiable> {
 
   /// Moves and inserts elements so every loaded level matches the new snapshot, top-down.
   mutating func placeDisplayedChildren() {
+    // Read through an index instead of removing from the front, which would shift the remaining
+    // levels each time and make large outlines quadratic.
     var pending: [ID?] = [nil]
-    while !pending.isEmpty {
-      let parent = pending.removeFirst()
+    var next = 0
+    while next < pending.count {
+      let parent = pending[next]
+      next += 1
       let target = new.children(of: parent)
       for (index, id) in target.enumerated() {
         place(id, in: parent, at: index)

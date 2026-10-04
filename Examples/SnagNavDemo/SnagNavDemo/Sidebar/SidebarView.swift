@@ -25,6 +25,9 @@ struct SidebarView: View {
   @State private var openedDocument: String?
   /// Items waiting for the user to confirm their deletion, because they contain other items.
   @State private var pendingDeletion: [LibraryItem.ID] = []
+  /// The item being renamed through the context menu, and the name typed so far.
+  @State private var renamingID: LibraryItem.ID?
+  @State private var newName = ""
   @AppStorage("foldersSelectable") private var foldersSelectable = true
   @AppStorage("outlineStyle") private var style = DemoOutlineStyle.automatic
   @AppStorage("indentationStep") private var indentationStep = IndentationStep.regular
@@ -77,6 +80,20 @@ struct SidebarView: View {
         Text("A real app would open the document here.")
       }
       .deleteConfirmation(pending: $pendingDeletion, delete: delete)
+      // Sections are never selected, so they have no detail view with a name field; renaming
+      // from the context menu works for every item.
+      .alert(
+        "Rename",
+        isPresented: Binding(
+          get: { renamingID != nil },
+          set: { if !$0 { renamingID = nil } })
+      ) {
+        TextField("Name", text: $newName)
+        Button("Cancel", role: .cancel) {}
+        Button("Rename") {
+          if let renamingID { library.rename(renamingID, to: newName) }
+        }
+      }
       #if os(macOS)
         .safeAreaBar(edge: .bottom, spacing: 0) { bottomBar }
       #else
@@ -279,6 +296,7 @@ struct SidebarView: View {
         }
       return addMenuItems(near: id) + [
         .divider,
+        .action("Rename…", systemImage: "pencil") { startRenaming(id) },
         .menu("Move to", systemImage: "folder", children: destinations),
         .divider,
         .action("Delete", systemImage: "trash", role: .destructive) { requestDelete([id]) },
@@ -349,9 +367,17 @@ struct SidebarView: View {
     expansion = []
   }
 
-  /// Adds a section at the end of the top level; sections are never selected, so it opens instead.
+  /// Adds a section at the end of the top level and asks for its name; sections are never
+  /// selected, so they cannot be renamed in the detail view.
   private func newSection() {
-    expansion.insert(library.add(.section("New Section"), into: nil))
+    let id = library.add(.section("New Section"), into: nil)
+    expansion.insert(id)
+    startRenaming(id)
+  }
+
+  private func startRenaming(_ id: LibraryItem.ID) {
+    newName = library.item(id)?.name ?? ""
+    renamingID = id
   }
 
   private func newFolder() {

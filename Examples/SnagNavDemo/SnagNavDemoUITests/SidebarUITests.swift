@@ -175,6 +175,14 @@ final class SidebarUITests: XCTestCase {
     /// Long-presses a row and drags it to a point within another row: `0.5` is the middle, which
     /// drops onto the row; `0.05` its top edge, which inserts before it.
     private func drag(_ source: String, to target: String, at verticalOffset: CGFloat = 0.5) {
+      // The context menu shares the long press with dragging; whether a synthesized press opens
+      // the menu or lifts the row depends on timing. Drag tests therefore run without the menu,
+      // which `testLongPressShowsTheContextMenu` covers on its own.
+      if !app.launchArguments.contains("-disable-context-menus") {
+        app.terminate()
+        app.launchArguments.append("-disable-context-menus")
+        app.launch()
+      }
       let source = row(source)
       // Offsets refer to the whole list cell; the row's label is shorter than its cell.
       let target = cell(containing: target)

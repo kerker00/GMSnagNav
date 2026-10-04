@@ -92,6 +92,9 @@ struct SidebarView: View {
       #endif
   }
 
+  /// Whether rows offer a context menu; UI tests of dragging launch without it.
+  private static let showsContextMenus = !CommandLine.arguments.contains("-disable-context-menus")
+
   /// The sidebar's actions for the menu bar.
   private var actions: SidebarActions {
     var delete: (() -> Void)?
@@ -222,7 +225,9 @@ struct SidebarView: View {
     .outlineRenaming($renamingID) { id, name in library.rename(id, to: name) }
     // macOS: typing letters selects the next matching row, as in the Finder.
     .outlineTypeSelect { item in item.name }
-    .outlineContextMenuItems { ids in menuItems(for: ids) }
+    // UI tests of dragging turn the menu off: on iOS, the menu shares the long press with
+    // dragging, and synthesized touches cannot tell the two apart reliably.
+    .outlineContextMenuItems { ids in Self.showsContextMenus ? menuItems(for: ids) : [] }
     // iOS only: swiping a row to the left deletes it, like in Mail.
     .outlineSwipeActions { id in
       [.action("Delete", systemImage: "trash", role: .destructive) { requestDelete([id]) }]

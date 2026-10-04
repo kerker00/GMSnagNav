@@ -52,10 +52,21 @@ Then `import GMSnagNav` wherever you build your sidebar.
 | Primary action: double-click or Return toggles folders and "opens" documents (macOS) | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
 | Style, indentation and the AppKit configuration escape hatch (Outline menu) | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
 | Native context menu built from `OutlineMenuItem`s — submenu with disabled targets, destructive delete, add at the root level on empty space; on iOS it shares the long press with dragging | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
+| Section headers that group the top level ("New Section") | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
+| Renaming in place, from the context menu or with Return on macOS | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
+| Type select | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ macOS |
+| Copying by dragging with the Option key | [`Model/Library.swift`](SnagNavDemo/Model/Library.swift) | ✅ macOS |
+| Swipe to delete | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ iOS |
+| Confirmation before deleting folders with content | [`Sidebar/DeleteConfirmation.swift`](SnagNavDemo/Sidebar/DeleteConfirmation.swift) | ✅ |
+| Search with dragging turned off, empty content for an empty library and for searches without matches | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
+| Actions in the bottom bar, the context menu and the menu bar | [`Sidebar/DemoCommands.swift`](SnagNavDemo/Sidebar/DemoCommands.swift) | ✅ |
+| Opening the detail of a collapsed split view from the selection | [`ContentView.swift`](SnagNavDemo/ContentView.swift) | ✅ iPhone |
 
-UI tests in [`SnagNavDemoUITests`](SnagNavDemoUITests) cover selection on both platforms and, on
-macOS, real drags: into a folder, a rejected cycle, a redirected drop onto a document, and a moved
-folder that stays expanded. See `CONTRIBUTING.md` for how to run them.
+UI tests in [`SnagNavDemoUITests`](SnagNavDemoUITests) drive the real app on both platforms:
+selection, search, context menus and real drags into a folder and onto a document, which is
+redirected next to it. On macOS they also cover a rejected cycle, a moved folder that stays
+expanded and dragging while searching; on iOS, swiping to delete, dropping at the edge of a row
+and navigating in a collapsed split view. See `CONTRIBUTING.md` for how to run them.
 
 The key idea: the demo's `Library` store — not GMSnagNav — decides whether a move is allowed and
 performs it. Replace it with your Core Data, SwiftData or file-system layer in a real app.

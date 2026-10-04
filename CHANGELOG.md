@@ -7,6 +7,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-04
+
+Sidebars that feel at home on macOS: sections, renaming in place, type select, copying by
+dragging with the Option key, and empty states. Everything is opt-in; existing outlines behave as
+before.
+
 ### Added
 
 - `OutlineDropProposal.isCopyRequested`, set on macOS while the user holds the Option key during a
@@ -81,6 +87,7 @@ It requires macOS 26 or iOS 26 and Swift 6.2.
 - English and German texts for what VoiceOver reads on iOS. They follow the host app's language.
 - `SnagNavDemo`, a multiplatform demo app in `Examples/`.
 
-[Unreleased]: https://github.com/kerker00/GMSnagNav/compare/0.1.1...HEAD
+[Unreleased]: https://github.com/kerker00/GMSnagNav/compare/0.2.0...HEAD
+[0.2.0]: https://github.com/kerker00/GMSnagNav/releases/tag/0.2.0
 [0.1.1]: https://github.com/kerker00/GMSnagNav/releases/tag/0.1.1
 [0.1.0]: https://github.com/kerker00/GMSnagNav/releases/tag/0.1.0

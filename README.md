@@ -61,7 +61,12 @@ one SwiftUI API for arbitrarily deep trees with selection, expansion and real dr
 - Drag and drop onto items, between rows and into the root, with host-side validation and
   redirection
 - Spring-loaded expansion while dragging
-- Context menus, primary action (double-click / Return / tap) and non-selectable rows
+- Context menus, swipe actions, primary action (double-click / Return / tap) and non-selectable
+  rows
+- Section headers, like "Favorites" in the Finder's sidebar
+- Renaming in place, started with Return on macOS as in the Finder
+- Copying with the Option key while dragging on macOS
+- Type select on macOS and empty-state content for empty outlines and searches
 - Incremental, animated updates when your data changes
 - Navigation of collapsed split views, such as on iPhone, from the selection
 - Demo app for macOS and iOS
@@ -77,7 +82,7 @@ Add the package with Swift Package Manager:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/kerker00/GMSnagNav.git", from: "0.1.1")
+    .package(url: "https://github.com/kerker00/GMSnagNav.git", from: "0.2.0")
 ]
 ```
 
@@ -160,15 +165,11 @@ with **Product > Build Documentation**. Start with these articles:
 
 ## Roadmap
 
-Ideas for versions after `0.1.0`, all planned to be
-backward compatible:
+Ideas for versions after `0.2.0`, all planned to be backward compatible:
 
+- Custom drag previews
 - Drops from other apps, such as file URLs
-- Copying with the Option key while dragging
-- Inline renaming of rows
-- Section headers
 - Loading children asynchronously
-- An empty-state view, custom drag previews and type-select
 
 ## Contributing
 

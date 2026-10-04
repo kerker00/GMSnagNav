@@ -15,6 +15,7 @@
 
 <p align="center">
   <a href="https://github.com/kerker00/GMSnagNav/actions/workflows/ci.yml?query=event%3Apull_request"><img src="https://github.com/kerker00/GMSnagNav/actions/workflows/ci.yml/badge.svg?event=pull_request" alt="CI"></a>
+  <a href="https://github.com/kerker00/GMSnagNav/actions/workflows/coverage-badge.yml"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkerker00%2FGMSnagNav%2Fbadges%2Fcoverage.json" alt="Coverage"></a>
   <a href="https://swiftpackageindex.com/kerker00/GMSnagNav"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fkerker00%2FGMSnagNav%2Fbadge%3Ftype%3Dswift-versions" alt="Swift versions"></a>
   <a href="https://swiftpackageindex.com/kerker00/GMSnagNav"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fkerker00%2FGMSnagNav%2Fbadge%3Ftype%3Dplatforms" alt="Platforms"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/kerker00/GMSnagNav" alt="License"></a>

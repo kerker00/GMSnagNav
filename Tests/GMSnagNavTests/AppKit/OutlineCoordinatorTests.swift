@@ -268,6 +268,17 @@
       #expect(activated == ["a"])
     }
 
+    @Test func restartsAPendingRenameOnReturn() async throws {
+      host.canRename = { _ in true }
+      host.single = "c"
+      host.renaming = "c"
+      update()
+      #expect(coordinator.handleReturn())
+      #expect(host.renaming == nil)
+      try await Task.sleep(for: .milliseconds(200))
+      #expect(host.renaming == "c")
+    }
+
     @Test func runsThePrimaryActionOnReturnForSeveralSelectedRows() {
       var activated: Set<String>?
       host.primaryAction = { activated = $0 }

@@ -35,11 +35,6 @@ struct SidebarView: View {
         // Open every folder on the way to a match; the user may still close them.
         searchExpansion = matchingIDs.filter { library.item($0)?.isFolder == true }
       }
-      .overlay {
-        if isSearching, matchingIDs.isEmpty {
-          ContentUnavailableView.search(text: searchText)
-        }
-      }
       .focusedSceneValue(\.sidebarActions, actions)
       .onAppear {
         // Start with the top-level folders open — once. On iPhone the sidebar appears again after
@@ -222,6 +217,16 @@ struct SidebarView: View {
     .outlineIndentation(indentationStep.width)
     .outlineDraggable { _ in !isSearching }
     .onOutlineDrop(validate: library.dropResult(for:), perform: drop)
+    // Lets drops onto the root level and the empty-space menu through, unlike a plain overlay.
+    .outlineEmptyContent { [isSearching, searchText] in
+      if isSearching {
+        ContentUnavailableView.search(text: searchText)
+      } else {
+        ContentUnavailableView(
+          "No Items", systemImage: "folder",
+          description: Text("Use + to add a folder or document."))
+      }
+    }
 
     #if os(macOS)
       // On iOS a tap selects and navigates; also opening documents on every tap would get in

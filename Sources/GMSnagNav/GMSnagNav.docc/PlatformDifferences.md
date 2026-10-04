@@ -29,6 +29,15 @@ on a tap on iOS and iPadOS, where the tap selects the row first. The action rece
 selection when the row is part of it, and the row alone otherwise. Return applies to the current
 selection.
 
+### Renaming
+
+With ``SnagOutline/outlineRenaming(_:canRename:onRename:)``, a row turns into a text field while
+it is renamed, on both platforms. Your app starts renaming by setting the binding, for example
+from a context menu item. On macOS, Return also starts renaming when exactly one renamable row is
+selected, as in the Finder; the primary action then runs on a double-click, and Return still runs
+it for several selected rows. Escape cancels renaming on macOS; on iOS and iPadOS, the text field
+commits when it loses focus.
+
 On iPhone, a tap usually opens the detail of a collapsed `NavigationSplitView`. Use
 ``SwiftUICore/View/outlineCompactNavigation(selection:column:)`` for that instead of a primary
 action.

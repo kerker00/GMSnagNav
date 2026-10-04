@@ -47,6 +47,8 @@ rows to their new place.
 - ``SnagOutline/outlineSelectable(_:)``
 - ``SnagOutline/outlinePrimaryAction(_:)``
 - ``SnagOutline/outlineTypeSelect(_:)``
+- ``SnagOutline/outlineRenaming(_:canRename:onRename:)``
+- ``OutlineRenamableText``
 - ``SnagOutline/outlineSwipeActions(edge:allowsFullSwipe:_:)``
 - ``SwiftUICore/View/outlineCompactNavigation(selection:column:)``
 

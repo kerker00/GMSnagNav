@@ -21,6 +21,8 @@
             Spacer(minLength: 0)
             disclosure
           }
+          // The whole width, not only the title, takes the long press for the context menu.
+          .contentShape(.rect)
         } else {
           HStack(spacing: 4) {
             disclosure

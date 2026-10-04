@@ -168,9 +168,15 @@
         return
       }
 
-      // The data source already answers with the new snapshot; every step keeps the outline
-      // consistent with it for the rows it has touched so far.
+      // Starting the update can make AppKit load rows it has not cached yet — for example to ask
+      // the delegate which rows are group rows — while its row counts still describe the old
+      // snapshot. Let the data source answer with that snapshot until the update has begun.
+      let newTree = tree
+      tree = oldTree
       outlineView.beginUpdates()
+      tree = newTree
+      // From here on the data source answers with the new snapshot; every step keeps the outline
+      // consistent with it for the rows it has touched so far.
       for change in changes {
         switch change {
         case .remove(let parent, let index):

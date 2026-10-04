@@ -123,6 +123,34 @@ Perform the whole drop as one change. ``OutlineDropProposal/draggedIDs`` can hol
 elements from different parents; hosts with persistent stores should move them in a single
 transaction, so a failure leaves the data unchanged.
 
+### Copy with the Option key
+
+On macOS, users copy instead of move by holding the Option key while they drag, as in the Finder.
+The proposal reports this as ``OutlineDropProposal/isCopyRequested``, and the outline validates
+again whenever the key changes. Accept such drops with ``OutlineDropOperation/copy`` to show the
+copy cursor, and copy in `perform` when it receives that operation:
+
+```swift
+.onOutlineDrop { proposal in
+  if proposal.isDroppingIntoOwnSubtree { return .reject }
+  return .accept(proposal.isCopyRequested ? .copy : .move)
+} perform: { proposal, operation in
+  switch operation {
+  case .move:
+    library.move(
+      proposal.draggedIDs, into: proposal.target.parent,
+      at: proposal.insertionIndexAfterRemoval)
+  case .copy:
+    library.copy(proposal.draggedIDs, into: proposal.target.parent, at: proposal.target.childIndex)
+  }
+}
+```
+
+A copy leaves the originals in place, so insert at ``OutlineDropTarget/childIndex``, not at
+``OutlineDropProposal/insertionIndexAfterRemoval``. The default validation ignores the request and
+moves. iOS and iPadOS have no gesture to ask for a copy within an app, so
+``OutlineDropProposal/isCopyRequested`` is always `false` there.
+
 ### Turn off dragging while searching
 
 A search usually shows only the matching elements and the containers that lead to them. Filter
@@ -147,7 +175,7 @@ visible siblings only. After the search, the user moves elements in the complete
 
 ### Test your drop handling
 
-The public ``OutlineDropProposal/init(draggedIDs:target:isTargetExpanded:isDroppingIntoOwnSubtree:insertionIndexAfterRemoval:)``
+The public ``OutlineDropProposal/init(draggedIDs:target:isTargetExpanded:isDroppingIntoOwnSubtree:insertionIndexAfterRemoval:isCopyRequested:)``
 creates proposals for unit tests of your validation and move logic. It takes its values as they
 are: unlike the proposals the outline creates, it does not normalize the dragged identifiers or
 derive the other values from your data.

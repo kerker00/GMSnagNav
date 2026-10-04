@@ -7,6 +7,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `OutlineDropProposal.isCopyRequested`, set on macOS while the user holds the Option key during a
+  drag. Accept such drops with `.copy` to copy elements as in the Finder; the default validation
+  still moves.
+
 ## [0.1.1] - 2026-10-02
 
 ### Added

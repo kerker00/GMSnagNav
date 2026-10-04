@@ -45,6 +45,21 @@ import Testing
     #expect(result?.operation == .copy)
   }
 
+  @Test func passesTheCopyRequestToTheHost() {
+    let copying = handler { proposal in
+      proposal.isCopyRequested ? .redirect(to: .onto("b"), operation: .copy) : .accept(.move)
+    }
+    let copied = copying.resolve(
+      draggedIDs: ["c"], target: .root, tree: tree, expanded: [], isCopyRequested: true)
+    #expect(copied?.proposal.isCopyRequested == true)
+    #expect(copied?.proposal.target == .onto("b"))
+    #expect(copied?.operation == .copy)
+
+    let moved = copying.resolve(draggedIDs: ["c"], target: .root, tree: tree, expanded: [])
+    #expect(moved?.proposal.isCopyRequested == false)
+    #expect(moved?.operation == .move)
+  }
+
   @Test func rejectsRedirectsToInvalidTargets() {
     let result = handler { _ in .redirect(to: .onto("missing"), operation: .move) }
       .resolve(draggedIDs: ["c"], target: .root, tree: tree, expanded: [])
@@ -75,6 +90,21 @@ import Testing
     cache.removeAll()
     _ = resolve(["c"], .onto("a"))
     #expect(calls == 4)
+  }
+
+  @Test func cachesCopyRequestsSeparately() {
+    var cache = DropResolutionCache<String>()
+    let copying = handler { .accept($0.isCopyRequested ? .copy : .move) }
+    func resolve(copy: Bool) -> OutlineDropOperation? {
+      cache.resolution(for: ["c"], target: .root, isCopyRequested: copy) {
+        copying.resolve(
+          draggedIDs: ["c"], target: .root, tree: tree, expanded: [], isCopyRequested: copy)
+      }?.operation
+    }
+
+    #expect(resolve(copy: false) == .move)
+    #expect(resolve(copy: true) == .copy)
+    #expect(resolve(copy: false) == .move)
   }
 
   @Test func cachesRejections() {

@@ -399,7 +399,10 @@
       let ids = draggedIDs(on: info.draggingPasteboard)
       guard !ids.isEmpty else { return [] }
       updateSpringLoading(hovering: item, childIndex: index)
-      guard let drop = resolveDrop(of: ids, onto: item, childIndex: index) else { return [] }
+      guard
+        let drop = resolveDrop(
+          of: ids, onto: item, childIndex: index, copying: Self.isCopyRequested(by: info))
+      else { return [] }
       if drop.proposal.target != target(item: item, childIndex: index) {
         outlineView.setDropItem(
           drop.proposal.target.parent.map(box(for:)),
@@ -412,7 +415,15 @@
       _ outlineView: NSOutlineView, acceptDrop info: NSDraggingInfo, item: Any?,
       childIndex index: Int
     ) -> Bool {
-      performDrop(of: draggedIDs(on: info.draggingPasteboard), onto: item, childIndex: index)
+      performDrop(
+        of: draggedIDs(on: info.draggingPasteboard), onto: item, childIndex: index,
+        copying: Self.isCopyRequested(by: info))
+    }
+
+    /// Whether the user holds the Option key, which limits the drag to copying.
+    static func isCopyRequested(by info: NSDraggingInfo) -> Bool {
+      let mask = info.draggingSourceOperationMask
+      return mask.contains(.copy) && !mask.contains(.move)
     }
 
     /// Asks the host where and how dragged elements may be dropped at AppKit's proposed position.
@@ -420,19 +431,23 @@
     /// - Returns: The proposal — with a redirected target if the host asked for one — and the
     ///   accepted operation, or `nil` if the drop is not allowed.
     func resolveDrop(
-      of ids: [ID], onto item: Any?, childIndex: Int
+      of ids: [ID], onto item: Any?, childIndex: Int, copying: Bool = false
     ) -> (proposal: OutlineDropProposal<ID>, operation: OutlineDropOperation)? {
       guard let renderer, let drop = renderer.behavior.drop, !ids.isEmpty else { return nil }
       let target = target(item: item, childIndex: childIndex)
-      return dropCache.resolution(for: ids, target: target) {
-        drop.resolve(draggedIDs: ids, target: target, tree: tree, expanded: renderer.expansion)
+      return dropCache.resolution(for: ids, target: target, isCopyRequested: copying) {
+        drop.resolve(
+          draggedIDs: ids, target: target, tree: tree, expanded: renderer.expansion,
+          isCopyRequested: copying)
       }
     }
 
     /// Validates the drop once more and lets the host perform it.
-    func performDrop(of ids: [ID], onto item: Any?, childIndex: Int) -> Bool {
+    func performDrop(
+      of ids: [ID], onto item: Any?, childIndex: Int, copying: Bool = false
+    ) -> Bool {
       guard let drop = renderer?.behavior.drop,
-        let resolved = resolveDrop(of: ids, onto: item, childIndex: childIndex)
+        let resolved = resolveDrop(of: ids, onto: item, childIndex: childIndex, copying: copying)
       else { return false }
       return drop.perform(resolved.proposal, resolved.operation)
     }

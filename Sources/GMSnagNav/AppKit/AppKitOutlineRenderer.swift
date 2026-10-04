@@ -85,6 +85,9 @@
     func springLoadingSettled() async {
       await springLoadTask?.value
     }
+    /// Where the system's spring-loading preferences are read from; replaced in tests.
+    var systemDefaults = UserDefaults.standard
+
     /// Replaces the system's spring-loading delay, for tests.
     var springLoadingDelayOverride: Duration?
     /// Set while spring-loading opens or closes elements; such changes never reach the binding.
@@ -100,6 +103,14 @@
     /// A single click on an unselectable container toggles it once the double-click interval has
     /// passed, so a double-click can still run the primary action instead.
     private var pendingToggle: Task<Void, Never>?
+
+    /// Replaces the system's double-click interval, for tests.
+    var doubleClickDelayOverride: Duration?
+
+    /// Finishes once a pending toggle has run or was cancelled, for tests.
+    func pendingToggleSettled() async {
+      await pendingToggle?.value
+    }
 
     /// Connects the coordinator to an outline view as its data source, delegate and click target.
     func attach(to outlineView: NSOutlineView) {
@@ -345,6 +356,11 @@
       _ outlineView: NSOutlineView, draggingSession session: NSDraggingSession,
       endedAt screenPoint: NSPoint, operation: NSDragOperation
     ) {
+      endDrag()
+    }
+
+    /// Forgets the drag's tokens and cached answers and closes spring-loaded elements.
+    func endDrag() {
       draggedIDsByToken.removeAll()
       dropCache.removeAll()
       endSpringLoading()
@@ -356,10 +372,10 @@
     ///
     /// Follows the system's spring-loading preference unless the host set
     /// `springLoadingBehavior(_:)` explicitly.
-    private var springLoadingDelay: Duration? {
+    var springLoadingDelay: Duration? {
       guard let renderer, renderer.springLoading != .disabled else { return nil }
       if let springLoadingDelayOverride { return springLoadingDelayOverride }
-      let defaults = UserDefaults.standard
+      let defaults = systemDefaults
       if renderer.springLoading == .automatic,
         defaults.object(forKey: "com.apple.springing.enabled") as? Bool == false
       {
@@ -454,8 +470,12 @@
 
     /// Whether the user holds the Option key, which limits the drag to copying.
     static func isCopyRequested(by info: NSDraggingInfo) -> Bool {
-      let mask = info.draggingSourceOperationMask
-      return mask.contains(.copy) && !mask.contains(.move)
+      isCopyRequested(mask: info.draggingSourceOperationMask)
+    }
+
+    /// Whether a drag's source operation mask is limited to copying, as while Option is held.
+    static func isCopyRequested(mask: NSDragOperation) -> Bool {
+      mask.contains(.copy) && !mask.contains(.move)
     }
 
     /// Asks the host where and how dragged elements may be dropped at AppKit's proposed position.
@@ -599,35 +619,48 @@
     }
 
     private func handleClick() {
+      guard let outlineView else { return }
+      let location = NSApp.currentEvent.map { outlineView.convert($0.locationInWindow, from: nil) }
+      handleClick(onRow: outlineView.clickedRow, at: location)
+    }
+
+    /// Toggles an unselectable container that was clicked, after the double-click interval when
+    /// the outline has a primary action.
+    ///
+    /// - Parameter location: The click in the outline's coordinates, if known; clicks on the
+    ///   disclosure triangle are left to AppKit.
+    func handleClick(onRow row: Int, at location: NSPoint?) {
       guard let renderer, let outlineView else { return }
-      let row = outlineView.clickedRow
       guard row >= 0, let id = id(of: outlineView.item(atRow: row)),
         !renderer.behavior.canSelect(id, in: tree), !tree.children(of: id).isEmpty
       else { return }
 
       // The disclosure triangle toggles on its own; do not toggle a second time.
-      if let event = NSApp.currentEvent {
-        let location = outlineView.convert(event.locationInWindow, from: nil)
-        if outlineView.frameOfOutlineCell(atRow: row).contains(location) { return }
-      }
+      if let location, outlineView.frameOfOutlineCell(atRow: row).contains(location) { return }
 
       guard renderer.behavior.primaryAction != nil else {
         toggle(id)
         return
       }
       pendingToggle?.cancel()
+      let delay = doubleClickDelayOverride ?? .seconds(NSEvent.doubleClickInterval)
       pendingToggle = Task { [weak self] in
-        try? await Task.sleep(for: .seconds(NSEvent.doubleClickInterval))
+        try? await Task.sleep(for: delay)
         guard !Task.isCancelled else { return }
         self?.toggle(id)
       }
     }
 
     private func handleDoubleClick() {
+      guard let outlineView else { return }
+      handleDoubleClick(onRow: outlineView.clickedRow)
+    }
+
+    /// Runs the primary action for a double-clicked row and cancels a pending toggle.
+    func handleDoubleClick(onRow row: Int) {
       pendingToggle?.cancel()
       pendingToggle = nil
       guard let primaryAction = renderer?.behavior.primaryAction, let outlineView else { return }
-      let row = outlineView.clickedRow
       guard row >= 0, let id = id(of: outlineView.item(atRow: row)) else { return }
       primaryAction(activatedIDs(for: id))
     }

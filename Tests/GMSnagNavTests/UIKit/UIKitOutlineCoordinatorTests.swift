@@ -17,6 +17,7 @@
       var springLoading = SpringLoadingBehavior.automatic
       var drop: OutlineDropHandler<String>?
       var trailingSwipeActions: OutlineSwipeActions<String>?
+      var sectionTitle: ((TestItem) -> String?)?
     }
 
     let host = Host()
@@ -36,6 +37,7 @@
       behavior.primaryAction = host.primaryAction
       behavior.drop = host.drop
       behavior.trailingSwipeActions = host.trailingSwipeActions
+      behavior.sectionTitle = host.sectionTitle
       coordinator.update(
         with: UIKitOutlineRenderer(
           tree: OutlineTree(host.roots, children: \.children),
@@ -88,6 +90,14 @@
           collectionView, shouldSelectItemAt: IndexPath(item: 0, section: 0)))
       #expect(
         coordinator.collectionView(
+          collectionView, shouldSelectItemAt: IndexPath(item: 2, section: 0)))
+    }
+
+    @Test func refusesToSelectSectionHeaders() {
+      host.sectionTitle = { $0.id == "c" ? "C" : nil }
+      update()
+      #expect(
+        !coordinator.collectionView(
           collectionView, shouldSelectItemAt: IndexPath(item: 2, section: 0)))
     }
 

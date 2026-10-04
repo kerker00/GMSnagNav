@@ -140,6 +140,7 @@ where Data.Element: Identifiable, Data.Element.ID: Sendable {
         rowContent: rowContent
       )
       .modifier(EmptySpaceContextMenu(selection: selection, behavior: behavior))
+      .modifier(OutlineEmptyContent(isEmpty: data.isEmpty, content: behavior.emptyContent))
     #else
       UIKitOutlineRenderer(
         tree: OutlineTree(data, children: children),
@@ -148,7 +149,9 @@ where Data.Element: Identifiable, Data.Element.ID: Sendable {
         behavior: behavior,
         appearance: appearance,
         springLoading: springLoadingBehavior,
-        rowContent: rowContent)
+        rowContent: rowContent
+      )
+      .modifier(OutlineEmptyContent(isEmpty: data.isEmpty, content: behavior.emptyContent))
     #endif
   }
 }
@@ -226,6 +229,7 @@ struct OutlineBehavior<Element: Identifiable> where Element.ID: Sendable {
   var duplicateIDs: ((Set<Element.ID>) -> Void)?
   var leadingSwipeActions: OutlineSwipeActions<Element.ID>?
   var trailingSwipeActions: OutlineSwipeActions<Element.ID>?
+  var emptyContent: (() -> AnyView)?
 
   func canSelect(_ element: Element) -> Bool {
     isSelectable?(element) ?? true

@@ -12,6 +12,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `OutlineDropProposal.isCopyRequested`, set on macOS while the user holds the Option key during a
   drag. Accept such drops with `.copy` to copy elements as in the Finder; the default validation
   still moves.
+- `outlineEmptyContent(_:)` to show content such as a `ContentUnavailableView` while the outline
+  has no elements. It lets clicks and drops through, so dropping onto the root level and the
+  context menu for empty space keep working.
 
 ## [0.1.1] - 2026-10-02
 

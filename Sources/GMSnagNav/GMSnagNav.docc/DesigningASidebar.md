@@ -49,6 +49,28 @@ A search field in the sidebar helps when there are many items. Show the matches 
 containers that lead to them, and turn dragging off while searching — see
 <doc:DragAndDrop#Turn-off-dragging-while-searching>.
 
+When nothing matches, or the sidebar has no items yet, say so with
+``SnagOutline/outlineEmptyContent(_:)`` rather than leaving the sidebar blank — for example with
+`ContentUnavailableView.search(text:)`. Keep the actions to add items in the bottom bar and the
+context menu; the empty content shows information only.
+
+### Protect containers with content
+
+Deleting a container deletes everything inside it. GMSnagNav never deletes anything itself, so
+this is your app's decision, made where you offer the delete action. Either leave the action out
+for containers with content:
+
+```swift
+.outlineSwipeActions { id in
+  library.hasChildren(id)
+    ? [] : [.action("Delete", systemImage: "trash", role: .destructive) { library.delete(id) }]
+}
+```
+
+or, usually friendlier, keep it and ask for confirmation, naming how many items would go with it.
+Use the same rule in the swipe actions, the context menu, the bottom bar and the menu bar, so the
+user meets it wherever they delete.
+
 ## See Also
 
 - <doc:PlatformDifferences>

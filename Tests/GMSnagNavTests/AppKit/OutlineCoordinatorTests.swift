@@ -26,6 +26,7 @@
       var sectionTitle: ((TestItem) -> String?)?
       var renaming: String?
       var canRename: ((TestItem) -> Bool)?
+      var revealsSelection = true
     }
 
     let host = Host()
@@ -49,6 +50,7 @@
       behavior.duplicateIDs = { host.reportedDuplicates.append($0) }
       behavior.typeSelectText = host.typeSelectText
       behavior.sectionTitle = host.sectionTitle
+      behavior.revealsSelection = host.revealsSelection
       if let canRename = host.canRename {
         behavior.renaming = OutlineRenameHandler(
           renaming: Binding(get: { host.renaming }, set: { host.renaming = $0 }),
@@ -273,6 +275,43 @@
       #expect(coordinator.handleReturn())
       #expect(host.renaming == nil)
       #expect(activated == ["a", "c"])
+    }
+
+    /// Lets the tasks the coordinator scheduled for after an update run.
+    private func settle() async {
+      for _ in 0..<5 { await Task.yield() }
+    }
+
+    @Test func revealsElementsTheHostSelects() async {
+      update()
+      host.single = "a2x"
+      update()
+      await settle()
+      #expect(host.expansion == ["a", "a2"])
+      update()
+      #expect(visibleIDs.contains("a2x"))
+      #expect(outlineView.selectedRow == outlineView.row(forItem: item("a2x")))
+    }
+
+    @Test func leavesTheExpansionAloneWhenRevealingIsOff() async {
+      host.revealsSelection = false
+      update()
+      host.single = "a2x"
+      update()
+      await settle()
+      #expect(host.expansion.isEmpty)
+    }
+
+    @Test func doesNotRevealWhatTheUserSelects() async {
+      host.expansion = ["a"]
+      update()
+      outlineView.selectRowIndexes([1], byExtendingSelection: false)
+      #expect(host.single == "a1")
+      // The user collapses the container while its child stays selected.
+      host.expansion = []
+      update()
+      await settle()
+      #expect(host.expansion.isEmpty)
     }
 
     @Test func filtersUnselectableRows() {

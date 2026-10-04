@@ -97,7 +97,8 @@ struct SidebarView: View {
       delete = { deleteSelection() }
     }
     return SidebarActions(
-      newFolder: { newFolder() }, newDocument: { newDocument() }, deleteSelection: delete,
+      newSection: { newSection() }, newFolder: { newFolder() }, newDocument: { newDocument() },
+      deleteSelection: delete,
       expandAll: { expandAll() }, collapseAll: { collapseAll() })
   }
 
@@ -122,6 +123,7 @@ struct SidebarView: View {
   }
 
   @ViewBuilder private var addMenuContent: some View {
+    Button("New Section", systemImage: "rectangle.stack.badge.plus", action: newSection)
     Button("New Folder", systemImage: "folder.badge.plus", action: newFolder)
     Button("New Document", systemImage: "doc.badge.plus", action: newDocument)
   }
@@ -141,7 +143,7 @@ struct SidebarView: View {
           .menuStyle(.button)
           .menuIndicator(.hidden)
           .frame(width: 31, height: 18)
-          .help("Add a folder or document")
+          .help("Add a section, folder or document")
           .accessibilityLabel("Add")
 
           Button(action: deleteSelection) {
@@ -211,6 +213,8 @@ struct SidebarView: View {
         .accessibilityIdentifier("sidebar-row-\(item.name)")
     }
     .outlineSelectable { item in foldersSelectable || !item.isFolder }
+    // Top-level sections, like "Favorites" in the Finder; the outline draws their headers.
+    .outlineSections { item in item.isSection ? item.name : nil }
     // macOS: typing letters selects the next matching row, as in the Finder.
     .outlineTypeSelect { item in item.name }
     .outlineContextMenuItems { ids in menuItems(for: ids) }
@@ -291,6 +295,7 @@ struct SidebarView: View {
   /// "New Folder" and "New Document", adding into `id` if it is a folder, and next to it otherwise.
   private func addMenuItems(near id: LibraryItem.ID?) -> [OutlineMenuItem] {
     [
+      .action("New Section", systemImage: "rectangle.stack.badge.plus") { newSection() },
       .action("New Folder", systemImage: "folder.badge.plus") {
         add(.folder("New Folder"), near: id)
       },
@@ -342,6 +347,11 @@ struct SidebarView: View {
 
   private func collapseAll() {
     expansion = []
+  }
+
+  /// Adds a section at the end of the top level; sections are never selected, so it opens instead.
+  private func newSection() {
+    expansion.insert(library.add(.section("New Section"), into: nil))
   }
 
   private func newFolder() {

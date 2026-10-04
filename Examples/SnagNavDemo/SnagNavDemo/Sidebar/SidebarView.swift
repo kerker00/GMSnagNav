@@ -393,13 +393,10 @@ struct SidebarView: View {
   }
 
   /// Adds the item into `id` if it is a folder and next to it otherwise, or at the root level for
-  /// `nil`, then opens the folder, selects the new item and lets the user name it, as in the
-  /// Finder.
+  /// `nil`, then selects the new item and lets the user name it, as in the Finder. The outline
+  /// reveals the selected item by itself, opening a collapsed folder.
   private func add(_ item: LibraryItem, near id: LibraryItem.ID?) {
     let folder = id.flatMap { library.item($0)?.isFolder == true ? $0 : library.parent(of: $0) }
-    if let folder {
-      expansion.insert(folder)
-    }
     selection = library.add(item, into: folder)
     renamingID = item.id
   }

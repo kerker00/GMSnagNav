@@ -42,6 +42,16 @@ import Testing
     #expect(host.renaming == "c")
   }
 
+  @Test func restartsARenameThatIsStillPending() async throws {
+    // The text field never got the focus, so the binding still names the row: starting again
+    // must not be a no-op that SwiftUI ignores.
+    host.renaming = "c"
+    #expect(behavior().startRenaming("c", in: tree))
+    #expect(host.renaming == nil)
+    try await Task.sleep(for: .milliseconds(200))
+    #expect(host.renaming == "c")
+  }
+
   @Test func commitsOnlyChangedNamesAndEndsRenaming() throws {
     host.renaming = "c"
     let session = try #require(behavior().renameSession(for: "c", in: tree))

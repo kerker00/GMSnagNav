@@ -30,6 +30,10 @@ and iPadOS.
   the end.
 - Section headers on iOS and iPadOS open their context menu when pressed anywhere in the row, not
   only on the title.
+- Return starts renaming again after a rename got stuck — for example after moving rows on the Mac,
+  when the text field had not received the focus. A row that goes away while being renamed now
+  keeps the typed name and ends renaming, and the text field asks for the focus once more if its
+  first request got lost.
 
 ## [0.2.0] - 2026-10-04
 

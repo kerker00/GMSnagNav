@@ -39,6 +39,10 @@ extension SnagOutline {
   }
 }
 
+/// How long a restarted rename waits before naming the row again; see
+/// `OutlineBehavior.startRenaming(_:in:)`.
+private let renameRestartDelay: Duration = .milliseconds(50)
+
 /// The host's renaming state and callbacks.
 struct OutlineRenameHandler<Element: Identifiable> where Element.ID: Sendable {
   let renaming: Binding<Element.ID?>
@@ -65,11 +69,27 @@ extension OutlineBehavior {
   }
 
   /// Starts renaming `id` if the host allows it; returns whether renaming started.
-  func startRenaming(_ id: Element.ID, in tree: OutlineTree<Element>) -> Bool {
+  ///
+  /// If the binding still names `id` — a rename whose text field never got the focus or went away
+  /// without ending — renaming starts over: the binding is cleared, and set again once SwiftUI has
+  /// shown the row without its text field, so the row builds a fresh, focused one instead of
+  /// ignoring the request.
+  @MainActor func startRenaming(_ id: Element.ID, in tree: OutlineTree<Element>) -> Bool {
     guard let renaming, let element = tree.element(id), renaming.canRename(element) else {
       return false
     }
-    renaming.renaming.wrappedValue = id
+    let binding = renaming.renaming
+    if binding.wrappedValue == id {
+      binding.wrappedValue = nil
+      Task { @MainActor in
+        // Setting it again right away would merge both changes into one update, which SwiftUI
+        // would not notice.
+        try? await Task.sleep(for: renameRestartDelay)
+        binding.wrappedValue = id
+      }
+    } else {
+      binding.wrappedValue = id
+    }
     return true
   }
 }
@@ -161,6 +181,17 @@ private struct OutlineRenameField: View {
     .onAppear {
       selectAll()
       isFocused = true
+    }
+    .task {
+      // The focus request above can get lost while the outline is still placing the row, for
+      // example right after rows moved; ask once more once it has settled.
+      try? await Task.sleep(for: .milliseconds(100))
+      if !isFocused, !hasEnded { isFocused = true }
+    }
+    .onDisappear {
+      // A row that goes away while being renamed — collapsed, moved or scrolled out — keeps the
+      // typed name and ends renaming, so the binding never points at a text field that is gone.
+      end(commit: true, returnsFocus: false)
     }
   }
 

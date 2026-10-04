@@ -69,6 +69,7 @@ rows to their new place.
 
 - ``SnagOutline/outlineStyle(_:)``
 - ``SnagOutline/outlineIndentation(_:)``
+- ``SnagOutline/outlineEmptyContent(_:)``
 - ``SnagOutlineStyle``
 
 ### Diagnostics

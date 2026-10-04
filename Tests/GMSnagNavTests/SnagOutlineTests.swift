@@ -54,6 +54,13 @@ import Testing
     #expect(requested == ["a2"])
   }
 
+  @Test func storesEmptyContent() {
+    let plain = SnagOutline(sampleRoots, children: \.children) { Text($0.id) }
+    #expect(plain.behavior.emptyContent == nil)
+    let outline = plain.outlineEmptyContent { Text("Nothing here") }
+    #expect(outline.behavior.emptyContent != nil)
+  }
+
   @Test func appliesAppearanceModifiers() {
     let outline = SnagOutline(sampleRoots, children: \.children) { Text($0.id) }
     #expect(outline.appearance.style == .automatic)

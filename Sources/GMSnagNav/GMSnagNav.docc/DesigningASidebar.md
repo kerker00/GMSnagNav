@@ -49,6 +49,11 @@ A search field in the sidebar helps when there are many items. Show the matches 
 containers that lead to them, and turn dragging off while searching — see
 <doc:DragAndDrop#Turn-off-dragging-while-searching>.
 
+When nothing matches, or the sidebar has no items yet, say so with
+``SnagOutline/outlineEmptyContent(_:)`` rather than leaving the sidebar blank — for example with
+`ContentUnavailableView.search(text:)`. Keep the actions to add items in the bottom bar and the
+context menu; the empty content shows information only.
+
 ## See Also
 
 - <doc:PlatformDifferences>

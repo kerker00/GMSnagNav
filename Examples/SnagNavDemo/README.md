@@ -29,14 +29,12 @@ The project references the package in this repository as a **local** Swift packa
 ```swift
 // Package.swift
 dependencies: [
-  .package(url: "https://github.com/kerker00/GMSnagNav.git", from: "0.1.0")
+  .package(url: "https://github.com/kerker00/GMSnagNav.git", from: "0.2.0")
 ],
 targets: [
   .target(name: "MyApp", dependencies: ["GMSnagNav"])
 ]
 ```
-
-> GMSnagNav has not tagged a release yet. Until `0.1.0`, depend on a specific commit or branch.
 
 Then `import GMSnagNav` wherever you build your sidebar.
 

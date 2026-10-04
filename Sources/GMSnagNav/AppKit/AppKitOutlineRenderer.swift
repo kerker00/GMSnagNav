@@ -219,9 +219,13 @@
         } else {
           AnyView(renderer.rowContent(element))
         }
-      guard let menu = renderer.behavior.contextMenu else { return content }
+      let session = renderer.behavior.renameSession(for: id, in: tree) { [weak self] in
+        self?.takeFocusBack()
+      }
+      let row = AnyView(content.environment(\.outlineRenameSession, session))
+      guard let menu = renderer.behavior.contextMenu else { return row }
       let ids = activatedIDs(for: id)
-      return AnyView(content.contextMenu { menu(ids) })
+      return AnyView(row.contextMenu { menu(ids) })
     }
 
     /// Applies the style, the host's configuration and the indentation.
@@ -610,11 +614,30 @@
       primaryAction(activatedIDs(for: id))
     }
 
-    /// Runs the primary action for the selection; returns whether it handled the key press.
-    private func handleReturn() -> Bool {
-      guard let renderer, let primaryAction = renderer.behavior.primaryAction else { return false }
+    /// Makes the outline the first responder again after renaming ended with the keyboard;
+    /// otherwise no view keeps the focus, the selection turns gray, and Return no longer reaches
+    /// the outline.
+    private func takeFocusBack() {
+      // After SwiftUI has removed the text field, which would otherwise keep the focus.
+      Task { @MainActor [weak self] in
+        guard let outlineView = self?.outlineView else { return }
+        outlineView.window?.makeFirstResponder(outlineView)
+      }
+    }
+
+    /// Renames the selected row, as in the Finder, or runs the primary action for the selection;
+    /// returns whether it handled the key press.
+    func handleReturn() -> Bool {
+      guard let renderer else { return false }
       let selected = selectedIDs(in: renderer.selection)
-      guard !selected.isEmpty else { return false }
+      if selected.count == 1, let id = selected.first,
+        renderer.behavior.startRenaming(id, in: tree)
+      {
+        return true
+      }
+      guard let primaryAction = renderer.behavior.primaryAction, !selected.isEmpty else {
+        return false
+      }
       primaryAction(selected)
       return true
     }

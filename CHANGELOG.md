@@ -20,6 +20,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `outlineSections(_:)` to show top-level elements as section headers, like "Favorites" in the
   Finder's sidebar: group rows on macOS and bold headings on iOS, never selected, collapsible
   through the expansion binding, and draggable when `outlineDraggable(_:)` allows it.
+- `outlineRenaming(_:canRename:onRename:)` to rename elements in a text field within their row,
+  started through a binding and, on macOS, with Return as in the Finder: while it is on, Return
+  renames a single selected row instead of running the primary action, which stays on
+  double-click. `OutlineLabel` and section headers turn into the text field by themselves;
+  `OutlineRenamableText` does the same in custom rows.
 
 ## [0.1.1] - 2026-10-02
 

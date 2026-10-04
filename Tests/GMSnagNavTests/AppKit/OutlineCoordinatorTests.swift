@@ -24,6 +24,8 @@
       var reportedDuplicates: [Set<String>] = []
       var typeSelectText: ((TestItem) -> String?)?
       var sectionTitle: ((TestItem) -> String?)?
+      var renaming: String?
+      var canRename: ((TestItem) -> Bool)?
     }
 
     let host = Host()
@@ -47,6 +49,11 @@
       behavior.duplicateIDs = { host.reportedDuplicates.append($0) }
       behavior.typeSelectText = host.typeSelectText
       behavior.sectionTitle = host.sectionTitle
+      if let canRename = host.canRename {
+        behavior.renaming = OutlineRenameHandler(
+          renaming: Binding(get: { host.renaming }, set: { host.renaming = $0 }),
+          canRename: canRename, onRename: { _, _ in })
+      }
       let selection: OutlineSelection<String> =
         multipleSelection
         ? .multiple(Binding(get: { host.multiple }, set: { host.multiple = $0 }))
@@ -236,6 +243,36 @@
       let proposed = coordinator.outlineView(
         outlineView, selectionIndexesForProposedSelection: [0, 1])
       #expect(proposed == [1])
+    }
+
+    @Test func renamesTheSelectedRowOnReturnLikeTheFinder() {
+      var activated: Set<String>?
+      host.primaryAction = { activated = $0 }
+      host.canRename = { $0.id != "a" }
+      host.single = "c"
+      update()
+      #expect(coordinator.handleReturn())
+      #expect(host.renaming == "c")
+      #expect(activated == nil)
+
+      // Rows that cannot be renamed keep running the primary action.
+      host.renaming = nil
+      host.single = "a"
+      update()
+      #expect(coordinator.handleReturn())
+      #expect(host.renaming == nil)
+      #expect(activated == ["a"])
+    }
+
+    @Test func runsThePrimaryActionOnReturnForSeveralSelectedRows() {
+      var activated: Set<String>?
+      host.primaryAction = { activated = $0 }
+      host.canRename = { _ in true }
+      host.multiple = ["a", "c"]
+      update(multipleSelection: true)
+      #expect(coordinator.handleReturn())
+      #expect(host.renaming == nil)
+      #expect(activated == ["a", "c"])
     }
 
     @Test func filtersUnselectableRows() {

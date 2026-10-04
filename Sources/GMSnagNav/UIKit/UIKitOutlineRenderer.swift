@@ -206,6 +206,7 @@
           sectionTitle: sectionTitle, toggle: { [weak self] in self?.toggle(id) },
           content: renderer.rowContent(element)
         )
+        .environment(\.outlineRenameSession, renderer.behavior.renameSession(for: id, in: tree))
         .frame(minHeight: Self.rowMinimumContentHeight)
         .modifier(RowMenu(menu: menu.map { menu in { menu(menuIDs) } }))
         .modifier(RowDrag(begin: canDrag ? { [weak self] in self?.beginDrag(from: id) } : nil))

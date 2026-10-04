@@ -9,3 +9,6 @@
 
 /* The VoiceOver value of an expanded row. */
 "Expanded" = "Expanded";
+
+/* The accessibility label of the text field for renaming a row. */
+"Name" = "Name";

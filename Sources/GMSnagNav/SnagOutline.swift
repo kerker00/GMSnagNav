@@ -232,6 +232,7 @@ struct OutlineBehavior<Element: Identifiable> where Element.ID: Sendable {
   var emptyContent: (() -> AnyView)?
   var typeSelectText: ((Element) -> String?)?
   var sectionTitle: ((Element) -> String?)?
+  var renaming: OutlineRenameHandler<Element>?
 
   func canSelect(_ element: Element) -> Bool {
     isSelectable?(element) ?? true

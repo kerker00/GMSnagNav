@@ -384,6 +384,20 @@
       #expect(coordinator.resolveDrop(of: ["c"], onto: nil, childIndex: 0) == nil)
     }
 
+    @Test func performsCopiesWhenTheUserAsksForThem() {
+      var performed: (OutlineDropProposal<String>, OutlineDropOperation)?
+      host.drop = OutlineDropHandler(
+        validate: { .accept($0.isCopyRequested ? .copy : .move) },
+        perform: { proposal, operation in
+          performed = (proposal, operation)
+          return true
+        })
+      update()
+      #expect(coordinator.performDrop(of: ["c"], onto: item("a"), childIndex: 0, copying: true))
+      #expect(performed?.0.isCopyRequested == true)
+      #expect(performed?.1 == .copy)
+    }
+
     @Test func performsAcceptedDropsWithTheFinalProposal() {
       var performed: (OutlineDropProposal<String>, OutlineDropOperation)?
       host.drop = acceptAll { performed = ($0, $1) }

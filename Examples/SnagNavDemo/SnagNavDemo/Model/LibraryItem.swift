@@ -26,6 +26,11 @@ struct LibraryItem: Identifiable, Hashable, Sendable {
 
   var isFolder: Bool { kind == .folder }
 
+  /// A copy with new identifiers for the item and everything inside it.
+  func copy() -> LibraryItem {
+    LibraryItem(id: UUID(), name: name, kind: kind, children: children?.map { $0.copy() })
+  }
+
   var systemImage: String {
     switch kind {
     case .folder: "folder"

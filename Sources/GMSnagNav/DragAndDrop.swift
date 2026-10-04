@@ -22,7 +22,9 @@ extension SnagOutline {
   /// While the user drags, `validate` is called repeatedly with the current ``OutlineDropProposal``
   /// and decides whether the drop is allowed, and where: return ``OutlineDropResult/reject`` to
   /// refuse it, ``OutlineDropResult/accept(_:)`` to allow it, or
-  /// ``OutlineDropResult/redirect(to:operation:)`` to show and perform it somewhere else. When the
+  /// ``OutlineDropResult/redirect(to:operation:)`` to show and perform it somewhere else. Accept
+  /// with ``OutlineDropOperation/copy`` when ``OutlineDropProposal/isCopyRequested`` is set to let
+  /// the user copy elements by holding the Option key on macOS. When the
   /// user releases the mouse or finger, `perform` receives the final proposal — with a redirected
   /// target already applied — and the accepted operation, and changes the host's data.
   ///
@@ -77,13 +79,14 @@ extension OutlineDropHandler {
   ///   accepted operation, or `nil` if the drop is not allowed.
   func resolve<Element: Identifiable>(
     draggedIDs: [ID], target: OutlineDropTarget<ID>, tree: OutlineTree<Element>,
-    expanded: Set<ID>
+    expanded: Set<ID>, isCopyRequested: Bool = false
   ) -> (proposal: OutlineDropProposal<ID>, operation: OutlineDropOperation)?
   where Element.ID == ID {
     // A target proposed before the host's data changed may no longer exist.
     guard tree.isValidDropTarget(target) else { return nil }
     let proposal = OutlineDropProposal(
-      draggedIDs: draggedIDs, target: target, tree: tree, expanded: expanded)
+      draggedIDs: draggedIDs, target: target, tree: tree, expanded: expanded,
+      isCopyRequested: isCopyRequested)
     guard !proposal.draggedIDs.isEmpty else { return nil }
 
     switch validate(proposal) {
@@ -94,7 +97,8 @@ extension OutlineDropHandler {
     case .redirect(let redirected, let operation):
       guard tree.isValidDropTarget(redirected) else { return nil }
       let proposal = OutlineDropProposal(
-        draggedIDs: draggedIDs, target: redirected, tree: tree, expanded: expanded)
+        draggedIDs: draggedIDs, target: redirected, tree: tree, expanded: expanded,
+        isCopyRequested: isCopyRequested)
       return (proposal, operation)
     }
   }
@@ -111,6 +115,7 @@ struct DropResolutionCache<ID: Hashable & Sendable> {
   private struct Key: Hashable {
     let draggedIDs: [ID]
     let target: OutlineDropTarget<ID>
+    let isCopyRequested: Bool
   }
 
   private var resolutions: [Key: Resolution?] = [:]
@@ -118,9 +123,10 @@ struct DropResolutionCache<ID: Hashable & Sendable> {
   /// Returns the remembered resolution for dragging `draggedIDs` to `target`, or resolves and
   /// remembers it; `nil` stands for a rejected drop.
   mutating func resolution(
-    for draggedIDs: [ID], target: OutlineDropTarget<ID>, resolve: () -> Resolution?
+    for draggedIDs: [ID], target: OutlineDropTarget<ID>, isCopyRequested: Bool = false,
+    resolve: () -> Resolution?
   ) -> Resolution? {
-    let key = Key(draggedIDs: draggedIDs, target: target)
+    let key = Key(draggedIDs: draggedIDs, target: target, isCopyRequested: isCopyRequested)
     if let cached = resolutions[key] { return cached }
     let resolution = resolve()
     resolutions[key] = .some(resolution)

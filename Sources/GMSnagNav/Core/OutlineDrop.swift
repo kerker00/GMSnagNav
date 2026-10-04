@@ -106,6 +106,16 @@ public struct OutlineDropProposal<ID: Hashable & Sendable>: Hashable, Sendable {
   /// inserting them — the usual way to implement a move — should insert at this index instead.
   public let insertionIndexAfterRemoval: Int?
 
+  /// Whether the user asks to copy the dragged elements instead of moving them.
+  ///
+  /// On macOS, this is the case while the user holds the Option key during the drag, as in the
+  /// Finder; the outline asks again whenever the key changes. iOS and iPadOS offer no such gesture
+  /// within an app, so it is always `false` there. Accept such a drop with
+  /// ``OutlineDropOperation/copy`` to show the copy cursor; the default validation ignores the
+  /// request and moves. For a copy, the originals stay in place, so insert at
+  /// ``OutlineDropTarget/childIndex`` rather than ``insertionIndexAfterRemoval``.
+  public let isCopyRequested: Bool
+
   /// Creates a proposal from the given values, for example to unit test a host's drop validation.
   ///
   /// The values are taken as they are. Unlike the proposals that the outline passes to the host,
@@ -116,13 +126,15 @@ public struct OutlineDropProposal<ID: Hashable & Sendable>: Hashable, Sendable {
     target: OutlineDropTarget<ID>,
     isTargetExpanded: Bool = false,
     isDroppingIntoOwnSubtree: Bool = false,
-    insertionIndexAfterRemoval: Int? = nil
+    insertionIndexAfterRemoval: Int? = nil,
+    isCopyRequested: Bool = false
   ) {
     self.draggedIDs = draggedIDs
     self.target = target
     self.isTargetExpanded = isTargetExpanded
     self.isDroppingIntoOwnSubtree = isDroppingIntoOwnSubtree
     self.insertionIndexAfterRemoval = insertionIndexAfterRemoval ?? target.childIndex
+    self.isCopyRequested = isCopyRequested
   }
 }
 
@@ -130,7 +142,7 @@ extension OutlineDropProposal {
   /// Creates a proposal from the outline's current snapshot.
   init<Element: Identifiable>(
     draggedIDs: [ID], target: OutlineDropTarget<ID>, tree: OutlineTree<Element>,
-    expanded: Set<ID>
+    expanded: Set<ID>, isCopyRequested: Bool = false
   ) where Element.ID == ID {
     let known = Set(draggedIDs.filter(tree.contains))
     // An element dragged along with one of its ancestors moves with that ancestor's subtree.
@@ -160,6 +172,7 @@ extension OutlineDropProposal {
       target: target,
       isTargetExpanded: target.parent.map(expanded.contains) ?? false,
       isDroppingIntoOwnSubtree: intoOwnSubtree,
-      insertionIndexAfterRemoval: adjustedIndex)
+      insertionIndexAfterRemoval: adjustedIndex,
+      isCopyRequested: isCopyRequested)
   }
 }

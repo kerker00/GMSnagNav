@@ -67,6 +67,7 @@ nesting level. They differ in how the pointer or finger picks one.
 | Empty space below the rows | Onto the root level (``OutlineDropTarget/root``) | At the end of the root level |
 | Above the first row | At the start of the root level | At the start of the root level |
 | Feedback | The system's drop highlight and insertion line | A highlight on the row or an insertion line drawn by the outline |
+| Copy instead of move | Hold the Option key (``OutlineDropProposal/isCopyRequested``) | Not available |
 
 On iOS and iPadOS, a gap between rows inserts after the row above it: items moved to the lower
 edge of the last row in an expanded folder stay inside it. The empty space below the last row

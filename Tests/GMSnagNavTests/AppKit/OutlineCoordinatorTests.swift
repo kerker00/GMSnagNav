@@ -23,6 +23,7 @@
       var springLoading = SpringLoadingBehavior.automatic
       var reportedDuplicates: [Set<String>] = []
       var typeSelectText: ((TestItem) -> String?)?
+      var sectionTitle: ((TestItem) -> String?)?
     }
 
     let host = Host()
@@ -45,6 +46,7 @@
       behavior.drop = host.drop
       behavior.duplicateIDs = { host.reportedDuplicates.append($0) }
       behavior.typeSelectText = host.typeSelectText
+      behavior.sectionTitle = host.sectionTitle
       let selection: OutlineSelection<String> =
         multipleSelection
         ? .multiple(Binding(get: { host.multiple }, set: { host.multiple = $0 }))
@@ -222,6 +224,18 @@
 
       outlineView.selectRowIndexes([1, 2], byExtendingSelection: false)
       #expect(host.multiple == ["b", "c"])
+    }
+
+    @Test func showsSectionsAsUnselectableGroupRows() {
+      host.sectionTitle = { $0.id == "a" ? "A" : nil }
+      host.expansion = ["a"]
+      update()
+      #expect(coordinator.outlineView(outlineView, isGroupItem: item("a")!))
+      #expect(!coordinator.outlineView(outlineView, isGroupItem: item("a1")!))
+      // Rows: a, a1, a2, b, c.
+      let proposed = coordinator.outlineView(
+        outlineView, selectionIndexesForProposedSelection: [0, 1])
+      #expect(proposed == [1])
     }
 
     @Test func filtersUnselectableRows() {
@@ -519,6 +533,10 @@
       host.roots = RandomTree.make(using: &random)
       let ids = RandomTree.allIDs(host.roots)
       host.expansion = Set(ids.filter { _ in random.next() % 2 == 0 })
+      // Group rows make AppKit load rows while it starts an update; cover them as well.
+      if seed % 2 == 0 {
+        host.sectionTitle = { $0.children != nil ? $0.id : nil }
+      }
       update()
 
       for _ in 0..<3 {

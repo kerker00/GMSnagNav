@@ -213,8 +213,13 @@
     /// The host's row content for an element, with the context menu attached.
     private func rowContent(for id: ID) -> AnyView? {
       guard let renderer, let element = tree.element(id) else { return nil }
-      let content = renderer.rowContent(element)
-      guard let menu = renderer.behavior.contextMenu else { return AnyView(content) }
+      let content =
+        if let title = renderer.behavior.sectionTitle(of: id, in: tree) {
+          AnyView(OutlineSectionHeader(title: title))
+        } else {
+          AnyView(renderer.rowContent(element))
+        }
+      guard let menu = renderer.behavior.contextMenu else { return content }
       let ids = activatedIDs(for: id)
       return AnyView(content.contextMenu { menu(ids) })
     }
@@ -497,9 +502,8 @@
       guard let renderer else { return [] }
       if case .none = renderer.selection { return [] }
       return proposedSelectionIndexes.filteredIndexSet { row in
-        guard let id = id(of: outlineView.item(atRow: row)), let element = tree.element(id)
-        else { return false }
-        return renderer.behavior.canSelect(element)
+        guard let id = id(of: outlineView.item(atRow: row)) else { return false }
+        return renderer.behavior.canSelect(id, in: tree)
       }
     }
 
@@ -513,10 +517,15 @@
     /// host's text, and for rows that cannot be selected.
     func typeSelectText(for id: ID?) -> String? {
       guard let renderer, let text = renderer.behavior.typeSelectText,
-        let id, let element = tree.element(id), renderer.behavior.canSelect(element)
+        let id, let element = tree.element(id), renderer.behavior.canSelect(id, in: tree)
       else { return nil }
       if case .none = renderer.selection { return nil }
       return text(element)
+    }
+
+    func outlineView(_ outlineView: NSOutlineView, isGroupItem item: Any) -> Bool {
+      guard let renderer, let id = id(of: item) else { return false }
+      return renderer.behavior.sectionTitle(of: id, in: tree) != nil
     }
 
     func outlineViewSelectionDidChange(_ notification: Notification) {
@@ -571,8 +580,7 @@
       guard let renderer, let outlineView else { return }
       let row = outlineView.clickedRow
       guard row >= 0, let id = id(of: outlineView.item(atRow: row)),
-        let element = tree.element(id),
-        !renderer.behavior.canSelect(element), !tree.children(of: id).isEmpty
+        !renderer.behavior.canSelect(id, in: tree), !tree.children(of: id).isEmpty
       else { return }
 
       // The disclosure triangle toggles on its own; do not toggle a second time.

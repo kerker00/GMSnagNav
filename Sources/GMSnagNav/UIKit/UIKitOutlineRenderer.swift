@@ -187,10 +187,11 @@
       guard let renderer, let element = tree.element(id), let node = tree.node(id) else { return }
       let children = node.children ?? []
       let row = VisibleRow(
-        id: id, depth: node.depth, parent: node.parent, index: node.index,
-        isExpandable: node.children != nil,
+        id: id, depth: renderer.behavior.indentationDepth(of: id, in: tree), parent: node.parent,
+        index: node.index, isExpandable: node.children != nil,
         isExpanded: !children.isEmpty && displayedExpansion.contains(id),
         childCount: children.count)
+      let sectionTitle = renderer.behavior.sectionTitle(of: id, in: tree)
       // The row draws its own leading chevron and indentation: UIKit places its outline
       // disclosure on the trailing edge of sidebar lists and does not indent hosted content.
       let canDrag = rowsDragThemselves && renderer.behavior.canDrag?(element) == true
@@ -202,7 +203,8 @@
       cell.contentConfiguration = UIHostingConfiguration {
         OutlineRowView(
           row: row, indentation: renderer.appearance.indentation, isExpanded: row.isExpanded,
-          toggle: { [weak self] in self?.toggle(id) }, content: renderer.rowContent(element)
+          sectionTitle: sectionTitle, toggle: { [weak self] in self?.toggle(id) },
+          content: renderer.rowContent(element)
         )
         .frame(minHeight: Self.rowMinimumContentHeight)
         .modifier(RowMenu(menu: menu.map { menu in { menu(menuIDs) } }))
@@ -597,7 +599,7 @@
       guard let childIndex = target.childIndex else {
         return target.parent.map(DropIndicator.onto)
       }
-      let depth = target.parent.flatMap { tree.node($0)?.depth }.map { $0 + 1 } ?? 0
+      let depth = target.parent.map(childIndentationDepth) ?? 0
       let siblings = tree.children(of: target.parent)
       if childIndex > 0, siblings.indices.contains(childIndex - 1) {
         // Below the previous sibling — or below the last visible row of its expanded subtree.
@@ -612,6 +614,14 @@
       }
       // Inserting into an empty, expanded parent: below the parent row itself.
       return target.parent.map { .line($0, atBottom: true, depth: depth) }
+    }
+
+    /// The indentation of the children of `parent`: one level deeper, except below a section
+    /// header, whose entries are not indented.
+    private func childIndentationDepth(of parent: ID) -> Int {
+      guard let behavior = renderer?.behavior else { return 0 }
+      if behavior.sectionTitle(of: parent, in: tree) != nil { return 0 }
+      return behavior.indentationDepth(of: parent, in: tree) + 1
     }
 
     /// Records the frames of the first `count` rows before UIKit starts previewing insertions.
@@ -740,10 +750,8 @@
     func collectionView(
       _ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath
     ) -> Bool {
-      guard let renderer, let id = dataSource?.itemIdentifier(for: indexPath),
-        let element = tree.element(id)
-      else { return false }
-      var canSelect = renderer.behavior.canSelect(element)
+      guard let renderer, let id = dataSource?.itemIdentifier(for: indexPath) else { return false }
+      var canSelect = renderer.behavior.canSelect(id, in: tree)
       if case .none = renderer.selection { canSelect = false }
       // Tapping a container that cannot be selected expands or collapses it instead.
       if !canSelect { toggle(id) }

@@ -108,3 +108,11 @@ that other apps can read.
 ``SnagOutline/outlineStyle(_:)`` selects the source-list style of `NSOutlineView` or the sidebar
 style of `UICollectionView`. On macOS, `outlineAppKitConfiguration(_:)` gives access to the
 underlying `NSOutlineView` for settings the package does not cover.
+
+### Section headers
+
+| | macOS | iOS and iPadOS |
+|---|---|---|
+| Header | A group row in the source list's header style | A bold heading |
+| Show and hide | Click the header, or its show and hide button while the pointer rests on it | Tap the header, or its chevron at the trailing edge |
+| Entries | Not indented below the header | Not indented below the header |

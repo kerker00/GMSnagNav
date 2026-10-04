@@ -17,6 +17,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   context menu for empty space keep working.
 - `outlineTypeSelect(_:)` to select a row by typing the start of its text on macOS, as in the
   Finder. Rows that cannot be selected are skipped.
+- `outlineSections(_:)` to show top-level elements as section headers, like "Favorites" in the
+  Finder's sidebar: group rows on macOS and bold headings on iOS, never selected, collapsible
+  through the expansion binding, and draggable when `outlineDraggable(_:)` allows it.
 
 ## [0.1.1] - 2026-10-02
 

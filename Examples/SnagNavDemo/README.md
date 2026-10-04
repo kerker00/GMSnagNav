@@ -29,7 +29,7 @@ The project references the package in this repository as a **local** Swift packa
 ```swift
 // Package.swift
 dependencies: [
-  .package(url: "https://github.com/kerker00/GMSnagNav.git", from: "0.2.0")
+  .package(url: "https://github.com/kerker00/GMSnagNav.git", from: "0.2.1")
 ],
 targets: [
   .target(name: "MyApp", dependencies: ["GMSnagNav"])

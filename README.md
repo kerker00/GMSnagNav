@@ -82,7 +82,7 @@ Add the package with Swift Package Manager:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/kerker00/GMSnagNav.git", from: "0.2.0")
+    .package(url: "https://github.com/kerker00/GMSnagNav.git", from: "0.2.1")
 ]
 ```
 

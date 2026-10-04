@@ -7,6 +7,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-04
+
+Fixes renaming and section headers on iOS and iPadOS.
+
 ### Fixed
 
 - Renaming in place on iOS and iPadOS starts with the whole name selected, so typing replaces it.
@@ -95,7 +99,8 @@ It requires macOS 26 or iOS 26 and Swift 6.2.
 - English and German texts for what VoiceOver reads on iOS. They follow the host app's language.
 - `SnagNavDemo`, a multiplatform demo app in `Examples/`.
 
-[Unreleased]: https://github.com/kerker00/GMSnagNav/compare/0.2.0...HEAD
+[Unreleased]: https://github.com/kerker00/GMSnagNav/compare/0.2.1...HEAD
+[0.2.1]: https://github.com/kerker00/GMSnagNav/releases/tag/0.2.1
 [0.2.0]: https://github.com/kerker00/GMSnagNav/releases/tag/0.2.0
 [0.1.1]: https://github.com/kerker00/GMSnagNav/releases/tag/0.1.1
 [0.1.0]: https://github.com/kerker00/GMSnagNav/releases/tag/0.1.0

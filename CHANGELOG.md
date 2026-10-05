@@ -7,6 +7,34 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-04
+
+The outline reveals what the app selects, and renaming and section headers work properly on iOS
+and iPadOS.
+
+### Added
+
+- `outlineRevealsSelection(_:)`: when the app selects an element — after adding it, from a link,
+  or restored at launch — the outline expands the collapsed containers above it, adding them to
+  the expansion binding, and scrolls it into view. Selections the user makes are left alone.
+
+### Changed
+
+- Revealing the app's selection is on by default. Pass `false` to `outlineRevealsSelection(_:)`
+  to keep the expansion exactly as the user left it.
+
+### Fixed
+
+- Renaming in place on iOS and iPadOS starts with the whole name selected, so typing replaces it.
+  UIKit dropped the selection when the text field became first responder and put the cursor at
+  the end.
+- Section headers on iOS and iPadOS open their context menu when pressed anywhere in the row, not
+  only on the title.
+- Return starts renaming again after a rename got stuck — for example after moving rows on the Mac,
+  when the text field had not received the focus. A row that goes away while being renamed now
+  keeps the typed name and ends renaming, and the text field asks for the focus once more if its
+  first request got lost.
+
 ## [0.2.0] - 2026-10-04
 
 Sidebars that feel at home on macOS: sections, renaming in place, type select, copying by
@@ -87,7 +115,8 @@ It requires macOS 26 or iOS 26 and Swift 6.2.
 - English and German texts for what VoiceOver reads on iOS. They follow the host app's language.
 - `SnagNavDemo`, a multiplatform demo app in `Examples/`.
 
-[Unreleased]: https://github.com/kerker00/GMSnagNav/compare/0.2.0...HEAD
+[Unreleased]: https://github.com/kerker00/GMSnagNav/compare/0.3.0...HEAD
+[0.3.0]: https://github.com/kerker00/GMSnagNav/releases/tag/0.3.0
 [0.2.0]: https://github.com/kerker00/GMSnagNav/releases/tag/0.2.0
 [0.1.1]: https://github.com/kerker00/GMSnagNav/releases/tag/0.1.1
 [0.1.0]: https://github.com/kerker00/GMSnagNav/releases/tag/0.1.0

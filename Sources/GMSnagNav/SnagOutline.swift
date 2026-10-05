@@ -22,6 +22,9 @@ import SwiftUI
 /// — for example when a search filter is cleared. Remove identifiers of deleted elements from the
 /// selection yourself.
 ///
+/// When your app selects an element, the outline expands the containers above it and scrolls it
+/// into view; see `outlineRevealsSelection(_:)`.
+///
 /// Identifiers must be unique across the whole tree, not only among siblings. A repeated
 /// identifier shows only its first occurrence; see `onOutlineDuplicateIDs(_:)`. The outline keeps
 /// no copy of the data between updates; every change to `data` is reflected the next time SwiftUI
@@ -233,6 +236,7 @@ struct OutlineBehavior<Element: Identifiable> where Element.ID: Sendable {
   var typeSelectText: ((Element) -> String?)?
   var sectionTitle: ((Element) -> String?)?
   var renaming: OutlineRenameHandler<Element>?
+  var revealsSelection = true
 
   func canSelect(_ element: Element) -> Bool {
     isSelectable?(element) ?? true

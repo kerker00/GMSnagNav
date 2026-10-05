@@ -39,8 +39,9 @@ xcodebuild test -project SnagNavDemo.xcodeproj -scheme SnagNavDemo \
   -destination 'platform=iOS Simulator,name=<an installed simulator, e.g. iPhone 18 Pro>'
 ```
 
-On macOS, grant Xcode (or your terminal) accessibility access when asked, and leave the mouse
-alone while the tests run.
+The UI tests need a development team: create `Examples/SnagNavDemo/Config/Signing.local.xcconfig`
+as described in the [demo's README](Examples/SnagNavDemo/README.md). On macOS, grant Xcode (or
+your terminal) accessibility access when asked, and leave the mouse alone while the tests run.
 
 ## Making changes
 
@@ -75,8 +76,8 @@ Common types: `feat`, `fix`, `perf`, `refactor`, `test`, `docs`, `ci`, `chore`. 
 
 ## Translations
 
-The package's own texts — so far only what VoiceOver reads for the rows' disclosure indicators on
-iOS — live in `Sources/GMSnagNav/Resources/<language>.lproj/Localizable.strings`. Plain strings
+The package's own texts — so far what VoiceOver reads for the rows' disclosure indicators on iOS
+and the label of the text field for renaming a row — live in `Sources/GMSnagNav/Resources/<language>.lproj/Localizable.strings`. Plain strings
 files work with every build system; a string catalog is not compiled by `swift build` with
 Xcode 26. To add a language, copy `en.lproj` to a folder for the new language, translate every
 entry, and add the translations to `Tests/GMSnagNavTests/LocalizationTests.swift`. The texts follow the host app's

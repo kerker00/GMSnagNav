@@ -23,6 +23,15 @@ headers whose entries are not indented, so sections organize the sidebar without
 visible level of nesting. Keep the number of sections small, and let people hide the ones they
 don't need.
 
+### Keep the selection in sight
+
+When your app selects an item — a new folder, the target of a link, the selection restored at
+launch — set the selection binding and nothing else. The outline opens the containers above the
+item and scrolls it into view, so people always see what is selected, like "Reveal in Project
+Navigator" in Xcode. It leaves the expansion alone for selections people make themselves. Turn
+this off with ``SnagOutline/outlineRevealsSelection(_:)`` only if your sidebar must keep exactly
+the expansion people chose.
+
 ### Make actions available in more than one place
 
 - **Bottom bar:** On macOS, keep the toolbar above the sidebar for the sidebar toggle and put

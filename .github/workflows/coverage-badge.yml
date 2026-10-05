@@ -1,0 +1,53 @@
+name: Coverage badge
+
+# Measures line coverage of a release on `main` and publishes it as a shields.io endpoint on the
+# `badges` branch, which the README's badge reads. No external service involved.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: coverage-badge
+  cancel-in-progress: true
+
+jobs:
+  badge:
+    name: Update coverage badge
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run tests with coverage
+        run: swift test --enable-code-coverage
+
+      # The macOS run covers Core, the public API and the AppKit renderer; the UIKit renderer is
+      # compiled only for iOS and not included, as in the CI summary.
+      - name: Write the badge
+        run: |
+          set -euo pipefail
+          report=$(swift test --show-codecov-path)
+          percent=$(jq '[.data[0].files[] | select(.filename | contains("/Sources/")) | .summary.lines]
+            | (map(.covered) | add) * 100 / (map(.count) | add) | floor' "$report")
+          if [ "$percent" -ge 80 ]; then color=brightgreen
+          elif [ "$percent" -ge 60 ]; then color=yellow
+          else color=orange; fi
+          mkdir -p "$RUNNER_TEMP/badges"
+          jq -n --arg message "$percent%" --arg color "$color" \
+            '{schemaVersion: 1, label: "coverage", message: $message, color: $color}' \
+            > "$RUNNER_TEMP/badges/coverage.json"
+          cat "$RUNNER_TEMP/badges/coverage.json"
+
+      - name: Publish to the badges branch
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/badges"
+          git init -q -b badges
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add coverage.json
+          git commit -q -m "Coverage of ${GITHUB_SHA::7}"
+          git push -q --force "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" badges

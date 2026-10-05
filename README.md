@@ -15,6 +15,7 @@
 
 <p align="center">
   <a href="https://github.com/kerker00/GMSnagNav/actions/workflows/ci.yml?query=event%3Apull_request"><img src="https://github.com/kerker00/GMSnagNav/actions/workflows/ci.yml/badge.svg?event=pull_request" alt="CI"></a>
+  <a href="https://github.com/kerker00/GMSnagNav/actions/workflows/coverage-badge.yml"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkerker00%2FGMSnagNav%2Fbadges%2Fcoverage.json" alt="Coverage"></a>
   <a href="https://swiftpackageindex.com/kerker00/GMSnagNav"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fkerker00%2FGMSnagNav%2Fbadge%3Ftype%3Dswift-versions" alt="Swift versions"></a>
   <a href="https://swiftpackageindex.com/kerker00/GMSnagNav"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fkerker00%2FGMSnagNav%2Fbadge%3Ftype%3Dplatforms" alt="Platforms"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/kerker00/GMSnagNav" alt="License"></a>
@@ -67,6 +68,7 @@ one SwiftUI API for arbitrarily deep trees with selection, expansion and real dr
 - Renaming in place, started with Return on macOS as in the Finder
 - Copying with the Option key while dragging on macOS
 - Type select on macOS and empty-state content for empty outlines and searches
+- Revealing what the app selects: collapsed containers open and the row scrolls into view
 - Incremental, animated updates when your data changes
 - Navigation of collapsed split views, such as on iPhone, from the selection
 - Demo app for macOS and iOS
@@ -82,7 +84,7 @@ Add the package with Swift Package Manager:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/kerker00/GMSnagNav.git", from: "0.2.0")
+    .package(url: "https://github.com/kerker00/GMSnagNav.git", from: "0.3.0")
 ]
 ```
 
@@ -165,7 +167,7 @@ with **Product > Build Documentation**. Start with these articles:
 
 ## Roadmap
 
-Ideas for versions after `0.2.0`, all planned to be backward compatible:
+Ideas for versions after `0.3.0`, all planned to be backward compatible:
 
 - Custom drag previews
 - Drops from other apps, such as file URLs

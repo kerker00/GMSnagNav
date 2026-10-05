@@ -26,6 +26,8 @@
       var sectionTitle: ((TestItem) -> String?)?
       var renaming: String?
       var canRename: ((TestItem) -> Bool)?
+      var revealsSelection = true
+      var contextMenu: ((Set<String>) -> AnyView)?
     }
 
     let host = Host()
@@ -49,6 +51,8 @@
       behavior.duplicateIDs = { host.reportedDuplicates.append($0) }
       behavior.typeSelectText = host.typeSelectText
       behavior.sectionTitle = host.sectionTitle
+      behavior.revealsSelection = host.revealsSelection
+      behavior.contextMenu = host.contextMenu
       if let canRename = host.canRename {
         behavior.renaming = OutlineRenameHandler(
           renaming: Binding(get: { host.renaming }, set: { host.renaming = $0 }),
@@ -264,6 +268,17 @@
       #expect(activated == ["a"])
     }
 
+    @Test func restartsAPendingRenameOnReturn() async throws {
+      host.canRename = { _ in true }
+      host.single = "c"
+      host.renaming = "c"
+      update()
+      #expect(coordinator.handleReturn())
+      #expect(host.renaming == nil)
+      try await Task.sleep(for: .milliseconds(200))
+      #expect(host.renaming == "c")
+    }
+
     @Test func runsThePrimaryActionOnReturnForSeveralSelectedRows() {
       var activated: Set<String>?
       host.primaryAction = { activated = $0 }
@@ -273,6 +288,43 @@
       #expect(coordinator.handleReturn())
       #expect(host.renaming == nil)
       #expect(activated == ["a", "c"])
+    }
+
+    /// Lets the tasks the coordinator scheduled for after an update run.
+    private func settle() async {
+      for _ in 0..<5 { await Task.yield() }
+    }
+
+    @Test func revealsElementsTheHostSelects() async {
+      update()
+      host.single = "a2x"
+      update()
+      await settle()
+      #expect(host.expansion == ["a", "a2"])
+      update()
+      #expect(visibleIDs.contains("a2x"))
+      #expect(outlineView.selectedRow == outlineView.row(forItem: item("a2x")))
+    }
+
+    @Test func leavesTheExpansionAloneWhenRevealingIsOff() async {
+      host.revealsSelection = false
+      update()
+      host.single = "a2x"
+      update()
+      await settle()
+      #expect(host.expansion.isEmpty)
+    }
+
+    @Test func doesNotRevealWhatTheUserSelects() async {
+      host.expansion = ["a"]
+      update()
+      outlineView.selectRowIndexes([1], byExtendingSelection: false)
+      #expect(host.single == "a1")
+      // The user collapses the container while its child stays selected.
+      host.expansion = []
+      update()
+      await settle()
+      #expect(host.expansion.isEmpty)
     }
 
     @Test func filtersUnselectableRows() {
@@ -645,6 +697,140 @@
       coordinator.endSpringLoading()
       #expect(visibleIDs == ["b", "c"])
       #expect(host.expansion.isEmpty)
+    }
+
+    // MARK: Clicks
+
+    @Test func clickingAnUnselectableContainerTogglesIt() {
+      host.isSelectable = { $0.children == nil }
+      update()
+      coordinator.handleClick(onRow: 0, at: nil)
+      #expect(host.expansion == ["a"])
+      coordinator.handleClick(onRow: 0, at: nil)
+      #expect(host.expansion.isEmpty)
+    }
+
+    @Test func clickingASelectableRowOrNoRowDoesNotToggle() {
+      host.isSelectable = { $0.id != "a" }
+      update()
+      coordinator.handleClick(onRow: 2, at: nil)  // c, selectable
+      coordinator.handleClick(onRow: -1, at: nil)
+      #expect(host.expansion.isEmpty)
+    }
+
+    @Test func clickingTheDisclosureTriangleIsLeftToAppKit() {
+      host.isSelectable = { $0.children == nil }
+      update()
+      let triangle = outlineView.frameOfOutlineCell(atRow: 0)
+      coordinator.handleClick(onRow: 0, at: CGPoint(x: triangle.midX, y: triangle.midY))
+      #expect(host.expansion.isEmpty)
+    }
+
+    @Test func togglesAfterTheDoubleClickIntervalWithAPrimaryAction() async {
+      host.isSelectable = { $0.children == nil }
+      host.primaryAction = { _ in }
+      update()
+      coordinator.doubleClickDelayOverride = .milliseconds(10)
+      coordinator.handleClick(onRow: 0, at: nil)
+      #expect(host.expansion.isEmpty)
+      await coordinator.pendingToggleSettled()
+      #expect(host.expansion == ["a"])
+    }
+
+    @Test func doubleClickingRunsThePrimaryActionInsteadOfToggling() async {
+      var activated: Set<String>?
+      host.isSelectable = { $0.children == nil }
+      host.primaryAction = { activated = $0 }
+      update()
+      coordinator.doubleClickDelayOverride = .seconds(10)
+      coordinator.handleClick(onRow: 0, at: nil)
+      coordinator.handleDoubleClick(onRow: 0)
+      await coordinator.pendingToggleSettled()
+      #expect(activated == ["a"])
+      #expect(host.expansion.isEmpty)
+
+      coordinator.handleDoubleClick(onRow: -1)
+      #expect(activated == ["a"])
+    }
+
+    @Test func forwardsClicksFromTheClickTarget() {
+      let target = OutlineClickTarget()
+      var clicks: [String] = []
+      target.onClick = { clicks.append("click") }
+      target.onDoubleClick = { clicks.append("double") }
+      target.click(nil)
+      target.doubleClick(nil)
+      #expect(clicks == ["click", "double"])
+    }
+
+    // MARK: Dragging details
+
+    @Test func forgetsTheDragTokensWhenTheDragEnds() throws {
+      host.canDrag = { _ in true }
+      update()
+      let row = try #require(item("c"))
+      let writer = try #require(
+        coordinator.outlineView(outlineView, pasteboardWriterForItem: row) as? NSPasteboardItem)
+      #expect(coordinator.draggedIDs(in: [writer]) == ["c"])
+      coordinator.endDrag()
+      #expect(coordinator.draggedIDs(in: [writer]).isEmpty)
+    }
+
+    @Test func treatsAnOptionLimitedMaskAsACopyRequest() {
+      typealias Coordinator = OutlineCoordinator<TestItem, Text>
+      #expect(Coordinator.isCopyRequested(mask: [.copy]))
+      #expect(!Coordinator.isCopyRequested(mask: [.copy, .move]))
+      #expect(!Coordinator.isCopyRequested(mask: [.move]))
+      #expect(OutlineDropOperation.move.dragOperation == .move)
+      #expect(OutlineDropOperation.copy.dragOperation == .copy)
+    }
+
+    @Test func followsTheSystemsSpringLoadingPreferences() throws {
+      let defaults = try #require(UserDefaults(suiteName: "GMSnagNavTests.\(UUID())"))
+      coordinator.systemDefaults = defaults
+      update()
+      #expect(coordinator.springLoadingDelay == .seconds(0.5))
+
+      defaults.set(0.8, forKey: "com.apple.springing.delay")
+      #expect(coordinator.springLoadingDelay == .seconds(0.8))
+
+      defaults.set(false, forKey: "com.apple.springing.enabled")
+      #expect(coordinator.springLoadingDelay == nil)
+
+      host.springLoading = .enabled
+      update()
+      #expect(coordinator.springLoadingDelay == .seconds(0.8))
+
+      host.springLoading = .disabled
+      update()
+      #expect(coordinator.springLoadingDelay == nil)
+    }
+
+    // MARK: Updates
+
+    @Test func acceptsUpdatesBeforeItIsAttached() {
+      let detached = OutlineCoordinator<TestItem, Text>()
+      detached.update(
+        with: AppKitOutlineRenderer(
+          tree: OutlineTree(sampleRoots, children: \.children), selection: .none,
+          expansion: .constant([]), behavior: OutlineBehavior(), appearance: OutlineAppearance(),
+          rowContent: { Text($0.id) }))
+      #expect(detached.outlineView == nil)
+    }
+
+    @Test func reloadsInsteadOfAnimatingVeryLargeChanges() {
+      host.roots = (0..<300).map { .leaf("old\($0)") }
+      update()
+      host.roots = (0..<300).map { .leaf("new\($0)") }
+      update()
+      #expect(visibleIDs == host.roots.map(\.id))
+    }
+
+    @Test func attachesTheContextMenuToRows() {
+      host.contextMenu = { _ in AnyView(Button("Delete") {}) }
+      update()
+      let cell = coordinator.outlineView(outlineView, viewFor: nil, item: item("c")!)
+      #expect(cell is HostingCellView)
     }
   }
 

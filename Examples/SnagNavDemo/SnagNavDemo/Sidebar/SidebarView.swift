@@ -92,6 +92,9 @@ struct SidebarView: View {
       #endif
   }
 
+  /// Whether rows offer a context menu; UI tests of dragging launch without it.
+  private static let showsContextMenus = !CommandLine.arguments.contains("-disable-context-menus")
+
   /// The sidebar's actions for the menu bar.
   private var actions: SidebarActions {
     var delete: (() -> Void)?
@@ -222,7 +225,9 @@ struct SidebarView: View {
     .outlineRenaming($renamingID) { id, name in library.rename(id, to: name) }
     // macOS: typing letters selects the next matching row, as in the Finder.
     .outlineTypeSelect { item in item.name }
-    .outlineContextMenuItems { ids in menuItems(for: ids) }
+    // UI tests of dragging turn the menu off: on iOS, the menu shares the long press with
+    // dragging, and synthesized touches cannot tell the two apart reliably.
+    .outlineContextMenuItems { ids in Self.showsContextMenus ? menuItems(for: ids) : [] }
     // iOS only: swiping a row to the left deletes it, like in Mail.
     .outlineSwipeActions { id in
       [.action("Delete", systemImage: "trash", role: .destructive) { requestDelete([id]) }]
@@ -393,13 +398,10 @@ struct SidebarView: View {
   }
 
   /// Adds the item into `id` if it is a folder and next to it otherwise, or at the root level for
-  /// `nil`, then opens the folder, selects the new item and lets the user name it, as in the
-  /// Finder.
+  /// `nil`, then selects the new item and lets the user name it, as in the Finder. The outline
+  /// reveals the selected item by itself, opening a collapsed folder.
   private func add(_ item: LibraryItem, near id: LibraryItem.ID?) {
     let folder = id.flatMap { library.item($0)?.isFolder == true ? $0 : library.parent(of: $0) }
-    if let folder {
-      expansion.insert(folder)
-    }
     selection = library.add(item, into: folder)
     renamingID = item.id
   }

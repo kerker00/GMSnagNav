@@ -141,7 +141,31 @@
         sectionSnapshot(expanded: displayedExpansion), to: 0, animatingDifferences: hasLoaded)
       hasLoaded = true
       refreshVisibleCells()
-      applySelection(selectedIDs(in: renderer.selection))
+      let selected = selectedIDs(in: renderer.selection)
+      applySelection(selected)
+      reveal.hostSelected(
+        selected, in: tree, expansion: renderer.$expansion,
+        reveals: renderer.behavior.revealsSelection)
+      scrollToRevealedElement()
+    }
+
+    /// Reveals elements the host selects; see `outlineRevealsSelection(_:)`.
+    private var reveal = SelectionReveal<ID>()
+
+    /// Scrolls the element waiting to be revealed into view once its row exists.
+    private func scrollToRevealedElement() {
+      guard let collectionView, let id = reveal.pending,
+        let indexPath = dataSource?.indexPath(for: id),
+        displayedRowsContain(id)
+      else { return }
+      reveal.didReveal()
+      guard !collectionView.indexPathsForVisibleItems.contains(indexPath) else { return }
+      collectionView.scrollToItem(at: indexPath, at: .centeredVertically, animated: hasLoaded)
+    }
+
+    /// Whether the element's row is shown, i.e. all of its ancestors are expanded.
+    private func displayedRowsContain(_ id: ID) -> Bool {
+      tree.ancestors(of: id).allSatisfy(displayedExpansion.contains)
     }
 
     /// The whole tree as a hierarchical section snapshot; UIKit shows the children of expanded
@@ -296,6 +320,7 @@
     private func writeSelection() {
       guard !isApplyingUpdate, let renderer else { return }
       let ids = selectedItemIDs
+      reveal.userSelected(Set(ids))
       switch renderer.selection {
       case .none:
         break

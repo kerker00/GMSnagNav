@@ -76,6 +76,58 @@ final class SidebarUITests: XCTestCase {
 
   // MARK: Keyboard and accessibility
 
+  private func assertRow(
+    _ first: String, appearsBefore second: String,
+    file: StaticString = #filePath, line: UInt = #line
+  ) {
+    let expected = XCTNSPredicateExpectation(
+      predicate: NSPredicate { [self] _, _ in
+        let a = row(first)
+        let b = row(second)
+        return a.exists && b.exists && a.frame.minY.isFinite && b.frame.minY.isFinite
+          && a.frame.minY < b.frame.minY
+      }, object: nil)
+    XCTAssertEqual(
+      XCTWaiter.wait(for: [expected], timeout: 5), .completed,
+      "Expected \(first) before \(second)", file: file, line: line)
+  }
+
+  func testModifiedArrowsReorderSiblingsAndKeepSelection() {
+    select("Inbox")
+    assertRow("Inbox", appearsBefore: "Ideas")
+    app.typeKey(.downArrow, modifierFlags: [.command, .option])
+    assertRow("Ideas", appearsBefore: "Inbox")
+    assertRow("Archive", appearsBefore: "Ideas")
+    assertDetailLocation("Inbox")
+    app.typeKey(.upArrow, modifierFlags: [.command, .option])
+    assertRow("Inbox", appearsBefore: "Ideas")
+    assertRow("Archive", appearsBefore: "Inbox")
+    assertDetailLocation("Inbox")
+    app.typeKey(.downArrow, modifierFlags: [])
+    assertDetailLocation("Ideas")
+  }
+
+  func testReorderingAnExpandedFolderMovesTheWholeSubtree() {
+    select("Work")
+    app.typeKey(.downArrow, modifierFlags: [.command, .option])
+    assertRow("Personal", appearsBefore: "Work")
+    assertRow("Work", appearsBefore: "Weekly Report")
+    assertRow("Weekly Report", appearsBefore: "Inbox")
+    assertDetailLocation("Work")
+    app.typeKey(.downArrow, modifierFlags: [])
+    assertDetailLocation("Work › Clients")
+  }
+
+  func testReorderingIsDisabledInSearchResults() {
+    search("i")
+    select("Ideas")
+    assertDetailLocation("Ideas")
+    assertRow("Inbox", appearsBefore: "Ideas")
+    app.typeKey(.upArrow, modifierFlags: [.command, .option])
+    assertRow("Inbox", appearsBefore: "Ideas")
+    assertDetailLocation("Ideas")
+  }
+
   func testArrowKeysNavigateTheVisibleRows() {
     select("Inbox")
     #if os(macOS)

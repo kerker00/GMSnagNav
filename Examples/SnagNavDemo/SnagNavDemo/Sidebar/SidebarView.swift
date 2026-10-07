@@ -239,6 +239,7 @@ struct SidebarView: View {
     .outlineStyle(style.outlineStyle)
     .outlineIndentation(indentationStep.width)
     .outlineDraggable { _ in !isSearching }
+    .outlineReorderable { _ in !isSearching }
     .onOutlineDrop(validate: library.dropResult(for:), perform: drop)
     // Lets drops onto the root level and the empty-space menu through, unlike a plain overlay.
     .outlineEmptyContent { [isSearching, searchText] in

@@ -23,6 +23,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   controls retain their focus.
 - macOS primary-action shortcuts also work when hosted SwiftUI row content owns the focus;
   text editors and interactive controls retain their shortcuts.
+- `outlineCompactNavigation` changes columns only in compact layouts, as documented. Selecting
+  an item in a side-by-side layout leaves the preferred split-view column unchanged.
 - iOS selection eligibility queries no longer toggle unselectable containers; a deliberate tap
   handles expansion instead, so moving keyboard focus cannot unexpectedly open or close folders.
 - iOS disclosure chevrons and horizontal keyboard commands follow right-to-left layout.

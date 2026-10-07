@@ -146,6 +146,35 @@
       #expect(native?.numberOfRows == 5)
     }
 
+    @Test func exposesNativeReorderingActionsAndRevalidatesBeforePerforming() throws {
+      var allowed = true
+      var performed = false
+      let window = render(
+        outline(sampleRoots).outlineBadge { _ in .count(3) }
+          .outlineReorderable().onOutlineDrop(
+            validate: { _ in allowed ? .accept(.move) : .reject },
+            perform: { _, _ in
+              performed = true
+              return true
+            }))
+      defer { window.close() }
+      let native = try #require(window.contentView?.firstDescendant(of: NSOutlineView.self))
+      let first = try #require(native.view(atColumn: 0, row: 0, makeIfNecessary: true))
+      #expect(first.accessibilityCustomActions()?.count == 1)
+      let middle = try #require(native.view(atColumn: 0, row: 3, makeIfNecessary: true))
+      let actions = try #require(middle.accessibilityCustomActions())
+      #expect(actions.count == 2)
+      #expect(actions.contains { $0.name == String(localized: "Move Up", bundle: .module) })
+      #expect(actions.contains { $0.name == String(localized: "Move Down", bundle: .module) })
+      allowed = false
+      #expect(actions.first?.handler?() == false)
+      #expect(!performed)
+      allowed = true
+      #expect(actions.first?.handler?() == true)
+      #expect(performed)
+      #expect(host.selection == nil)
+    }
+
     @Test func showingAndHidingABadgePreservesTheRenameDraftAndFocus() throws {
       host.renaming = "a1"
       host.badgeText = ""

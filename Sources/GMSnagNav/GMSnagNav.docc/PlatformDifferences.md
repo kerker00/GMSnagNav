@@ -42,6 +42,14 @@ arrow collapses it, or returns to its parent. In a right-to-left interface, Left
 and Right backward; the disclosure chevrons mirror too. Space toggles a container, or runs the
 primary action on a leaf. An active rename field keeps spaces, Return and cursor keys for editing.
 
+### Reordering
+
+With ``SnagOutline/outlineReorderable(_:)``, Command-Option-Up/Down moves one selected row on
+macOS or one focused row on iPad by one sibling position. VoiceOver offers the same localized
+actions on eligible rows on both platforms, independently of selection. Text fields keep their
+shortcuts. Unavailable moves do nothing; they do not fall through to native arrow navigation.
+Both renderers validate and perform through ``SnagOutline/onOutlineDrop(validate:perform:)``.
+
 ### Renaming
 
 With ``SnagOutline/outlineRenaming(_:canRename:onRename:)``, a row turns into a text field while

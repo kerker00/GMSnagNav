@@ -129,6 +129,9 @@
       (outlineView as? SnagOutlineView)?.onPrimaryAction = { [weak self] in
         self?.handlePrimaryAction() ?? false
       }
+      (outlineView as? SnagOutlineView)?.onReorder = { [weak self] direction in
+        self?.handleReorderShortcut(direction) ?? false
+      }
       outlineView.registerForDraggedTypes([Self.draggedRowType])
       outlineView.setDraggingSourceOperationMask([.move, .copy], forLocal: true)
       outlineView.setDraggingSourceOperationMask([], forLocal: false)
@@ -247,6 +250,7 @@
           let content = rowContent(for: id)
         else { continue }
         cell.show(content)
+        cell.setAccessibilityCustomActions(reorderingActions(for: id))
       }
     }
 
@@ -547,6 +551,7 @@
         outlineView.makeView(withIdentifier: HostingCellView.reuseIdentifier, owner: nil)
         as? HostingCellView ?? HostingCellView()
       cell.show(content)
+      cell.setAccessibilityCustomActions(reorderingActions(for: id))
       return cell
     }
 
@@ -623,6 +628,48 @@
     }
 
     // MARK: Clicks and keys
+
+    func canReorder(_ id: ID, direction: OutlineReorderDirection) -> Bool {
+      guard let renderer else { return false }
+      return renderer.behavior.reorderingProposal(
+        for: id, direction: direction, tree: tree, expanded: renderer.expansion) != nil
+    }
+
+    /// Attach actions to the native cell, which owns AppKit's row accessibility representation.
+    private func reorderingActions(for id: ID) -> [NSAccessibilityCustomAction] {
+      [OutlineReorderDirection.up, .down].compactMap { direction in
+        guard canReorder(id, direction: direction) else { return nil }
+        let name =
+          direction == .up
+          ? String(localized: "Move Up", bundle: .module, locale: locale)
+          : String(localized: "Move Down", bundle: .module, locale: locale)
+        return NSAccessibilityCustomAction(name: name) { [weak self] in
+          self?.reorder(id, direction: direction) ?? false
+        }
+      }
+    }
+
+    @discardableResult func reorder(_ id: ID, direction: OutlineReorderDirection) -> Bool {
+      guard let renderer else { return false }
+      return renderer.behavior.reorder(
+        id, direction: direction, tree: tree, expanded: renderer.expansion)
+    }
+
+    @discardableResult func reorderSelection(_ direction: OutlineReorderDirection) -> Bool {
+      guard let renderer else { return false }
+      let selected = selectedIDs(in: renderer.selection)
+      guard selected.count == 1, let id = selected.first,
+        let outlineView, outlineView.row(forItem: box(for: id)) >= 0
+      else { return false }
+      return reorder(id, direction: direction)
+    }
+
+    /// A disabled move must not fall through to AppKit's different modified-arrow navigation.
+    func handleReorderShortcut(_ direction: OutlineReorderDirection) -> Bool {
+      guard renderer?.behavior.canReorder != nil else { return false }
+      _ = reorderSelection(direction)
+      return true
+    }
 
     /// The elements an action on `id` applies to: the selection if `id` is part of it, otherwise
     /// `id` alone.

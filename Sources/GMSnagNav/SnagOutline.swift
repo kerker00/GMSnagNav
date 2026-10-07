@@ -233,6 +233,7 @@ struct OutlineBehavior<Element: Identifiable> where Element.ID: Sendable {
   /// `contextMenu` for renderers that show the items as SwiftUI content.
   var contextMenuItems: (@MainActor (Set<Element.ID>) -> [OutlineMenuItem])?
   var canDrag: ((Element) -> Bool)?
+  var canReorder: ((Element) -> Bool)?
   var drop: OutlineDropHandler<Element.ID>?
   var duplicateIDs: ((Set<Element.ID>) -> Void)?
   var leadingSwipeActions: OutlineSwipeActions<Element.ID>?

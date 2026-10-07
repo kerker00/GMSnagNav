@@ -7,8 +7,14 @@
     var onReturn: (() -> Bool)?
     /// Opens the selection without starting renaming, as in the Finder.
     var onPrimaryAction: (() -> Bool)?
+    var onReorder: ((OutlineReorderDirection) -> Bool)?
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
+      if ownsKeyboardFocus, let direction = reorderingDirection(event),
+        onReorder?(direction) == true
+      {
+        return true
+      }
       // AppKit routes Command shortcuts through key equivalents before keyDown. Other controls,
       // including the inline rename field, keep their shortcuts while they own the focus.
       if ownsKeyboardFocus, isPrimaryAction(event), onPrimaryAction?() == true {
@@ -26,6 +32,7 @@
       }
       let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         .subtracting([.numericPad, .function, .capsLock])
+      if let direction = reorderingDirection(event), onReorder?(direction) == true { return }
       if isPrimaryAction(event), onPrimaryAction?() == true {
         return
       }
@@ -62,6 +69,17 @@
         .subtracting([.numericPad, .function, .capsLock])
       return modifiers == .command
         && (event.keyCode == 125 || event.charactersIgnoringModifiers?.lowercased() == "o")
+    }
+
+    private func reorderingDirection(_ event: NSEvent) -> OutlineReorderDirection? {
+      let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        .subtracting([.numericPad, .function, .capsLock])
+      guard modifiers == [.command, .option] else { return nil }
+      switch event.keyCode {
+      case 126: return .up
+      case 125: return .down
+      default: return nil
+      }
     }
   }
 

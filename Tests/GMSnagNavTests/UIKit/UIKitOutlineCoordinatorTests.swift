@@ -12,6 +12,7 @@
       var roots = sampleRoots
       var expansion: Set<String> = []
       var single: String?
+      var multiple: Set<String> = []
       var isSelectable: (TestItem) -> Bool = { _ in true }
       var primaryAction: ((Set<String>) -> Void)?
       var springLoading = SpringLoadingBehavior.automatic
@@ -20,6 +21,7 @@
       var sectionTitle: ((TestItem) -> String?)?
       var revealsSelection = true
       var badge: OutlineBadge?
+      var canReorder: ((TestItem) -> Bool)?
     }
 
     let host = Host()
@@ -32,7 +34,9 @@
       coordinator.attach(to: collectionView)
     }
 
-    private func update(layoutDirection: LayoutDirection = .leftToRight) {
+    private func update(
+      layoutDirection: LayoutDirection = .leftToRight, multipleSelection: Bool = false
+    ) {
       let host = host
       var behavior = OutlineBehavior<TestItem>()
       behavior.isSelectable = host.isSelectable
@@ -42,10 +46,15 @@
       behavior.sectionTitle = host.sectionTitle
       behavior.revealsSelection = host.revealsSelection
       behavior.badge = { _ in host.badge }
+      behavior.canReorder = host.canReorder
+      let selection: OutlineSelection<String> =
+        multipleSelection
+        ? .multiple(Binding(get: { host.multiple }, set: { host.multiple = $0 }))
+        : .single(Binding(get: { host.single }, set: { host.single = $0 }))
       coordinator.update(
         with: UIKitOutlineRenderer(
           tree: OutlineTree(host.roots, children: \.children),
-          selection: .single(Binding(get: { host.single }, set: { host.single = $0 })),
+          selection: selection,
           expansion: Binding(get: { host.expansion }, set: { host.expansion = $0 }),
           behavior: behavior,
           appearance: OutlineAppearance(),
@@ -139,6 +148,83 @@
       host.single = nil
       update()
       #expect(coordinator.selectedItemIDs.isEmpty)
+    }
+
+    @Test func physicalModifiedArrowsReorderWithoutChangingSelection() throws {
+      host.canReorder = { _ in true }
+      host.single = "b"
+      host.drop = OutlineDropHandler(
+        validate: { _ in .accept(.move) },
+        perform: { [host] proposal, _ in
+          guard let id = proposal.draggedIDs.first,
+            let source = host.roots.firstIndex(where: { $0.id == id }),
+            let destination = proposal.insertionIndexAfterRemoval
+          else { return false }
+          let item = host.roots.remove(at: source)
+          host.roots.insert(item, at: destination)
+          return true
+        })
+      update()
+      #expect(
+        collectionView.handleDirectionalKey(.keyboardDownArrow, modifiers: [.command, .alternate]))
+      #expect(host.roots.map(\.id) == ["a", "c", "b"])
+      update()
+      #expect(coordinator.selectedItemIDs == ["b"])
+      #expect(coordinator.focusedItemID == "b")
+      #expect(
+        collectionView.handleDirectionalKey(.keyboardDownArrow, modifiers: [.command, .alternate]))
+      #expect(host.roots.map(\.id) == ["a", "c", "b"])
+      #expect(
+        collectionView.handleDirectionalKey(.keyboardUpArrow, modifiers: [.command, .alternate]))
+      update(layoutDirection: .rightToLeft)
+      #expect(try appliedSnapshot().items == ["a", "a1", "a2", "a2x", "b", "c"])
+      #expect(host.single == "b")
+    }
+
+    @Test func reorderCommandsIgnoreMultipleSelectionIncludingHiddenRows() {
+      host.single = "b"
+      host.canReorder = { _ in true }
+      var performed = false
+      host.drop = OutlineDropHandler(
+        validate: { _ in .accept(.move) },
+        perform: { _, _ in
+          performed = true
+          return true
+        })
+      update()
+      host.multiple = ["b", "a1"]
+      update(multipleSelection: true)
+      #expect(!coordinator.canHandleKeyboardAction(.moveUp))
+      coordinator.handleKeyboardAction(.moveDown)
+      #expect(!performed)
+      #expect(host.multiple == ["b", "a1"])
+    }
+
+    @Test func registeredReorderCommandsRespectHostValidation() throws {
+      host.canReorder = { _ in true }
+      host.single = "b"
+      var allowed = true
+      var performed = false
+      host.drop = OutlineDropHandler(
+        validate: { _ in allowed ? .accept(.move) : .reject },
+        perform: { _, _ in
+          performed = true
+          return true
+        })
+      update()
+      let command = try #require(
+        collectionView.keyCommands?.first {
+          $0.input == UIKeyCommand.inputUpArrow && $0.modifierFlags == [.command, .alternate]
+        })
+      let selector = try #require(command.action)
+      #expect(collectionView.canPerformAction(selector, withSender: command))
+      allowed = false
+      #expect(!collectionView.canPerformAction(selector, withSender: command))
+      collectionView.perform(selector, with: command)
+      #expect(!performed)
+      #expect(
+        !collectionView.handleDirectionalKey(
+          .keyboardUpArrow, modifiers: [.command, .alternate, .shift]))
     }
 
     @Test func refusesToSelectUnselectableItems() {

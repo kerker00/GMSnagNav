@@ -19,6 +19,7 @@
       var primaryAction: ((Set<String>) -> Void)?
       var appearance = OutlineAppearance()
       var canDrag: ((TestItem) -> Bool)?
+      var canReorder: ((TestItem) -> Bool)?
       var drop: OutlineDropHandler<String>?
       var springLoading = SpringLoadingBehavior.automatic
       var reportedDuplicates: [Set<String>] = []
@@ -47,6 +48,7 @@
       behavior.isSelectable = host.isSelectable
       behavior.primaryAction = host.primaryAction
       behavior.canDrag = host.canDrag
+      behavior.canReorder = host.canReorder
       behavior.drop = host.drop
       behavior.duplicateIDs = { host.reportedDuplicates.append($0) }
       behavior.typeSelectText = host.typeSelectText
@@ -77,6 +79,102 @@
       (0..<outlineView.numberOfRows).compactMap {
         (outlineView.item(atRow: $0) as? NodeBox<String>)?.id
       }
+    }
+
+    @Test func commandOptionArrowsReorderAndKeepTheSameSelection() throws {
+      host.canReorder = { _ in true }
+      host.single = "b"
+      host.drop = OutlineDropHandler(
+        validate: { _ in .accept(.move) },
+        perform: { [host] proposal, _ in
+          guard let id = proposal.draggedIDs.first,
+            let source = host.roots.firstIndex(where: { $0.id == id }),
+            let destination = proposal.insertionIndexAfterRemoval
+          else { return false }
+          let item = host.roots.remove(at: source)
+          host.roots.insert(item, at: destination)
+          return true
+        })
+      update()
+      let window = NSWindow(
+        contentRect: CGRect(x: 0, y: 0, width: 320, height: 480),
+        styleMask: [.titled], backing: .buffered, defer: false)
+      window.isReleasedWhenClosed = false
+      defer { window.close() }
+      window.contentView = outlineView
+      #expect(window.makeFirstResponder(outlineView))
+      let down = try #require(
+        NSEvent.keyEvent(
+          with: .keyDown, location: .zero,
+          modifierFlags: [.command, .option], timestamp: 0, windowNumber: window.windowNumber,
+          context: nil, characters: "\u{F701}", charactersIgnoringModifiers: "\u{F701}",
+          isARepeat: false, keyCode: 125))
+      #expect(window.performKeyEquivalent(with: down))
+      #expect(host.roots.map(\.id) == ["a", "c", "b"])
+      update()
+      #expect(host.single == "b")
+      #expect(visibleIDs == ["a", "c", "b"])
+      #expect(window.firstResponder === outlineView)
+      #expect(!coordinator.canReorder("b", direction: .down))
+      let field = NSTextField(string: "Editing")
+      outlineView.addSubview(field)
+      #expect(window.makeFirstResponder(field))
+      var called = false
+      outlineView.onReorder = { _ in
+        called = true
+        return true
+      }
+      #expect(!outlineView.performKeyEquivalent(with: down))
+      #expect(!called)
+    }
+
+    @Test func reorderCommandsIgnoreMultipleAndHiddenSelections() {
+      host.canReorder = { _ in true }
+      var performed = false
+      host.drop = OutlineDropHandler(
+        validate: { _ in .accept(.move) },
+        perform: { _, _ in
+          performed = true
+          return true
+        })
+      host.multiple = ["b", "c"]
+      update(multipleSelection: true)
+      #expect(!coordinator.reorderSelection(.up))
+      host.single = "a2"
+      update()
+      #expect(!coordinator.reorderSelection(.up))
+      #expect(!performed)
+    }
+
+    @Test func unavailableReorderShortcutsDoNotFallThroughToNativeNavigation() throws {
+      host.canReorder = { _ in false }
+      host.single = "b"
+      host.drop = OutlineDropHandler(
+        validate: { _ in .accept(.move) },
+        perform: { _, _ in
+          Issue.record("Disabled move performed")
+          return true
+        })
+      update()
+      let window = NSWindow(
+        contentRect: CGRect(x: 0, y: 0, width: 320, height: 480),
+        styleMask: [.titled], backing: .buffered, defer: false)
+      window.isReleasedWhenClosed = false
+      defer { window.close() }
+      window.contentView = outlineView
+      #expect(window.makeFirstResponder(outlineView))
+      let up = try #require(
+        NSEvent.keyEvent(
+          with: .keyDown, location: .zero,
+          modifierFlags: [.command, .option], timestamp: 0, windowNumber: window.windowNumber,
+          context: nil, characters: "\u{F700}", charactersIgnoringModifiers: "\u{F700}",
+          isARepeat: false, keyCode: 126))
+      #expect(window.performKeyEquivalent(with: up))
+      #expect(host.single == "b")
+      #expect(visibleIDs == ["a", "b", "c"])
+      host.canReorder = nil
+      update()
+      #expect(!outlineView.performKeyEquivalent(with: up))
     }
 
     private func item(_ id: String) -> Any? {

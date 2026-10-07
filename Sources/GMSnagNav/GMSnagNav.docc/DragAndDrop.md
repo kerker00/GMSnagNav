@@ -186,6 +186,40 @@ let proposal = OutlineDropProposal(
 #expect(library.dropResult(for: proposal) == .reject)
 ```
 
+## Move without dragging
+
+Add ``SnagOutline/outlineReorderable(_:)`` to expose Command-Option-Up and
+Command-Option-Down on macOS and iPad, and localized Move Up / Move Down VoiceOver actions.
+These move one element by one position among its siblings, including an entire container subtree.
+They use the same ``SnagOutline/onOutlineDrop(validate:perform:)`` callbacks as dragging; the
+outline still never changes your data. Use `insertionIndexAfterRemoval` when performing the move.
+
+```swift
+.outlineReorderable { _ in !isSearching }
+.onOutlineDrop(validate: library.dropResult(for:)) { proposal, operation in
+  do {
+    try library.performDrop(proposal, operation: operation)
+    return true
+  } catch {
+    return false
+  }
+}
+```
+
+Supply a predicate for protected rows or to disable reordering while searching, filtering or
+sorting independently of the model. The predicate is separate from `outlineDraggable` so apps
+can offer accessible reordering without enabling drag gestures.
+
+Keyboard commands apply to exactly one selected row on macOS or focused row on iPad. Multiple
+selections are not reordered. VoiceOver actions apply to their own row without changing selection.
+Text editors retain their shortcuts, and reordering is unavailable during inline renaming.
+
+No action is offered at a sibling-list boundary or when the host rejects the proposal. Validation
+runs again when an action executes; earlier eligibility checks are not permission to bypass new
+host rules. Copy results and redirects that change the parent or the requested sibling position
+are rejected: Move Up / Move Down always means one sibling step. Matching redirects are allowed.
+The host's performer reports success or failure as with a drop.
+
 ## See Also
 
 - <doc:PlatformDifferences>

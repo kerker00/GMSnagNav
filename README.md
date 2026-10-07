@@ -180,12 +180,27 @@ SnagOutline(items, children: \.children, selection: $selection) { item in
 direction, support accessibility descriptions and update with observable host state. See
 [Badges and status](Sources/GMSnagNav/GMSnagNav.docc/BadgesAndStatus.md).
 
+## Reordering without dragging
+
+Apply `.outlineReorderable()` alongside `.onOutlineDrop(validate:perform:)` to offer
+Command-Option-Up/Down on macOS and iPad, plus VoiceOver actions on eligible rows. Each action
+moves one element by one position among its siblings using the existing drop validator and
+performer. Selection stays with the element. Disable reordering for filtered or sorted views
+whose order differs from the model:
+
+```swift
+.outlineReorderable { _ in !isSearching }
+```
+
+See [Drag and drop](Sources/GMSnagNav/GMSnagNav.docc/DragAndDrop.md) for boundaries, redirects
+and host-owned execution.
+
 ## Roadmap
 
 Ideas for versions after `0.3.0`, all planned to be backward compatible:
 
-- Keyboard navigation, right-to-left layout, accessibility regression tests and host-owned badges
-  (the `0.4.0` focus)
+- The `0.4.0` development focus: keyboard navigation, right-to-left layout, accessibility
+  regression tests, host-owned badges and keyboard/VoiceOver sibling reordering
 - Large-tree benchmarks, followed by update optimizations and lazy loading where measurements
   show a need; include mostly collapsed trees and large sibling lists
 - Custom drag previews

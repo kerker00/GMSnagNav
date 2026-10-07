@@ -12,3 +12,9 @@
 
 /* The accessibility label of the text field for renaming a row. */
 "Name" = "Name";
+
+/* Moves an outline item one position earlier among its siblings. */
+"Move Up" = "Move Up";
+
+/* Moves an outline item one position later among its siblings. */
+"Move Down" = "Move Down";

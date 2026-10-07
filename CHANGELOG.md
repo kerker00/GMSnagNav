@@ -9,6 +9,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `outlineReorderable(_:)` enables Command-Option-Up/Down on macOS and iPad and localized
+  VoiceOver actions to move one element among its siblings through the existing drop callbacks.
+  Boundaries, protected rows, active renaming and rejected proposals leave the model unchanged.
+
 - `outlineBadge(_:)` and `OutlineBadge` for counts, short text, status symbols, dots and progress
   at the trailing edge of rows and section headers on both platforms. Observable host-status
   changes update the display without changing selection or expansion.

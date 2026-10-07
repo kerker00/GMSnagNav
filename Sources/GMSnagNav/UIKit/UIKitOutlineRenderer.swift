@@ -135,6 +135,8 @@
       self.renderer = renderer
       self.layoutDirection = layoutDirection
       self.locale = locale
+      (collectionView as? SnagCollectionView)?.handlesReorderShortcuts =
+        renderer.behavior.canReorder != nil
       // Keep UIKit's live trait environment when the host uses the system size. Only forward
       // an explicit SwiftUI override; fixing every row to the initial size blocks trait changes.
       // An unattached collection view still reports an unspecified size, so compare with the
@@ -275,6 +277,8 @@
       let layoutDirection = self.layoutDirection
       let dynamicTypeSizeOverride = self.dynamicTypeSizeOverride
       let locale = self.locale
+      let canMoveUp = canReorder(id, direction: .up)
+      let canMoveDown = canReorder(id, direction: .down)
       cell.contentConfiguration = UIHostingConfiguration {
         let content = OutlineRowView(
           row: row, indentation: renderer.appearance.indentation, isExpanded: row.isExpanded,
@@ -284,6 +288,12 @@
         )
         .environment(\.layoutDirection, layoutDirection)
         .environment(\.locale, locale)
+        .modifier(
+          ReorderingAccessibility(
+            canMoveUp: canMoveUp,
+            canMoveDown: canMoveDown,
+            move: { [weak self] direction in _ = self?.reorder(id, direction: direction) })
+        )
         .environment(
           \.outlineRenameSession,
           renderer.behavior.renameSession(for: id, in: tree) { [weak self] in
@@ -430,6 +440,9 @@
       }
       guard let id = keyboardItemID else { return false }
       switch action {
+      case .moveUp, .moveDown:
+        guard let renderer, selectedIDs(in: renderer.selection).count <= 1 else { return false }
+        return canReorder(id, direction: action == .moveUp ? .up : .down)
       case .previous, .next:
         return true
       case .expand:
@@ -457,6 +470,8 @@
       guard let id = keyboardItemID else { return }
       let children = tree.children(of: id)
       switch action {
+      case .moveUp, .moveDown:
+        _ = reorder(id, direction: action == .moveUp ? .up : .down)
       case .previous, .next:
         let rows = tree.visibleRows(expanded: displayedExpansion)
         guard let index = rows.firstIndex(where: { $0.id == id }) else { return }
@@ -491,6 +506,18 @@
 
     private func activate(_ id: ID) {
       renderer?.behavior.primaryAction?(activatedIDs(for: id))
+    }
+
+    func canReorder(_ id: ID, direction: OutlineReorderDirection) -> Bool {
+      guard let renderer else { return false }
+      return renderer.behavior.reorderingProposal(
+        for: id, direction: direction, tree: tree, expanded: displayedExpansion) != nil
+    }
+
+    @discardableResult func reorder(_ id: ID, direction: OutlineReorderDirection) -> Bool {
+      guard let renderer else { return false }
+      return renderer.behavior.reorder(
+        id, direction: direction, tree: tree, expanded: displayedExpansion)
     }
 
     private func focus(_ id: ID) {

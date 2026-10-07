@@ -3,7 +3,7 @@
 
   /// Outline-specific commands for navigating visible rows and their hierarchy.
   enum OutlineKeyboardAction {
-    case previous, next, expand, collapse, activate, toggle
+    case previous, next, expand, collapse, activate, toggle, moveUp, moveDown
   }
 
   /// Non-generic responder for Objective-C key-command selectors.
@@ -13,6 +13,7 @@
     weak var keyboardFocusTarget: UIView?
     /// The host's SwiftUI direction, which may differ from the application's language.
     var outlineLayoutDirection: UIUserInterfaceLayoutDirection?
+    var handlesReorderShortcuts = false
 
     override var canBecomeFirstResponder: Bool { true }
     private var handledDirectionalPresses: Set<UIPress> = []
@@ -47,9 +48,21 @@
     func handleDirectionalKey(
       _ keyCode: UIKeyboardHIDUsage, modifiers: UIKeyModifierFlags = []
     ) -> Bool {
-      guard !containsActiveTextInput,
-        modifiers.intersection([.command, .control, .alternate, .shift]).isEmpty
-      else { return false }
+      guard !containsActiveTextInput else { return false }
+      let relevantModifiers = modifiers.intersection([.command, .control, .alternate, .shift])
+      if relevantModifiers == [.command, .alternate] {
+        let action: OutlineKeyboardAction
+        switch keyCode {
+        case .keyboardUpArrow: action = .moveUp
+        case .keyboardDownArrow: action = .moveDown
+        default: return false
+        }
+        // Consume an unavailable opted-in move so native navigation cannot change selection.
+        guard canHandleKeyboardAction?(action) == true else { return handlesReorderShortcuts }
+        onKeyboardAction?(action)
+        return true
+      }
+      guard relevantModifiers.isEmpty else { return false }
       let input: String
       switch keyCode {
       case .keyboardLeftArrow: input = UIKeyCommand.inputLeftArrow
@@ -72,19 +85,31 @@
       return super.preferredFocusEnvironments
     }
 
-    private lazy var outlineCommands: [UIKeyCommand] = [
-      UIKeyCommand.inputUpArrow, UIKeyCommand.inputDownArrow,
-      "\r", " ",
-    ]
-    .map { input in
-      let command = UIKeyCommand(
-        input: input, modifierFlags: [], action: #selector(performOutlineCommand(_:)))
-      command.wantsPriorityOverSystemBehavior = true
-      // Map physical arrows ourselves, using the actual view's layout direction.
-      command.allowsAutomaticMirroring = false
-      command.allowsAutomaticLocalization = false
-      return command
-    }
+    private lazy var outlineCommands: [UIKeyCommand] =
+      [
+        UIKeyCommand.inputUpArrow, UIKeyCommand.inputDownArrow,
+        "\r", " ",
+      ]
+      .map { input in
+        let command = UIKeyCommand(
+          input: input, modifierFlags: [], action: #selector(performOutlineCommand(_:)))
+        command.wantsPriorityOverSystemBehavior = true
+        // Map physical arrows ourselves, using the actual view's layout direction.
+        command.allowsAutomaticMirroring = false
+        command.allowsAutomaticLocalization = false
+        return command
+      }
+      + [UIKeyCommand.inputUpArrow, UIKeyCommand.inputDownArrow].map { input in
+        let command = UIKeyCommand(
+          input: input, modifierFlags: [.command, .alternate],
+          action: #selector(performOutlineCommand(_:)))
+        command.wantsPriorityOverSystemBehavior = true
+        command.allowsAutomaticMirroring = false
+        command.allowsAutomaticLocalization = false
+        command.discoverabilityTitle = String(
+          localized: input == UIKeyCommand.inputUpArrow ? "Move Up" : "Move Down", bundle: .module)
+        return command
+      }
 
     override var keyCommands: [UIKeyCommand]? {
       // Hosted rename fields keep their text input, including spaces and cursor movement.
@@ -111,10 +136,14 @@
       if action == #selector(performOutlineCommand(_:)) {
         guard !containsActiveTextInput else { return false }
         if let command = sender as? UIKeyCommand, let input = command.input {
-          return canHandleKeyboardAction?(self.action(for: input)) == true
+          return canHandleKeyboardAction?(self.action(for: input, modifiers: command.modifierFlags))
+            == true
         }
-        return [OutlineKeyboardAction.previous, .next, .expand, .collapse, .activate, .toggle]
-          .contains { canHandleKeyboardAction?($0) == true }
+        return [
+          OutlineKeyboardAction.previous, .next, .expand, .collapse, .activate, .toggle, .moveUp,
+          .moveDown,
+        ]
+        .contains { canHandleKeyboardAction?($0) == true }
       }
       return super.canPerformAction(action, withSender: sender)
     }
@@ -127,7 +156,10 @@
       return containsInput(self)
     }
 
-    func action(for input: String) -> OutlineKeyboardAction {
+    func action(for input: String, modifiers: UIKeyModifierFlags = []) -> OutlineKeyboardAction {
+      if modifiers == [.command, .alternate] {
+        return input == UIKeyCommand.inputUpArrow ? .moveUp : .moveDown
+      }
       switch input {
       case UIKeyCommand.inputUpArrow: return .previous
       case UIKeyCommand.inputDownArrow: return .next
@@ -143,7 +175,7 @@
 
     @objc private func performOutlineCommand(_ command: UIKeyCommand) {
       guard let input = command.input, !containsActiveTextInput else { return }
-      let action = action(for: input)
+      let action = action(for: input, modifiers: command.modifierFlags)
       guard canHandleKeyboardAction?(action) == true else { return }
       onKeyboardAction?(action)
     }

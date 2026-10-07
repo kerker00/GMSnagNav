@@ -74,6 +74,200 @@ final class SidebarUITests: XCTestCase {
     assertDetailLocation("Work › Weekly Report")
   }
 
+  // MARK: Keyboard and accessibility
+
+  func testArrowKeysNavigateTheVisibleRows() {
+    select("Inbox")
+    #if os(macOS)
+      // A row click must restore native keyboard focus even when the selection stays the same.
+      let detailField = app.textFields["detail-name"]
+      XCTAssertTrue(detailField.waitForExistence(timeout: 5))
+      detailField.click()
+      select("Inbox")
+    #endif
+    app.typeKey(.downArrow, modifierFlags: [])
+    assertDetailLocation("Ideas")
+    app.typeKey(.upArrow, modifierFlags: [])
+    assertDetailLocation("Inbox")
+  }
+
+  func testHorizontalArrowsCollapseExpandAndEnterAFolder() {
+    select("Work")
+    app.typeKey(.leftArrow, modifierFlags: [])
+    XCTAssertTrue(row("Weekly Report").waitForNonExistence(timeout: 5))
+    app.typeKey(.rightArrow, modifierFlags: [])
+    XCTAssertTrue(row("Weekly Report").waitForExistence(timeout: 5))
+    app.typeKey(.rightArrow, modifierFlags: [])
+    assertDetailLocation("Work › Clients")
+    app.typeKey(.leftArrow, modifierFlags: [])
+    assertDetailLocation("Work")
+  }
+
+  func testSectionHeadersToggleWithoutSelectingTheirContent() {
+    app.terminate()
+    app.launchArguments.append("-sample-section")
+    app.launch()
+    let header = app.descendants(matching: .any)
+      .matching(NSPredicate(format: "label == %@", "Favorites")).firstMatch
+    XCTAssertTrue(header.waitForExistence(timeout: 5))
+    XCTAssertTrue(row("Favorite Note").waitForExistence(timeout: 5))
+    #if os(macOS)
+      header.click()
+    #else
+      header.tap()
+    #endif
+    XCTAssertTrue(row("Favorite Note").waitForNonExistence(timeout: 5))
+    #if os(macOS)
+      header.click()
+    #else
+      header.tap()
+    #endif
+    XCTAssertTrue(row("Favorite Note").waitForExistence(timeout: 5))
+  }
+
+  func testSidebarPassesAccessibilityChecks() throws {
+    #if os(iOS)
+      var hasUnresolvedFontIssue = false
+      var matchedFontIssues = 0
+    #endif
+    #if os(macOS)
+      let types: XCUIAccessibilityAuditType = [.elementDetection, .sufficientElementDescription]
+    #else
+      app.terminate()
+      app.launchArguments += ["-sidebar-only", "-sample-section"]
+      app.launch()
+      let types: XCUIAccessibilityAuditType = [
+        .elementDetection, .sufficientElementDescription, .dynamicType, .textClipped,
+      ]
+      // Reproduced with the unchanged 0.3.0 package in this same section fixture. Keep the
+      // unresolved audit visible; unrelated issues and issues with an identifiable element fail.
+      let options = XCTExpectedFailure.Options()
+      options.isStrict = false
+      options.issueMatcher = { issue in
+        guard hasUnresolvedFontIssue, matchedFontIssues == 0,
+          issue.compactDescription == "Dynamic Type font sizes are unsupported"
+        else { return false }
+        matchedFontIssues += 1
+        return true
+      }
+      XCTExpectFailure(
+        "Existing section Dynamic Type audit issue has no element to inspect; manual inspection remains open.",
+        options: options)
+    #endif
+    try app.performAccessibilityAudit(for: types) { issue in
+      #if os(iOS)
+        hasUnresolvedFontIssue = issue.auditType == .dynamicType && issue.element == nil
+      #endif
+      print("Accessibility type \(issue.auditType.rawValue): \(issue.detailedDescription)")
+      if let element = issue.element { print(element.debugDescription) }
+      return false
+    }
+  }
+
+  func testAddingToACollapsedFolderRevealsTheNewSelection() {
+    select("Work")
+    app.typeKey(.leftArrow, modifierFlags: [])
+    XCTAssertTrue(row("Weekly Report").waitForNonExistence(timeout: 5))
+    #if os(macOS)
+      app.typeKey("n", modifierFlags: [.command, .option])
+    #else
+      app.buttons["Add"].tap()
+      app.buttons["New Document"].firstMatch.tap()
+    #endif
+    XCTAssertTrue(row("New Document").waitForExistence(timeout: 5))
+    XCTAssertTrue(row("Weekly Report").exists)
+    assertDetailLocation("Work › New Document")
+  }
+
+  #if os(macOS)
+    func testCommandOOpensInsteadOfRenaming() {
+      select("Inbox")
+      app.typeKey("o", modifierFlags: .command)
+      XCTAssertTrue(app.sheets.firstMatch.waitForExistence(timeout: 5))
+      XCTAssertTrue(app.sheets.staticTexts["Opened \"Inbox\""].exists)
+    }
+
+    func testCommandDownOpensInsteadOfRenaming() {
+      select("Inbox")
+      app.typeKey(.downArrow, modifierFlags: .command)
+      XCTAssertTrue(app.sheets.firstMatch.waitForExistence(timeout: 5))
+      XCTAssertTrue(app.sheets.staticTexts["Opened \"Inbox\""].exists)
+    }
+
+    func testReturnRenamesAndReturnsFocusToTheOutline() {
+      select("Inbox")
+      app.typeKey(.return, modifierFlags: [])
+      let field = app.textFields["sidebar-row-Inbox"].firstMatch
+      XCTAssertTrue(field.waitForExistence(timeout: 5))
+      field.typeText("Renamed Inbox")
+      app.typeKey(.return, modifierFlags: [])
+      XCTAssertTrue(row("Renamed Inbox").waitForExistence(timeout: 5))
+      app.typeKey("o", modifierFlags: .command)
+      XCTAssertTrue(app.sheets.firstMatch.waitForExistence(timeout: 5))
+      XCTAssertTrue(app.sheets.staticTexts["Opened \"Renamed Inbox\""].exists)
+    }
+
+    func testTypeSelectFindsAMatchingVisibleRow() {
+      select("Work")
+      app.typeKey("a", modifierFlags: [])
+      assertDetailLocation("Archive")
+    }
+  #else
+    func testAccessibilityTextSizesWrapRowTitles() {
+      app.terminate()
+      app.launchArguments.append("-sample-section")
+      app.launch()
+      let header = app.descendants(matching: .any)
+        .matching(NSPredicate(format: "label == %@", "Favorites")).firstMatch
+      XCTAssertTrue(header.waitForExistence(timeout: 5))
+      let standardHeaderHeight = header.frame.height
+      app.terminate()
+      app.launchArguments.append("-large-text")
+      app.launch()
+      let work = row("Work")
+      let report = row("Weekly Report")
+      XCTAssertTrue(work.waitForExistence(timeout: 5))
+      XCTAssertTrue(report.waitForExistence(timeout: 5))
+      XCTAssertGreaterThan(report.frame.height, work.frame.height)
+      XCTAssertGreaterThan(header.frame.height, standardHeaderHeight)
+    }
+
+    func testInlineRenamingKeepsSpacesAndRestoresKeyboardNavigation() {
+      app.terminate()
+      app.launchArguments.append("-disable-animations")
+      app.launch()
+      select("Work")
+      row("Work").press(forDuration: 1.2)
+      app.buttons["Rename"].tap()
+      let field = app.textFields.matching(NSPredicate(format: "identifier != %@", "detail-name"))
+        .firstMatch
+      XCTAssertTrue(field.waitForExistence(timeout: 5))
+      field.typeText("Renamed Work\n")
+      XCTAssertTrue(row("Renamed Work").waitForExistence(timeout: 5))
+      app.typeKey(.downArrow, modifierFlags: [])
+      assertDetailLocation("Renamed Work › Clients")
+    }
+
+    func testSpaceTogglesTheSelectedFolder() {
+      select("Work")
+      app.typeKey(" ", modifierFlags: [])
+      XCTAssertTrue(row("Weekly Report").waitForNonExistence(timeout: 5))
+      app.typeKey(" ", modifierFlags: [])
+      XCTAssertTrue(row("Weekly Report").waitForExistence(timeout: 5))
+    }
+
+    func testHorizontalArrowsFollowRightToLeftLayout() {
+      app.terminate()
+      app.launchArguments.append("-right-to-left")
+      app.launch()
+      select("Work")
+      app.typeKey(.rightArrow, modifierFlags: [])
+      XCTAssertTrue(row("Weekly Report").waitForNonExistence(timeout: 5))
+      app.typeKey(.leftArrow, modifierFlags: [])
+      XCTAssertTrue(row("Weekly Report").waitForExistence(timeout: 5))
+    }
+  #endif
+
   // MARK: Search
 
   private func search(_ text: String) {

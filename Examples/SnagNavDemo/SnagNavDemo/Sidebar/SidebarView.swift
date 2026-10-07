@@ -34,6 +34,7 @@ struct SidebarView: View {
 
   var body: some View {
     outline
+      .modifier(DemoLayoutDirection())
       .searchable(text: $searchText, placement: .sidebar, prompt: "Search")
       .onChange(of: searchText) {
         // Open every folder on the way to a match; the user may still close them.

@@ -30,6 +30,7 @@ struct SidebarView: View {
   @AppStorage("foldersSelectable") private var foldersSelectable = true
   @AppStorage("outlineStyle") private var style = DemoOutlineStyle.automatic
   @AppStorage("indentationStep") private var indentationStep = IndentationStep.regular
+  @AppStorage("showsBadges") private var showsBadges = true
   @AppStorage("largeRows") private var largeRows = false
 
   var body: some View {
@@ -116,6 +117,7 @@ struct SidebarView: View {
     Button("Collapse All", systemImage: "arrow.up.left.and.arrow.down.right", action: collapseAll)
     Divider()
     Toggle("Folders Are Selectable", isOn: $foldersSelectable)
+    Toggle("Show Badges", isOn: $showsBadges)
     Divider()
     Picker("Style", selection: $style) {
       ForEach(DemoOutlineStyle.allCases) { Text($0.title).tag($0) }
@@ -218,6 +220,7 @@ struct SidebarView: View {
       OutlineLabel(item.name, systemImage: item.systemImage)
         .accessibilityIdentifier("sidebar-row-\(item.name)")
     }
+    .outlineBadge { showsBadges ? badge(for: $0) : nil }
     .outlineSelectable { item in foldersSelectable || !item.isFolder }
     // Top-level sections, like "Favorites" in the Finder; the outline draws their headers.
     .outlineSections { item in item.isSection ? item.name : nil }
@@ -261,6 +264,25 @@ struct SidebarView: View {
     #else
       return outline
     #endif
+  }
+
+  /// Examples of each accessory. No synchronization is performed by the demo.
+  private func badge(for item: LibraryItem) -> OutlineBadge? {
+    switch item.status {
+    case .none:
+      guard let count = item.children?.count else { return nil }
+      return .count(count, accessibilityLabel: count == 1 ? "1 item" : "\(count) items")
+    case .new: return .text("New")
+    case .unread: return .dot(accessibilityLabel: "Unread")
+    case .warning:
+      return .symbol(
+        systemImage: "exclamationmark.triangle.fill", accessibilityLabel: "Needs Attention",
+        tint: .orange)
+    case .syncing: return .progress(nil, accessibilityLabel: "Syncing")
+    case .uploading: return .progress(0.4, accessibilityLabel: "Uploading")
+    case .synced:
+      return .symbol(systemImage: "checkmark.circle", accessibilityLabel: "Synced", tint: .green)
+    }
   }
 
   /// The context menu: adding, moving and deleting for one item, bulk delete for several, and

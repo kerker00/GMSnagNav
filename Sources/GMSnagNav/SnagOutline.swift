@@ -132,9 +132,11 @@ where Data.Element: Identifiable, Data.Element.ID: Sendable {
 
   /// The content and behavior of the view.
   public var body: some View {
+    let tree = OutlineTree(data, children: children)
+    let behavior = behavior.resolvingBadges(in: tree)
     #if os(macOS)
       AppKitOutlineRenderer(
-        tree: OutlineTree(data, children: children),
+        tree: tree,
         selection: selection,
         expansion: expansion ?? $internalExpansion,
         behavior: behavior,
@@ -146,7 +148,7 @@ where Data.Element: Identifiable, Data.Element.ID: Sendable {
       .modifier(OutlineEmptyContent(isEmpty: data.isEmpty, content: behavior.emptyContent))
     #else
       UIKitOutlineRenderer(
-        tree: OutlineTree(data, children: children),
+        tree: tree,
         selection: selection,
         expansion: expansion ?? $internalExpansion,
         behavior: behavior,
@@ -223,6 +225,7 @@ extension SnagOutline {
 
 /// Optional behavior configured through `SnagOutline`'s modifiers.
 struct OutlineBehavior<Element: Identifiable> where Element.ID: Sendable {
+  var badge: ((Element) -> OutlineBadge?)?
   var isSelectable: ((Element) -> Bool)?
   var primaryAction: ((Set<Element.ID>) -> Void)?
   var contextMenu: ((Set<Element.ID>) -> AnyView)?

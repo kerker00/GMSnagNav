@@ -165,11 +165,27 @@ with **Product > Build Documentation**. Start with these articles:
 - [Designing a Sidebar](https://swiftpackageindex.com/kerker00/GMSnagNav/documentation/gmsnagnav/designingasidebar) — recommendations for the app around the
   outline, after Mario Guzmán's Mac design guidelines.
 
+## Badges and status
+
+Keep your row content and add a host-owned accessory:
+
+```swift
+SnagOutline(items, children: \.children, selection: $selection) { item in
+  OutlineLabel(item.name, systemImage: item.systemImage)
+}
+.outlineBadge { item in item.children.map { .count($0.count) } }
+```
+
+`OutlineBadge` also supports short text, status symbols, dots and progress. Values follow layout
+direction, support accessibility descriptions and update with observable host state. See
+[Badges and status](Sources/GMSnagNav/GMSnagNav.docc/BadgesAndStatus.md).
+
 ## Roadmap
 
 Ideas for versions after `0.3.0`, all planned to be backward compatible:
 
-- Keyboard navigation, right-to-left layout and accessibility regression tests (the `0.4.0` focus)
+- Keyboard navigation, right-to-left layout, accessibility regression tests and host-owned badges
+  (the `0.4.0` focus)
 - Large-tree benchmarks, followed by update optimizations and lazy loading where measurements
   show a need; include mostly collapsed trees and large sibling lists
 - Custom drag previews

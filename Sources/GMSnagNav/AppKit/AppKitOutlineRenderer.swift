@@ -44,12 +44,12 @@
       scrollView.borderType = .noBorder
 
       context.coordinator.attach(to: outlineView)
-      context.coordinator.update(with: self)
+      context.coordinator.update(with: self, locale: context.environment.locale)
       return scrollView
     }
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
-      context.coordinator.update(with: self)
+      context.coordinator.update(with: self, locale: context.environment.locale)
     }
   }
 
@@ -94,6 +94,7 @@
     private var isSpringLoading = false
     /// Whether the outline has loaded a snapshot; the first one is loaded without animation.
     private var hasLoaded = false
+    private var locale = Locale.current
     /// Above this many steps, reloading everything is cheaper and calmer than animating them.
     static var maximumAnimatedChanges: Int { 250 }
     /// Set while the coordinator changes the outline itself, so AppKit's callbacks for those
@@ -136,8 +137,9 @@
     // MARK: Updates
 
     /// Applies a new snapshot, expansion and selection to the outline.
-    func update(with renderer: Renderer) {
+    func update(with renderer: Renderer, locale: Locale = .current) {
       self.renderer = renderer
+      self.locale = locale
       let oldTree = tree
       renderer.behavior.reportDuplicateIDs(in: renderer.tree, previous: oldTree)
       tree = renderer.tree
@@ -260,7 +262,9 @@
       let session = renderer.behavior.renameSession(for: id, in: tree) { [weak self] in
         self?.takeFocusBack()
       }
-      let row = AnyView(content.environment(\.outlineRenameSession, session))
+      let badged = OutlineBadgedContent(badge: renderer.behavior.badge?(element)) { content }
+      let row = AnyView(
+        badged.environment(\.outlineRenameSession, session).environment(\.locale, locale))
       guard let menu = renderer.behavior.contextMenu else { return row }
       let ids = activatedIDs(for: id)
       return AnyView(row.contextMenu { menu(ids) })

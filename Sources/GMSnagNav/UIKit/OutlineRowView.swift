@@ -9,6 +9,7 @@
     let isExpanded: Bool
     /// The title of a section header, shown instead of the host's content; `nil` for other rows.
     var sectionTitle: String?
+    var badge: OutlineBadge?
     /// Only a deliberate tap toggles unselectable rows; focus and selection queries never do.
     var togglesOnTap = false
     let toggle: () -> Void
@@ -21,7 +22,9 @@
           // Like the headers of a sidebar list: the title, with the disclosure at the trailing edge.
           HStack(spacing: 4) {
             HStack {
-              OutlineSectionHeader(title: sectionTitle)
+              OutlineBadgedContent(badge: badge) {
+                OutlineSectionHeader(title: sectionTitle)
+              }
               Spacer(minLength: 0)
             }
             .contentShape(.rect)
@@ -34,12 +37,12 @@
           HStack(spacing: 4) {
             disclosure
             if togglesOnTap {
-              content
+              OutlineBadgedContent(badge: badge) { content }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(.rect)
                 .onTapGesture(perform: toggle)
             } else {
-              content
+              OutlineBadgedContent(badge: badge) { content }
             }
           }
           .padding(.leading, CGFloat(row.depth) * indentation)

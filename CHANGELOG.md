@@ -7,6 +7,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Command-O and Command-Down run the primary action on macOS without starting inline renaming.
+- Hardware-keyboard navigation on iPad: up/down focus with selection following selectable
+  rows, forward/backward arrows to expand, collapse and navigate the hierarchy, Return to activate
+  and Space to toggle containers. Unselectable headers remain outside the selection.
+- Regression tests for keyboard commands, section toggling, inline renaming and focus restoration,
+  plus accessibility checks in the demo UI tests.
+
+### Fixed
+
+- Clicking a macOS outline row takes keyboard focus from the detail view; refreshing hosted
+  rows preserves it for arrow-key navigation and primary-action shortcuts. Inline editors and
+  controls retain their focus.
+- macOS primary-action shortcuts also work when hosted SwiftUI row content owns the focus;
+  text editors and interactive controls retain their shortcuts.
+- iOS selection eligibility queries no longer toggle unselectable containers; a deliberate tap
+  handles expansion instead, so moving keyboard focus cannot unexpectedly open or close folders.
+- iOS disclosure chevrons and horizontal keyboard commands follow right-to-left layout.
+- `OutlineLabel` exposes its title once to accessibility and hides its decorative icon.
+- Hosted iOS rows receive the host's layout direction and Dynamic Type size. Built-in labels,
+  renamable text and section titles wrap at accessibility text sizes.
+
 ## [0.3.0] - 2026-10-04
 
 The outline reveals what the app selects, and renaming and section headers work properly on iOS

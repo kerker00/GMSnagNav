@@ -125,6 +125,9 @@
       (outlineView as? SnagOutlineView)?.onReturn = { [weak self] in
         self?.handleReturn() ?? false
       }
+      (outlineView as? SnagOutlineView)?.onPrimaryAction = { [weak self] in
+        self?.handlePrimaryAction() ?? false
+      }
       outlineView.registerForDraggedTypes([Self.draggedRowType])
       outlineView.setDraggingSourceOperationMask([.move, .copy], forLocal: true)
       outlineView.setDraggingSourceOperationMask([], forLocal: false)
@@ -143,6 +146,8 @@
         boxes = boxes.filter { tree.contains($0.key) }
         return
       }
+
+      let restoresKeyboardFocus = (outlineView as? SnagOutlineView)?.ownsKeyboardFocus == true
 
       isApplyingUpdate = true
       defer { isApplyingUpdate = false }
@@ -163,6 +168,11 @@
         selected, in: tree, expansion: renderer.$expansion,
         reveals: renderer.behavior.revealsSelection)
       scrollToRevealedElement()
+      // Replacing hosted rows can move AppKit's first responder to the surrounding SwiftUI
+      // view. Keep keyboard navigation in the outline, except when starting inline renaming.
+      if restoresKeyboardFocus, renderer.behavior.renaming?.renaming.wrappedValue == nil {
+        outlineView.window?.makeFirstResponder(outlineView)
+      }
     }
 
     /// Reveals elements the host selects; see `outlineRevealsSelection(_:)`.
@@ -631,8 +641,11 @@
     ///   disclosure triangle are left to AppKit.
     func handleClick(onRow row: Int, at location: NSPoint?) {
       guard let renderer, let outlineView else { return }
-      guard row >= 0, let id = id(of: outlineView.item(atRow: row)),
-        !renderer.behavior.canSelect(id, in: tree), !tree.children(of: id).isEmpty
+      guard row >= 0, let id = id(of: outlineView.item(atRow: row)) else { return }
+      if renderer.behavior.renaming?.renaming.wrappedValue != id {
+        (outlineView as? SnagOutlineView)?.takeKeyboardFocusForRowClick(at: location)
+      }
+      guard !renderer.behavior.canSelect(id, in: tree), !tree.children(of: id).isEmpty
       else { return }
 
       // The disclosure triangle toggles on its own; do not toggle a second time.
@@ -686,7 +699,16 @@
       {
         return true
       }
-      guard let primaryAction = renderer.behavior.primaryAction, !selected.isEmpty else {
+      return handlePrimaryAction()
+    }
+
+    /// Runs the primary action independently of the Return-to-rename behavior.
+    func handlePrimaryAction() -> Bool {
+      guard let renderer else { return false }
+      let selected = selectedIDs(in: renderer.selection)
+      guard let primaryAction = renderer.behavior.primaryAction,
+        selected.contains(where: { tree.contains($0) })
+      else {
         return false
       }
       primaryAction(selected)

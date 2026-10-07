@@ -180,7 +180,9 @@ extension SnagOutline {
 
   /// Performs an action when the user activates elements.
   ///
-  /// The action runs on a double-click or Return on macOS and on a tap on iOS. For outlines with selection,
+  /// The action runs on a double-click, Command-O or Command-Down on macOS, and on a tap or
+  /// hardware-keyboard Return on iOS. Return on macOS also activates unless it starts renaming.
+  /// For outlines with selection,
   /// it receives the selected elements when the activated row is part of the selection, otherwise
   /// the activated element alone.
   ///

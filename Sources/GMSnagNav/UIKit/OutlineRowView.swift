@@ -9,16 +9,23 @@
     let isExpanded: Bool
     /// The title of a section header, shown instead of the host's content; `nil` for other rows.
     var sectionTitle: String?
+    /// Only a deliberate tap toggles unselectable rows; focus and selection queries never do.
+    var togglesOnTap = false
     let toggle: () -> Void
     let content: Content
+    @Environment(\.layoutDirection) private var layoutDirection
 
     var body: some View {
       Group {
         if let sectionTitle {
           // Like the headers of a sidebar list: the title, with the disclosure at the trailing edge.
           HStack(spacing: 4) {
-            OutlineSectionHeader(title: sectionTitle)
-            Spacer(minLength: 0)
+            HStack {
+              OutlineSectionHeader(title: sectionTitle)
+              Spacer(minLength: 0)
+            }
+            .contentShape(.rect)
+            .onTapGesture(perform: toggle)
             disclosure
           }
           // The whole width, not only the title, takes the long press for the context menu.
@@ -26,7 +33,14 @@
         } else {
           HStack(spacing: 4) {
             disclosure
-            content
+            if togglesOnTap {
+              content
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(.rect)
+                .onTapGesture(perform: toggle)
+            } else {
+              content
+            }
           }
           .padding(.leading, CGFloat(row.depth) * indentation)
         }
@@ -38,10 +52,10 @@
     @ViewBuilder private var disclosure: some View {
       if row.isExpandable && row.childCount > 0 {
         Button(action: toggle) {
-          Image(systemName: "chevron.right")
+          Image(systemName: "chevron.forward")
             .font(.caption.weight(.semibold))
             .foregroundStyle(.secondary)
-            .rotationEffect(.degrees(isExpanded ? 90 : 0))
+            .rotationEffect(.degrees(isExpanded ? (layoutDirection == .rightToLeft ? -90 : 90) : 0))
             .frame(width: 16, height: 16)
             .contentShape(.rect)
         }

@@ -121,10 +121,12 @@ extension EnvironmentValues {
 /// }
 /// ```
 ///
-/// Outside a renaming row it shows the name like `Text`, in a single line.
+/// Outside a renaming row it shows the name like `Text`, in a single line at standard text sizes
+/// and wrapping at accessibility text sizes.
 public struct OutlineRenamableText: View {
   private let title: String
   @Environment(\.outlineRenameSession) private var session
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
   /// Creates the text for a row's name.
   public init(_ title: String) {
@@ -137,7 +139,8 @@ public struct OutlineRenamableText: View {
       OutlineRenameField(title: title, session: session)
     } else {
       Text(title)
-        .lineLimit(1)
+        .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+        .fixedSize(horizontal: false, vertical: true)
     }
   }
 }

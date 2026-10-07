@@ -108,7 +108,7 @@ final class SidebarUITests: XCTestCase {
     app.launchArguments.append("-sample-section")
     app.launch()
     let header = app.descendants(matching: .any)
-      .matching(NSPredicate(format: "label == %@", "Favorites")).firstMatch
+      .matching(NSPredicate(format: "label BEGINSWITH %@", "Favorites")).firstMatch
     XCTAssertTrue(header.waitForExistence(timeout: 5))
     XCTAssertTrue(row("Favorite Note").waitForExistence(timeout: 5))
     #if os(macOS)
@@ -123,6 +123,37 @@ final class SidebarUITests: XCTestCase {
       header.tap()
     #endif
     XCTAssertTrue(row("Favorite Note").waitForExistence(timeout: 5))
+  }
+
+  func testChangingAStatusUpdatesTheBadgeWithoutChangingSelection() {
+    select("Inbox")
+    let status = app.descendants(matching: .any).matching(identifier: "detail-status").firstMatch
+    XCTAssertTrue(status.waitForExistence(timeout: 5))
+    #if os(macOS)
+      status.click()
+      app.menuItems["New"].click()
+      let inbox = app.outlines.firstMatch.descendants(matching: .outlineRow)
+        .containing(.any, identifier: "sidebar-row-Inbox").firstMatch
+      let badges = inbox.descendants(matching: .any)
+        .matching(NSPredicate(format: "label == %@", "New"))
+    #else
+      status.tap()
+      app.buttons["New"].firstMatch.tap()
+      let badges = app.descendants(matching: .any)
+        .matching(NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "Inbox", "New"))
+    #endif
+    XCTAssertTrue(badges.firstMatch.waitForExistence(timeout: 5))
+    assertDetailLocation("Inbox")
+    // Clearing a status hides the accessory while keeping the same selected element.
+    #if os(macOS)
+      status.click()
+      app.menuItems["None"].click()
+    #else
+      status.tap()
+      app.buttons["None"].firstMatch.tap()
+    #endif
+    XCTAssertTrue(badges.firstMatch.waitForNonExistence(timeout: 5))
+    assertDetailLocation("Inbox")
   }
 
   func testSidebarPassesAccessibilityChecks() throws {
@@ -218,7 +249,7 @@ final class SidebarUITests: XCTestCase {
       app.launchArguments.append("-sample-section")
       app.launch()
       let header = app.descendants(matching: .any)
-        .matching(NSPredicate(format: "label == %@", "Favorites")).firstMatch
+        .matching(NSPredicate(format: "label BEGINSWITH %@", "Favorites")).firstMatch
       XCTAssertTrue(header.waitForExistence(timeout: 5))
       let standardHeaderHeight = header.frame.height
       app.terminate()

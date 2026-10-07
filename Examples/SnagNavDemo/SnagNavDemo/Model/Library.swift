@@ -175,6 +175,11 @@ final class Library {
     }
   }
 
+  /// Updates an accessory without changing the tree's identifiers or hierarchy.
+  func setStatus(_ id: LibraryItem.ID, to status: LibraryItem.Status) {
+    Self.update(id, in: &roots) { $0.status = status }
+  }
+
   func rename(_ id: LibraryItem.ID, to name: String) {
     let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else { return }
@@ -306,21 +311,22 @@ extension Library {
           .folder(
             "Clients",
             [
-              .folder("Acme", [.document("Kickoff Notes"), .document("Proposal")]),
+              .folder(
+                "Acme", [.document("Kickoff Notes"), .document("Proposal", status: .synced)]),
               .folder("Globex", [.document("Contract")]),
             ]),
           .folder("Internal", [.document("Roadmap"), .document("Retrospective")]),
-          .document("Weekly Report"),
+          .document("Weekly Report", status: .new),
         ]),
       .folder(
         "Personal",
         [
-          .folder("Travel", [.document("Packing List"), .document("Itinerary")]),
-          .document("Recipes"),
+          .folder("Travel", [.document("Packing List", status: .syncing), .document("Itinerary")]),
+          .document("Recipes", status: .uploading),
         ]),
       .folder("Archive"),
-      .document("Inbox"),
-      .document("Ideas"),
+      .document("Inbox", status: .unread),
+      .document("Ideas", status: .warning),
     ]
   }
 }

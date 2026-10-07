@@ -1,5 +1,6 @@
 #if os(macOS)
   import AppKit
+  import Observation
   import SwiftUI
   import Testing
 
@@ -9,7 +10,10 @@
   /// app: the outline with every modifier, its empty content, renaming, menus and navigation.
   @MainActor
   @Suite struct RenderingTests {
-    final class Host {
+    @Observable final class Host {
+      var badgeText = "New"
+      var locale = Locale(identifier: "en_US")
+      @ObservationIgnored var hostedLocales: Set<String> = []
       var selection: String?
       var expansion: Set<String> = ["a"]
       var renaming: String?
@@ -125,6 +129,102 @@
       ).close()
     }
 
+    @Test func observesStatusChangesWithoutReplacingTheHostsTree() {
+      var evaluated: [String] = []
+      let window = render(
+        outline(sampleRoots).outlineBadge { [host] _ in
+          evaluated.append(host.badgeText)
+          return .text(host.badgeText)
+        })
+      defer { window.close() }
+      #expect(evaluated.contains("New"))
+      host.badgeText = "Synced"
+      RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+      window.contentView?.layoutSubtreeIfNeeded()
+      #expect(evaluated.contains("Synced"))
+      let native = window.contentView?.firstDescendant(of: NSOutlineView.self)
+      #expect(native?.numberOfRows == 5)
+    }
+
+    @Test func showingAndHidingABadgePreservesTheRenameDraftAndFocus() throws {
+      host.renaming = "a1"
+      host.badgeText = ""
+      let window = render(
+        outline(sampleRoots)
+          .outlineRenaming(renaming) { [host] _, name in host.renamed.append(name) }
+          .outlineBadge { [host] item in item.id == "a1" ? .text(host.badgeText) : nil })
+      defer { window.close() }
+      let field = try #require(window.contentView?.firstDescendant(of: NSTextField.self))
+      #expect(window.makeFirstResponder(field))
+      let editor = try #require(field.currentEditor() as? NSTextView)
+      editor.insertText("Uncommitted draft", replacementRange: NSRange(location: 0, length: 2))
+      let selection = NSRange(location: 3, length: 4)
+      editor.setSelectedRange(selection)
+      #expect(host.renaming == "a1")
+      host.badgeText = "New"
+      RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+      window.contentView?.layoutSubtreeIfNeeded()
+      #expect(host.renaming == "a1")
+      #expect(window.firstResponder === editor)
+      #expect(editor.string == "Uncommitted draft")
+      #expect(editor.selectedRange() == selection)
+      host.badgeText = ""
+      RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+      window.contentView?.layoutSubtreeIfNeeded()
+      #expect(host.renaming == "a1")
+      #expect(window.firstResponder === editor)
+      #expect(editor.string == "Uncommitted draft")
+      #expect(editor.selectedRange() == selection)
+      #expect(host.renamed.isEmpty)
+    }
+
+    private struct LocalizedOutline: View {
+      let host: Host
+
+      var body: some View {
+        SnagOutline(sampleRoots, children: \.children) { _ in LocalizedRow(host: host) }
+          .outlineBadge { _ in .count(1234) }
+          .environment(\.locale, host.locale)
+      }
+    }
+
+    private struct LocalizedRow: View {
+      let host: Host
+      @Environment(\.locale) private var locale
+
+      var body: some View {
+        Text("Row")
+          .onChange(of: locale, initial: true) { host.hostedLocales.insert(locale.identifier) }
+      }
+    }
+
+    @Test func forwardsLocaleChangesToHostedRows() {
+      let window = render(LocalizedOutline(host: host))
+      defer { window.close() }
+      #expect(host.hostedLocales == ["en_US"])
+      host.hostedLocales.removeAll()
+      host.locale = Locale(identifier: "de_DE")
+      RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+      window.contentView?.layoutSubtreeIfNeeded()
+      #expect(host.hostedLocales == ["de_DE"])
+    }
+
+    @Test(arguments: [
+      OutlineBadge.count(4), .text("New"),
+      .symbol(systemImage: "checkmark.circle", accessibilityLabel: "Synced"),
+      .dot(accessibilityLabel: "Unread"),
+      .progress(nil, accessibilityLabel: "Syncing"),
+      .progress(0.4, accessibilityLabel: "Uploading"),
+    ])
+    func rendersBadgesAtAccessibilitySizesInRTL(badge: OutlineBadge) {
+      let window = render(
+        OutlineBadgedContent(badge: badge) { Text("A long outline title") }
+          .environment(\.layoutDirection, .rightToLeft)
+          .environment(\.dynamicTypeSize, .accessibility5))
+      defer { window.close() }
+      #expect(window.contentView?.fittingSize.height ?? 0 > 0)
+    }
+
     @Test func rendersCompactNavigation() {
       var column = NavigationSplitViewColumn.sidebar
       render(
@@ -149,4 +249,5 @@
       return nil
     }
   }
+
 #endif

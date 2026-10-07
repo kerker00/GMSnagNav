@@ -9,6 +9,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `outlineBadge(_:)` and `OutlineBadge` for counts, short text, status symbols, dots and progress
+  at the trailing edge of rows and section headers on both platforms. Observable host-status
+  changes update the display without changing selection or expansion.
 - Command-O and Command-Down run the primary action on macOS without starting inline renaming.
 - Hardware-keyboard navigation on iPad: up/down focus with selection following selectable
   rows, forward/backward arrows to expand, collapse and navigate the hierarchy, Return to activate
@@ -18,6 +21,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- iOS updates with unchanged hierarchy and expansion refresh visible content without applying
+  another hierarchical snapshot, including badge-only changes.
 - Clicking a macOS outline row takes keyboard focus from the detail view; refreshing hosted
   rows preserves it for arrow-key navigation and primary-action shortcuts. Inline editors and
   controls retain their focus.

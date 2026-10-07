@@ -53,6 +53,12 @@ rows to their new place.
 - ``SnagOutline/outlineSwipeActions(edge:allowsFullSwipe:_:)``
 - ``SwiftUICore/View/outlineCompactNavigation(selection:column:)``
 
+### Badges and status
+
+- ``OutlineBadge``
+- ``SnagOutline/outlineBadge(_:)``
+- <doc:BadgesAndStatus>
+
 ### Context menus
 
 - ``SnagOutline/outlineContextMenuItems(_:)``

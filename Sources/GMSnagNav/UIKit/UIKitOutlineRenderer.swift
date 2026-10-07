@@ -33,14 +33,14 @@
       context.coordinator.attach(to: collectionView)
       context.coordinator.update(
         with: self, layoutDirection: context.environment.layoutDirection,
-        dynamicTypeSize: context.environment.dynamicTypeSize)
+        dynamicTypeSize: context.environment.dynamicTypeSize, locale: context.environment.locale)
       return collectionView
     }
 
     func updateUIView(_ collectionView: UICollectionView, context: Context) {
       context.coordinator.update(
         with: self, layoutDirection: context.environment.layoutDirection,
-        dynamicTypeSize: context.environment.dynamicTypeSize)
+        dynamicTypeSize: context.environment.dynamicTypeSize, locale: context.environment.locale)
     }
   }
 
@@ -67,6 +67,7 @@
     private var lastAppliedSelection: Set<ID> = []
     private var layoutDirection = LayoutDirection.leftToRight
     private var dynamicTypeSizeOverride: DynamicTypeSize?
+    private var locale = Locale.current
 
     /// A list layout in the style's appearance, asking `swipeActions` for each row's swipe
     /// actions at the leading and trailing edge.
@@ -128,10 +129,12 @@
     /// Applies a new snapshot, expansion and selection to the collection view.
     func update(
       with renderer: Renderer, layoutDirection: LayoutDirection = .leftToRight,
-      dynamicTypeSize: DynamicTypeSize = .large
+      dynamicTypeSize: DynamicTypeSize = .large, locale: Locale = .current
     ) {
+      let oldTree = tree
       self.renderer = renderer
       self.layoutDirection = layoutDirection
+      self.locale = locale
       // Keep UIKit's live trait environment when the host uses the system size. Only forward
       // an explicit SwiftUI override; fixing every row to the initial size blocks trait changes.
       // An unattached collection view still reports an unspecified size, so compare with the
@@ -171,8 +174,13 @@
       collectionView.dragInteractionEnabled =
         renderer.behavior.canDrag != nil && !rowsDragThemselves
 
-      dataSource.apply(
-        sectionSnapshot(expanded: displayedExpansion), to: 0, animatingDifferences: hasLoaded)
+      let expanded = Set(displayedExpansion.filter { !tree.children(of: $0).isEmpty })
+      let applied = dataSource.snapshot(for: 0)
+      let expansionChanged = Set(applied.items.filter { applied.isExpanded($0) }) != expanded
+      if !hasLoaded || !tree.hasSameStructure(as: oldTree) || expansionChanged {
+        dataSource.apply(
+          sectionSnapshot(expanded: expanded), to: 0, animatingDifferences: hasLoaded)
+      }
       hasLoaded = true
       refreshVisibleCells()
       let selected = selectedIDs(in: renderer.selection)
@@ -254,6 +262,7 @@
         isExpanded: !children.isEmpty && displayedExpansion.contains(id),
         childCount: children.count)
       let sectionTitle = renderer.behavior.sectionTitle(of: id, in: tree)
+      let badge = renderer.behavior.badge?(element)
       // The row draws its own leading chevron and indentation: UIKit places its outline
       // disclosure on the trailing edge of sidebar lists and does not indent hosted content.
       let canDrag = rowsDragThemselves && renderer.behavior.canDrag?(element) == true
@@ -265,14 +274,16 @@
       let togglesOnTap = !canSelect(id)
       let layoutDirection = self.layoutDirection
       let dynamicTypeSizeOverride = self.dynamicTypeSizeOverride
+      let locale = self.locale
       cell.contentConfiguration = UIHostingConfiguration {
         let content = OutlineRowView(
           row: row, indentation: renderer.appearance.indentation, isExpanded: row.isExpanded,
-          sectionTitle: sectionTitle, togglesOnTap: togglesOnTap,
+          sectionTitle: sectionTitle, badge: badge, togglesOnTap: togglesOnTap,
           toggle: { [weak self] in self?.toggle(id) },
           content: renderer.rowContent(element)
         )
         .environment(\.layoutDirection, layoutDirection)
+        .environment(\.locale, locale)
         .environment(
           \.outlineRenameSession,
           renderer.behavior.renameSession(for: id, in: tree) { [weak self] in

@@ -19,6 +19,7 @@
       var trailingSwipeActions: OutlineSwipeActions<String>?
       var sectionTitle: ((TestItem) -> String?)?
       var revealsSelection = true
+      var badge: OutlineBadge?
     }
 
     let host = Host()
@@ -40,6 +41,7 @@
       behavior.trailingSwipeActions = host.trailingSwipeActions
       behavior.sectionTitle = host.sectionTitle
       behavior.revealsSelection = host.revealsSelection
+      behavior.badge = { _ in host.badge }
       coordinator.update(
         with: UIKitOutlineRenderer(
           tree: OutlineTree(host.roots, children: \.children),
@@ -73,6 +75,60 @@
       let snapshot = coordinator.sectionSnapshot(expanded: ["b", "c", "missing"])
       #expect(!snapshot.isExpanded("b"))
       #expect(!snapshot.isExpanded("c"))
+    }
+
+    private func appliedSnapshot() throws -> NSDiffableDataSourceSectionSnapshot<String> {
+      let dataSource = try #require(
+        collectionView.dataSource as? UICollectionViewDiffableDataSource<Int, String>)
+      return dataSource.snapshot(for: 0)
+    }
+
+    @Test func appliesExpansionChangesWithTheSameIdentifiersAndHierarchy() throws {
+      update()
+      #expect(try appliedSnapshot().visibleItems == ["a", "b", "c"])
+      host.expansion = ["a", "a2"]
+      update()
+      let expanded = try appliedSnapshot()
+      #expect(expanded.isExpanded("a"))
+      #expect(expanded.isExpanded("a2"))
+      #expect(expanded.visibleItems == ["a", "a1", "a2", "a2x", "b", "c"])
+      host.expansion = []
+      update()
+      #expect(try appliedSnapshot().visibleItems == ["a", "b", "c"])
+    }
+
+    @Test func appliesReorderingAndMovesWithTheSameIdentifiers() throws {
+      host.expansion = ["a", "a2", "b"]
+      update()
+      host.roots[0].children!.reverse()
+      update()
+      #expect(try appliedSnapshot().items == ["a", "a2", "a2x", "a1", "b", "c"])
+      let moved = host.roots[0].children!.removeLast()
+      host.roots[1].children = [moved]
+      update()
+      let snapshot = try appliedSnapshot()
+      #expect(snapshot.parent(of: "a1") == "b")
+      #expect(snapshot.visibleItems == ["a", "a2", "a2x", "b", "a1", "c"])
+    }
+
+    @Test func statusOnlyUpdatesPreserveSelectionFocusAndExpansion() throws {
+      host.expansion = ["a", "a2"]
+      host.single = "a2x"
+      host.badge = .text("New")
+      update()
+      let before = try appliedSnapshot()
+      let focused = coordinator.focusedItemID
+      host.badge = .progress(0.4, accessibilityLabel: "Uploading")
+      update()
+      let after = try appliedSnapshot()
+      #expect(after.items == before.items)
+      #expect(after.visibleItems == before.visibleItems)
+      #expect(after.isExpanded("a"))
+      #expect(after.isExpanded("a2"))
+      #expect(coordinator.selectedItemIDs == ["a2x"])
+      #expect(coordinator.focusedItemID == focused)
+      #expect(host.expansion == ["a", "a2"])
+      #expect(host.single == "a2x")
     }
 
     @Test func appliesSelectionFromTheBinding() {

@@ -22,6 +22,7 @@ struct DemoCommands: Commands {
   @AppStorage("foldersSelectable") private var foldersSelectable = true
   @AppStorage("outlineStyle") private var style = DemoOutlineStyle.automatic
   @AppStorage("indentationStep") private var indentationStep = IndentationStep.regular
+  @AppStorage("showsBadges") private var showsBadges = true
   @AppStorage("largeRows") private var largeRows = false
 
   var body: some Commands {
@@ -52,6 +53,7 @@ struct DemoCommands: Commands {
         .disabled(actions == nil)
       Divider()
       Toggle("Folders Are Selectable", isOn: $foldersSelectable)
+      Toggle("Show Badges", isOn: $showsBadges)
       Picker("Outline Style", selection: $style) {
         ForEach(DemoOutlineStyle.allCases) { Text($0.title).tag($0) }
       }

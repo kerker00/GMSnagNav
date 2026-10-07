@@ -51,6 +51,7 @@ Then `import GMSnagNav` wherever you build your sidebar.
 | Non-selectable folders (toggle in the Outline menu); clicking them expands and collapses | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
 | Primary action: double-click, Command-O or Command-Down toggles folders and "opens" documents (macOS); Return starts renaming | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
 | Hardware-keyboard navigation: up/down, hierarchy arrows and Space; mirrored arrows in RTL layouts (iPad) | built in | ✅ |
+| Counts, text, status symbols, dots and progress; edit Status in the detail view or toggle Show Badges | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
 | Style, indentation and the AppKit configuration escape hatch (Outline menu) | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
 | Native context menu built from `OutlineMenuItem`s — submenu with disabled targets, destructive delete, add at the root level on empty space; on iOS it shares the long press with dragging | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
 | Section headers that group the top level ("New Section") | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |

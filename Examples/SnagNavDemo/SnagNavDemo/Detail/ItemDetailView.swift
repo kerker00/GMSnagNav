@@ -40,6 +40,8 @@ struct ItemDetailView: View {
         Section {
           nameField
             .frame(width: 260)
+          statusPicker
+            .frame(width: 260)
           // Text rows keep the 6 points between stacked controls.
           Group {
             LabeledContent("Kind:", value: kind(of: item))
@@ -72,6 +74,7 @@ struct ItemDetailView: View {
           LabeledContent("Name") {
             nameField.multilineTextAlignment(.trailing)
           }
+          statusPicker
           LabeledContent("Kind", value: kind(of: item))
           LabeledContent("Location") { location }
           if let children = item.children {
@@ -85,6 +88,20 @@ struct ItemDetailView: View {
       .formStyle(.grouped)
     }
   #endif
+
+  private var statusPicker: some View {
+    Picker(
+      "Status",
+      selection: Binding(
+        get: { library.item(itemID)?.status ?? .none },
+        set: { library.setStatus(itemID, to: $0) })
+    ) {
+      ForEach(LibraryItem.Status.allCases, id: \.self) { status in
+        Text(status.rawValue).tag(status)
+      }
+    }
+    .accessibilityIdentifier("detail-status")
+  }
 
   /// Where the item lives, and for folders how many items they hold.
   private func subtitle(for item: LibraryItem) -> String {

@@ -43,7 +43,7 @@ private struct CompactOutlineNavigation<ID: Hashable>: ViewModifier {
   func body(content: Content) -> some View {
     content
       .onChange(of: selection) {
-        if selection != nil { column = .detail }
+        if isCompact, selection != nil { column = .detail }
       }
       .onChange(of: column) {
         if column == .sidebar, isCompact { selection = nil }

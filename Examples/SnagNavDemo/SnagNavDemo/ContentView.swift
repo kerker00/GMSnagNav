@@ -9,6 +9,18 @@ struct ContentView: View {
   @State private var compactColumn = NavigationSplitViewColumn.sidebar
 
   var body: some View {
+    if CommandLine.arguments.contains("-ui-testing"),
+      CommandLine.arguments.contains("-sidebar-only")
+    {
+      // Audit the real sidebar independently of the demo's navigation and detail views.
+      SidebarView(selection: $selection, onError: show)
+        .frame(width: 320)
+    } else {
+      splitView
+    }
+  }
+
+  private var splitView: some View {
     NavigationSplitView(preferredCompactColumn: $compactColumn) {
       SidebarView(selection: $selection, onError: show)
         .navigationTitle("Library")

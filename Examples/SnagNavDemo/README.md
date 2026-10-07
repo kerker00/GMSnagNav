@@ -49,7 +49,8 @@ Then `import GMSnagNav` wherever you build your sidebar.
 | Drag and drop onto items, between rows and into the root, validated by the host | [`Model/Library.swift`](SnagNavDemo/Model/Library.swift) | ✅ Cycles are rejected, drops onto documents are redirected next to them |
 | Spring-loaded folders while dragging | built in | ✅ Both platforms; on macOS it follows the system setting |
 | Non-selectable folders (toggle in the Outline menu); clicking them expands and collapses | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
-| Primary action: double-click or Return toggles folders and "opens" documents (macOS) | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
+| Primary action: double-click, Command-O or Command-Down toggles folders and "opens" documents (macOS); Return starts renaming | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
+| Hardware-keyboard navigation: up/down, hierarchy arrows and Space; mirrored arrows in RTL layouts (iPad) | built in | ✅ |
 | Style, indentation and the AppKit configuration escape hatch (Outline menu) | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
 | Native context menu built from `OutlineMenuItem`s — submenu with disabled targets, destructive delete, add at the root level on empty space; on iOS it shares the long press with dragging | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
 | Section headers that group the top level ("New Section") | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
@@ -66,7 +67,13 @@ UI tests in [`SnagNavDemoUITests`](SnagNavDemoUITests) drive the real app on bot
 selection, search, context menus and real drags into a folder and onto a document, which is
 redirected next to it. On macOS they also cover a rejected cycle, a moved folder that stays
 expanded and dragging while searching; on iOS, swiping to delete, dropping at the edge of a row
-and navigating in a collapsed split view. See `CONTRIBUTING.md` for how to run them.
+and navigating in a collapsed split view. They also cover keyboard navigation, sections, selection
+reveal and renaming with focus restoration; iPad tests include RTL, accessibility audits and large
+text sizes. See `CONTRIBUTING.md` for how to run them.
+
+The section audit currently records an expected Dynamic Type issue without an associated element,
+also reproduced with the unchanged `0.3.0` package. It remains open for manual inspection; other
+audit findings still fail the test.
 
 The key idea: the demo's `Library` store — not GMSnagNav — decides whether a move is allowed and
 performs it. Replace it with your Core Data, SwiftData or file-system layer in a real app.

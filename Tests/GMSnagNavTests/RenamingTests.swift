@@ -49,6 +49,12 @@ import Testing
     #expect(behavior().startRenaming("c", in: tree))
     #expect(host.renaming == nil)
     try await Task.sleep(for: .milliseconds(200))
+    // First showing a UIKit text field may stall the main actor while the simulator starts its
+    // keyboard. The restart task can begin its delay after this test's original timer expired.
+    let deadline = ContinuousClock.now + .seconds(2)
+    while host.renaming != "c", ContinuousClock.now < deadline {
+      try await Task.sleep(for: .milliseconds(10))
+    }
     #expect(host.renaming == "c")
   }
 

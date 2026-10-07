@@ -169,6 +169,9 @@ with **Product > Build Documentation**. Start with these articles:
 
 Ideas for versions after `0.3.0`, all planned to be backward compatible:
 
+- Keyboard navigation, right-to-left layout and accessibility regression tests (the `0.4.0` focus)
+- Large-tree benchmarks, followed by update optimizations and lazy loading where measurements
+  show a need; include mostly collapsed trees and large sibling lists
 - Custom drag previews
 - Drops from other apps, such as file URLs
 - Loading children asynchronously

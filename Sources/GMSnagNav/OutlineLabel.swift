@@ -27,9 +27,26 @@ public struct OutlineLabel: View {
   }
 
   @Environment(\.outlineRenameSession) private var renameSession
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
   /// The content of the label.
   public var body: some View {
+    #if os(iOS)
+      // There is one title on iOS. Keep its native text metadata for Dynamic Type auditing;
+      // the decorative icon is hidden and the containing row combines the accessible title.
+      label
+    #else
+      if renameSession != nil {
+        label
+      } else {
+        label
+          .accessibilityElement(children: .ignore)
+          .accessibilityLabel(title)
+      }
+    #endif
+  }
+
+  private var label: some View {
     Label {
       if renameSession != nil {
         OutlineRenamableText(title)
@@ -38,18 +55,32 @@ public struct OutlineLabel: View {
       }
     } icon: {
       Image(systemName: systemImage)
+        .accessibilityHidden(true)
     }
   }
 
-  private var fittingTitle: some View {
-    // Pure SwiftUI on purpose: an AppKit text field in a row breaks the row's context menu.
-    ViewThatFits(in: .horizontal) {
+  @ViewBuilder private var fittingTitle: some View {
+    #if os(iOS)
+      // UIKit supplies the row's width. A single Text avoids exposing the hidden, fixed-width
+      // alternative of ViewThatFits to accessibility clipping checks.
       Text(title)
-        .fixedSize()
-      Text(title)
-        .lineLimit(1)
-        .truncationMode(.tail)
-        .help(title)
-    }
+        .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+        .fixedSize(horizontal: false, vertical: true)
+    #else
+      // Pure SwiftUI on purpose: an AppKit text field in a row breaks the row's context menu.
+      if dynamicTypeSize.isAccessibilitySize {
+        Text(title)
+          .fixedSize(horizontal: false, vertical: true)
+      } else {
+        ViewThatFits(in: .horizontal) {
+          Text(title)
+            .fixedSize()
+          Text(title)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .help(title)
+        }
+      }
+    #endif
   }
 }

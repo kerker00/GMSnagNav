@@ -8,6 +8,15 @@
     /// Opens the selection without starting renaming, as in the Finder.
     var onPrimaryAction: (() -> Bool)?
     var onReorder: ((OutlineReorderDirection) -> Bool)?
+    /// Set while rows show SwiftUI context menus of their own. A right-click on a row outside
+    /// its content, such as in its indentation, then shows no menu rather than letting the event
+    /// reach the menu for empty space around the outline.
+    var rowsShowHostedMenus = false
+
+    override func rightMouseDown(with event: NSEvent) {
+      if rowsShowHostedMenus, row(at: convert(event.locationInWindow, from: nil)) >= 0 { return }
+      super.rightMouseDown(with: event)
+    }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
       if ownsKeyboardFocus, let direction = reorderingDirection(event),

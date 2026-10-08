@@ -31,6 +31,7 @@
       var navigation: OutlineNavigationRequest<String>?
       var navigationResults: [OutlineNavigationResult] = []
       var contextMenu: ((Set<String>) -> AnyView)?
+      var contextMenuItems: (@MainActor (Set<String>) -> [OutlineMenuItem])?
     }
 
     let host = Host()
@@ -60,6 +61,11 @@
         request: Binding(get: { host.navigation }, set: { host.navigation = $0 }),
         onCompletion: { _, result in host.navigationResults.append(result) })
       behavior.contextMenu = host.contextMenu
+      if let items = host.contextMenuItems {
+        // As `outlineContextMenuItems(_:)` sets them.
+        behavior.contextMenuItems = items
+        behavior.contextMenu = { ids in AnyView(OutlineMenuItemsView(items: items(ids))) }
+      }
       if let canRename = host.canRename {
         behavior.renaming = OutlineRenameHandler(
           renaming: Binding(get: { host.renaming }, set: { host.renaming = $0 }),
@@ -1311,6 +1317,59 @@
       host.roots = (0..<300).map { .leaf("new\($0)") }
       update()
       #expect(visibleIDs == host.roots.map(\.id))
+    }
+
+    @Test func usesANativeMenuOnlyForMenuItems() {
+      update()
+      #expect(outlineView.menu == nil)
+      #expect(!outlineView.rowsShowHostedMenus)
+
+      host.contextMenu = { _ in AnyView(Button("Delete") {}) }
+      update()
+      #expect(outlineView.menu == nil)
+      #expect(outlineView.rowsShowHostedMenus)
+
+      host.contextMenuItems = { _ in [.action("Delete") {}] }
+      update()
+      #expect(outlineView.menu != nil)
+      #expect(!outlineView.rowsShowHostedMenus)
+    }
+
+    @Test func fillsTheNativeMenuForTheClickedRowOrEmptySpace() throws {
+      var requested: [Set<String>] = []
+      host.single = "c"
+      host.contextMenuItems = { ids in
+        requested.append(ids)
+        return [
+          .action("Open") {},
+          .divider,
+          .menu("Move to", children: [.action("Top Level", isDisabled: true) {}]),
+        ]
+      }
+      update()
+      let menu = try #require(outlineView.menu)
+      // No row was clicked: empty space.
+      coordinator.menuNeedsUpdate(menu)
+      #expect(requested == [[]])
+      #expect(menu.items.map(\.title) == ["Open", "", "Move to"])
+      #expect(menu.items[1].isSeparatorItem)
+      #expect(menu.items[2].submenu?.items.first?.isEnabled == false)
+
+      // Rows: a, b, c. The selected row applies to the selection, others to themselves.
+      #expect(coordinator.contextMenuIDs(forRow: 2) == ["c"])
+      #expect(coordinator.contextMenuIDs(forRow: 0) == ["a"])
+    }
+
+    @Test func nativeMenuItemsRunTheirActions() throws {
+      var performed = false
+      let items = OutlineMenuItem.nativeItems(for: [
+        .action("Delete", systemImage: "trash") { performed = true }
+      ])
+      let item = try #require(items.first)
+      #expect(item.image != nil)
+      let target = try #require(item.target as? OutlineMenuActionTarget)
+      target.performAction(item)
+      #expect(performed)
     }
 
     @Test func attachesTheContextMenuToRows() {

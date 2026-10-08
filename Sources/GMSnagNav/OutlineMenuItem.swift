@@ -77,8 +77,9 @@ extension SnagOutline {
   /// the pressed element alone, and an empty set on empty space in an outline with selection.
   /// Return no items to show no menu.
   ///
-  /// Prefer this modifier over ``outlineContextMenu(_:)`` for outlines that also support dragging
-  /// on iOS: its menu and the drag share one long press, like in the Files app.
+  /// Prefer this modifier over ``outlineContextMenu(_:)`` where its items suffice. On macOS the
+  /// menu is an `NSMenu` that opens anywhere in a row and outlines the row it applies to, like in
+  /// the Finder. On iOS its menu and dragging share one long press, like in the Files app.
   ///
   /// Apply this modifier directly to the `SnagOutline`, before any other view modifier.
   ///

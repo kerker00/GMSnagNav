@@ -24,6 +24,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   again when the folder opens.
 - Clicking a section header on macOS collapses or expands it once. AppKit toggles group rows
   on its own, and the outline used to toggle them a second time, undoing the click.
+- On macOS, `outlineContextMenuItems(_:)` now shows a native menu. It opens anywhere in a row,
+  including its indentation and the space beside a short title, outlines the row it applies to
+  like the Finder, and no longer ends with an empty separator. A right-click beside a row's
+  title used to open the menu for empty space instead.
+- On macOS, the SwiftUI menu of `outlineContextMenu(_:)` opens across the whole width of a row's
+  content. A right-click in a row's indentation no longer opens the menu for empty space.
 
 ## [0.4.0] - 2026-10-08
 

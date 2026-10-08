@@ -270,7 +270,8 @@ struct EmptySpaceContextMenu<Element: Identifiable>: ViewModifier where Element.
   func body(content: Content) -> some View {
     if case .none = selection {
       content
-    } else if let menu = behavior.contextMenu {
+    } else if behavior.contextMenuItems == nil, let menu = behavior.contextMenu {
+      // Menu items show in the outline's native menu, which also covers empty space.
       content.contextMenu { menu([]) }
     } else {
       content

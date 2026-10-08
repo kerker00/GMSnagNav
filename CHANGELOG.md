@@ -7,6 +7,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-08
+
+Fixes for selection, section headers, context menus, badges and keyboard navigation, mostly on
+macOS, and better VoiceOver support on macOS 27.
+
 ### Fixed
 
 - On macOS, dot, progress and symbol badges stay visible on a selected row. Their tint used to
@@ -206,7 +211,8 @@ It requires macOS 26 or iOS 26 and Swift 6.2.
 - English and German texts for what VoiceOver reads on iOS. They follow the host app's language.
 - `SnagNavDemo`, a multiplatform demo app in `Examples/`.
 
-[Unreleased]: https://github.com/kerker00/GMSnagNav/compare/0.4.0...HEAD
+[Unreleased]: https://github.com/kerker00/GMSnagNav/compare/0.4.1...HEAD
+[0.4.1]: https://github.com/kerker00/GMSnagNav/compare/0.4.0...0.4.1
 [0.4.0]: https://github.com/kerker00/GMSnagNav/compare/0.3.0...0.4.0
 [0.3.0]: https://github.com/kerker00/GMSnagNav/releases/tag/0.3.0
 [0.2.0]: https://github.com/kerker00/GMSnagNav/releases/tag/0.2.0

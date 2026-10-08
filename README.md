@@ -27,8 +27,8 @@ The 0.4.0 demo with row badges, status controls and Show in Sidebar.
 
 | Appearance | macOS | iPad |
 |---|---|---|
-| Light | ![GMSnagNav 0.4.0 on macOS in light appearance](docs/images/macos-light.png) | ![GMSnagNav 0.4.0 on iPad in light appearance](docs/images/ipad-light.png) |
-| Dark | ![GMSnagNav 0.4.0 on macOS in dark appearance](docs/images/macos-dark.png) | ![GMSnagNav 0.4.0 on iPad in dark appearance](docs/images/ipad-dark.png) |
+| Light | ![GMSnagNav 0.4.0 on macOS in light appearance](docs/images/macos-light-0.4.0.png) | ![GMSnagNav 0.4.0 on iPad in light appearance](docs/images/ipad-light-0.4.0.png) |
+| Dark | ![GMSnagNav 0.4.0 on macOS in dark appearance](docs/images/macos-dark-0.4.0.png) | ![GMSnagNav 0.4.0 on iPad in dark appearance](docs/images/ipad-dark-0.4.0.png) |
 
 ## Why
 

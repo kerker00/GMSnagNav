@@ -774,11 +774,11 @@
     }
 
     /// The elements an action on `id` applies to: the selection if `id` is part of it, otherwise
-    /// `id` alone.
+    /// `id` alone. Selected elements that the data no longer contains are left out.
     private func activatedIDs(for id: ID) -> Set<ID> {
       guard let renderer else { return [id] }
       let selected = selectedIDs(in: renderer.selection)
-      return selected.contains(id) ? selected : [id]
+      return selected.contains(id) ? selected.filter(tree.contains) : [id]
     }
 
     private func handleClick() {
@@ -860,10 +860,9 @@
     /// Runs the primary action independently of the Return-to-rename behavior.
     func handlePrimaryAction() -> Bool {
       guard let renderer else { return false }
-      let selected = selectedIDs(in: renderer.selection)
-      guard let primaryAction = renderer.behavior.primaryAction,
-        selected.contains(where: { tree.contains($0) })
-      else {
+      // Removed elements can stay selected; the action applies to the ones that remain.
+      let selected = selectedIDs(in: renderer.selection).filter(tree.contains)
+      guard let primaryAction = renderer.behavior.primaryAction, !selected.isEmpty else {
         return false
       }
       primaryAction(selected)

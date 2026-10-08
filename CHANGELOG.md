@@ -30,6 +30,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   title used to open the menu for empty space instead.
 - On macOS, the SwiftUI menu of `outlineContextMenu(_:)` opens across the whole width of a row's
   content. A right-click in a row's indentation no longer opens the menu for empty space.
+- The primary action and context menus no longer receive selected identifiers that the data
+  no longer contains. A removed element stays selected, as documented, but actions such as
+  Command-O used to pass it along with the remaining selection.
 - Demo: the detail view shows names changed in the sidebar, deleting the selected item or its
   folder ends the selection, clearing the search reveals the selection, folder counts match the
   search results, a long location no longer shifts the detail form, and Return dismisses alerts.

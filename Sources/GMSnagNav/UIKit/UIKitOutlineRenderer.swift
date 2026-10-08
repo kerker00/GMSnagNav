@@ -969,11 +969,11 @@
     }
 
     /// The elements an action on `id` applies to: the selection if `id` is part of it, otherwise
-    /// `id` alone.
+    /// `id` alone. Selected elements that the data no longer contains are left out.
     func activatedIDs(for id: ID) -> Set<ID> {
       guard let renderer else { return [id] }
       let selected = selectedIDs(in: renderer.selection)
-      return selected.contains(id) ? selected : [id]
+      return selected.contains(id) ? selected.filter(tree.contains) : [id]
     }
 
     // MARK: Native context menu

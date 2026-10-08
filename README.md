@@ -21,18 +21,14 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/kerker00/GMSnagNav" alt="License"></a>
 </p>
 
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/macos-dark.png">
-    <img src="docs/images/macos-light.png" width="560"
-      alt="The demo app on macOS: a sidebar outline of nested folders and documents with one document selected, next to its details.">
-  </picture>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/ipad-dark.png">
-    <img src="docs/images/ipad-light.png" width="320"
-      alt="The same outline on iPad, rendered with a native collection view list.">
-  </picture>
-</p>
+## Screenshots
+
+The 0.4.0 demo with row badges, status controls and Show in Sidebar.
+
+| Appearance | macOS | iPad |
+|---|---|---|
+| Light | ![GMSnagNav 0.4.0 on macOS in light appearance](docs/images/macos-light.png) | ![GMSnagNav 0.4.0 on iPad in light appearance](docs/images/ipad-light.png) |
+| Dark | ![GMSnagNav 0.4.0 on macOS in dark appearance](docs/images/macos-dark.png) | ![GMSnagNav 0.4.0 on iPad in dark appearance](docs/images/ipad-dark.png) |
 
 ## Why
 

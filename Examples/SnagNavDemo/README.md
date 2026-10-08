@@ -3,6 +3,15 @@
 A multiplatform SwiftUI app (macOS and iOS/iPadOS) that shows how to integrate GMSnagNav and
 how to use its features. It grows with the package: every new feature is demonstrated here.
 
+## Screenshots
+
+The 0.4.0 demo with row badges, status controls and Show in Sidebar.
+
+| Appearance | macOS | iPad |
+|---|---|---|
+| Light | ![Demo on macOS in light appearance](../../docs/images/macos-light.png) | ![Demo on iPad in light appearance](../../docs/images/ipad-light.png) |
+| Dark | ![Demo on macOS in dark appearance](../../docs/images/macos-dark.png) | ![Demo on iPad in dark appearance](../../docs/images/ipad-dark.png) |
+
 ## Running the demo
 
 1. Open `Examples/SnagNavDemo/SnagNavDemo.xcodeproj` in Xcode 26 or later.

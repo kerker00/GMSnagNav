@@ -187,7 +187,8 @@ extension SnagOutline {
   /// hardware-keyboard Return on iOS. Return on macOS also activates unless it starts renaming.
   /// For outlines with selection,
   /// it receives the selected elements when the activated row is part of the selection, otherwise
-  /// the activated element alone.
+  /// the activated element alone. Selected identifiers that are no longer in the data are left
+  /// out.
   ///
   /// On iOS, a tap first selects the row, then runs the action.
   ///
@@ -204,7 +205,8 @@ extension SnagOutline {
   ///
   /// The menu receives the identifiers it applies to:
   ///
-  /// - the whole selection when the user opens the menu on a selected row,
+  /// - the whole selection when the user opens the menu on a selected row, without identifiers
+  ///   that are no longer in the data,
   /// - only the clicked element when the row is not selected or not selectable,
   /// - an empty set when the menu opens on empty space in an outline with selection — useful for
   ///   actions such as "New Folder" at the root level. macOS only: on iOS, empty space shows no

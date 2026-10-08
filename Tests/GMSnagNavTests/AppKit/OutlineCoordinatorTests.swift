@@ -734,6 +734,22 @@
       #expect(!activated)
     }
 
+    @Test func actionsLeaveOutSelectedElementsThatWereRemoved() {
+      var activated: Set<String>?
+      host.primaryAction = { activated = $0 }
+      host.multiple = ["a", "c"]
+      update(multipleSelection: true)
+      host.roots.removeLast()
+      update(multipleSelection: true)
+      #expect(host.multiple == ["a", "c"])
+
+      #expect(coordinator.handlePrimaryAction())
+      #expect(activated == ["a"])
+      coordinator.handleDoubleClick(onRow: 0)
+      #expect(activated == ["a"])
+      #expect(coordinator.contextMenuIDs(forRow: 0) == ["a"])
+    }
+
     @Test func commandKeyEquivalentRequiresTheOutlinesFocus() throws {
       var activated = 0
       host.primaryAction = { _ in activated += 1 }

@@ -33,6 +33,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The primary action and context menus no longer receive selected identifiers that the data
   no longer contains. A removed element stays selected, as documented, but actions such as
   Command-O used to pass it along with the remaining selection.
+- On macOS, Return restarts a rename whose text field never got the focus once the row has been
+  shown without the field, instead of after a fixed 50 ms delay that a busy main thread could
+  outlast.
 - Demo: the detail view shows names changed in the sidebar, deleting the selected item or its
   folder ends the selection, clearing the search reveals the selection, folder counts match the
   search results, a long location no longer shifts the detail form, and Return dismisses alerts.

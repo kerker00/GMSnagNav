@@ -39,9 +39,16 @@ extension SnagOutline {
   }
 }
 
-/// How long a restarted rename waits before naming the row again; see
-/// `OutlineBehavior.startRenaming(_:in:)`.
-private let renameRestartDelay: Duration = .milliseconds(50)
+/// How a request to rename an element was handled; see `OutlineBehavior.startRenaming(_:in:)`.
+enum OutlineRenameStart: Equatable {
+  /// The host doesn't allow renaming the element, or the outline doesn't offer renaming.
+  case refused
+  /// The binding now names the element.
+  case started
+  /// The binding still named the element, so it was cleared. Name the element again once
+  /// SwiftUI has shown its row without the text field.
+  case restarting
+}
 
 /// The host's renaming state and callbacks.
 struct OutlineRenameHandler<Element: Identifiable> where Element.ID: Sendable {
@@ -68,29 +75,26 @@ extension OutlineBehavior {
     }
   }
 
-  /// Starts renaming `id` if the host allows it; returns whether renaming started.
+  /// Starts renaming `id` if the host allows it.
   ///
   /// If the binding still names `id` — a rename whose text field never got the focus or went away
-  /// without ending — renaming starts over: the binding is cleared, and set again once SwiftUI has
-  /// shown the row without its text field, so the row builds a fresh, focused one instead of
-  /// ignoring the request.
-  @MainActor func startRenaming(_ id: Element.ID, in tree: OutlineTree<Element>) -> Bool {
+  /// without ending — renaming starts over: the binding is cleared, and the renderer names `id`
+  /// again after the update that shows the row without its text field, so the row builds a fresh,
+  /// focused one instead of ignoring the request. Setting it again right away would merge both
+  /// changes into one update, which SwiftUI would not notice.
+  @MainActor func startRenaming(
+    _ id: Element.ID, in tree: OutlineTree<Element>
+  ) -> OutlineRenameStart {
     guard let renaming, let element = tree.element(id), renaming.canRename(element) else {
-      return false
+      return .refused
     }
     let binding = renaming.renaming
     if binding.wrappedValue == id {
       binding.wrappedValue = nil
-      Task { @MainActor in
-        // Setting it again right away would merge both changes into one update, which SwiftUI
-        // would not notice.
-        try? await Task.sleep(for: renameRestartDelay)
-        binding.wrappedValue = id
-      }
-    } else {
-      binding.wrappedValue = id
+      return .restarting
     }
-    return true
+    binding.wrappedValue = id
+    return .started
   }
 }
 

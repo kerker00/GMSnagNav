@@ -549,6 +549,15 @@
       #expect(coordinator.activatedIDs(for: "a") == ["a"])
     }
 
+    @Test func actionsLeaveOutSelectedElementsThatWereRemoved() {
+      host.multiple = ["a", "c"]
+      update(multipleSelection: true)
+      host.roots.removeLast()
+      update(multipleSelection: true)
+      #expect(host.multiple == ["a", "c"])
+      #expect(coordinator.activatedIDs(for: "a") == ["a"])
+    }
+
     @Test func runsThePrimaryActionForTheTappedRow() {
       var activated: Set<String>?
       host.primaryAction = { activated = $0 }

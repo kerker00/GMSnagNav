@@ -1108,10 +1108,18 @@
 
     func body(content: Content) -> some View {
       if let begin {
-        content.onDrag { begin() ?? NSItemProvider() }
+        content.wholeRowShape().onDrag { begin() ?? NSItemProvider() }
       } else {
         content
       }
+    }
+  }
+
+  extension View {
+    /// Spans the row and makes all of it respond, not only the shape of its content — beside a
+    /// short title, too.
+    fileprivate func wholeRowShape() -> some View {
+      frame(maxWidth: .infinity, alignment: .leading).contentShape(.rect)
     }
   }
 
@@ -1121,7 +1129,7 @@
 
     func body(content: Content) -> some View {
       if let menu {
-        content.contextMenu { menu() }
+        content.wholeRowShape().contextMenu { menu() }
       } else {
         content
       }

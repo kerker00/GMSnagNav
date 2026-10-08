@@ -9,8 +9,8 @@ The 0.4.0 demo with row badges, status controls and Show in Sidebar.
 
 | Appearance | macOS | iPad |
 |---|---|---|
-| Light | ![Demo on macOS in light appearance](../../docs/images/macos-light.png) | ![Demo on iPad in light appearance](../../docs/images/ipad-light.png) |
-| Dark | ![Demo on macOS in dark appearance](../../docs/images/macos-dark.png) | ![Demo on iPad in dark appearance](../../docs/images/ipad-dark.png) |
+| Light | ![Demo on macOS in light appearance](../../docs/images/macos-light-0.4.0.png) | ![Demo on iPad in light appearance](../../docs/images/ipad-light-0.4.0.png) |
+| Dark | ![Demo on macOS in dark appearance](../../docs/images/macos-dark-0.4.0.png) | ![Demo on iPad in dark appearance](../../docs/images/ipad-dark-0.4.0.png) |
 
 ## Running the demo
 

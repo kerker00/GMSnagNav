@@ -41,6 +41,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - On iOS and iPadOS, the SwiftUI menu of `outlineContextMenu(_:)` opens on a long press anywhere
   in a row, and the row can be dragged from there. A long press beside a short title used to
   select the row instead.
+- On macOS, the forward arrow enters the first child of an expanded container, and the
+  backward arrow returns to the parent of a collapsed row, on every macOS version. macOS 27
+  left the selection on the container. Rows that can't be selected are not entered.
+- On macOS, VoiceOver names a sidebar-style outline "Sidebar", and reads a row's title and
+  badge as text directly in its cell, without an unnamed group around them. On macOS 27 the
+  outline had no name and the titles and badges had no role. Like the text of native sidebar
+  rows, they are static text whose text is their value; UI tests match it there instead of in
+  the label.
 - Demo: the detail view shows names changed in the sidebar, deleting the selected item or its
   folder ends the selection, clearing the search reveals the selection, folder counts match the
   search results, a long location no longer shifts the detail form, and Return dismisses alerts.

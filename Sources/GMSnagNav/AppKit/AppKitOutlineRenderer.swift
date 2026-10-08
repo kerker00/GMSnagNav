@@ -171,8 +171,12 @@
       applySelection(selected)
       reveal.hostSelected(
         selected, in: tree, expansion: renderer.$expansion,
-        reveals: renderer.behavior.revealsSelection)
+        reveals: renderer.behavior.revealsSelection
+          && renderer.behavior.navigation?.request.wrappedValue == nil)
       scrollToRevealedElement()
+      navigation.update(renderer.behavior.navigation) { [weak self] request in
+        self?.navigate(request) ?? .outlineUnavailable
+      }
       // Replacing hosted rows can move AppKit's first responder to the surrounding SwiftUI
       // view. Keep keyboard navigation in the outline, except when starting inline renaming.
       if restoresKeyboardFocus, renderer.behavior.renaming?.renaming.wrappedValue == nil {
@@ -182,6 +186,33 @@
 
     /// Reveals elements the host selects; see `outlineRevealsSelection(_:)`.
     private var reveal = SelectionReveal<ID>()
+    private let navigation = OutlineNavigationDriver<ID>()
+
+    func navigationSettled() async { await navigation.settled() }
+
+    private func navigate(_ request: OutlineNavigationRequest<ID>) -> OutlineNavigationResult {
+      guard let renderer, let outlineView else { return .outlineUnavailable }
+      if let id = request.target, !tree.contains(id) { return .elementNotFound }
+      guard outlineView.window != nil else { return .outlineUnavailable }
+      isApplyingUpdate = true
+      defer { isApplyingUpdate = false }
+      if let id = request.target {
+        let expanded = renderer.expansion.union(tree.ancestors(of: id))
+        renderer.expansion = expanded
+        applyExpansion(expanded)
+        applySelection(selectedIDs(in: renderer.selection))
+        let row = outlineView.row(forItem: box(for: id))
+        guard row >= 0 else { return .outlineUnavailable }
+        reveal.didReveal()
+        outlineView.scrollRowToVisible(row)
+      }
+      if request.takesFocus {
+        guard renderer.behavior.renaming?.renaming.wrappedValue == nil,
+          outlineView.window?.makeFirstResponder(outlineView) == true
+        else { return .focusUnavailable }
+      }
+      return .completed
+    }
 
     /// Scrolls the element waiting to be revealed into view once its row exists.
     private func scrollToRevealedElement() {

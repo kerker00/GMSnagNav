@@ -46,6 +46,10 @@ rows to their new place.
 
 - ``SnagOutline/outlineSelectable(_:)``
 - ``SnagOutline/outlineRevealsSelection(_:)``
+- ``SnagOutline/outlineNavigation(_:onCompletion:)``
+- ``OutlineNavigationRequest``
+- ``OutlineNavigationResult``
+- <doc:OutlineNavigation>
 - ``SnagOutline/outlinePrimaryAction(_:)``
 - ``SnagOutline/outlineTypeSelect(_:)``
 - ``SnagOutline/outlineRenaming(_:canRename:onRename:)``

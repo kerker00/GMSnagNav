@@ -18,6 +18,7 @@ iPad — so some interactions differ. Your bindings and callbacks receive the sa
 | Row that can't be selected | A click on a container expands or collapses it | A tap on a container expands or collapses it |
 | Select by typing | Typing the start of a row's text, with ``SnagOutline/outlineTypeSelect(_:)`` | Not available |
 | Selection set by the app | Revealed: containers above it open, and the row scrolls into view | Revealed the same way |
+| Explicit reveal or keyboard focus | `outlineNavigation(_:onCompletion:)`, preserving selection | Same API; the host controls split-view visibility |
 
 Rows that ``SnagOutline/outlineSelectable(_:)`` excludes never become part of the selection. On
 macOS, when the outline also has a primary action, a single click on such a container toggles it

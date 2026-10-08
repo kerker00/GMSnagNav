@@ -26,6 +26,8 @@
       var typeSelectText: ((TestItem) -> String?)?
       var sectionTitle: ((TestItem) -> String?)?
       var renaming: String?
+      /// Called with every write to the renaming binding.
+      var renamingChanged: ((String?) -> Void)?
       var canRename: ((TestItem) -> Bool)?
       var revealsSelection = true
       var navigation: OutlineNavigationRequest<String>?
@@ -68,7 +70,12 @@
       }
       if let canRename = host.canRename {
         behavior.renaming = OutlineRenameHandler(
-          renaming: Binding(get: { host.renaming }, set: { host.renaming = $0 }),
+          renaming: Binding(
+            get: { host.renaming },
+            set: {
+              host.renaming = $0
+              host.renamingChanged?($0)
+            }),
           canRename: canRename, onRename: { _, _ in })
       }
       let selection: OutlineSelection<String> =
@@ -587,18 +594,20 @@
       #expect(activated == ["a"])
     }
 
-    @Test func restartsAPendingRenameOnReturn() async throws {
+    @Test(.timeLimit(.minutes(5))) func restartsAPendingRenameOnReturn() async {
       host.canRename = { _ in true }
       host.single = "c"
       host.renaming = "c"
+      let (restarts, continuation) = AsyncStream<String>.makeStream()
+      defer { continuation.finish() }
+      host.renamingChanged = { if let id = $0 { continuation.yield(id) } }
       update()
       #expect(coordinator.handleReturn())
       #expect(host.renaming == nil)
-      try await Task.sleep(for: .milliseconds(200))
-      let deadline = ContinuousClock.now + .seconds(2)
-      while host.renaming != "c", ContinuousClock.now < deadline {
-        try await Task.sleep(for: .milliseconds(10))
-      }
+      // Wait for the binding write itself rather than a deadline: on CI, other tests can keep
+      // the main actor busy for longer than any short deadline.
+      var iterator = restarts.makeAsyncIterator()
+      #expect(await iterator.next() == "c")
       #expect(host.renaming == "c")
     }
 

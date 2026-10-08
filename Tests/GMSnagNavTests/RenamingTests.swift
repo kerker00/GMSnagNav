@@ -42,7 +42,9 @@ import Testing
     #expect(host.renaming == "c")
   }
 
-  @Test(.timeLimit(.minutes(1))) func restartsARenameThatIsStillPending() async {
+  // The time limit only guards against a restart that never happens. On CI simulators, other
+  // tests have blocked the main actor for over a minute while the system keyboard started up.
+  @Test(.timeLimit(.minutes(5))) func restartsARenameThatIsStillPending() async {
     // The text field never got the focus, so the binding still names the row: starting again
     // must not be a no-op that SwiftUI ignores.
     host.renaming = "c"

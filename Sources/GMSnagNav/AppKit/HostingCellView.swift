@@ -61,7 +61,8 @@
     override func layout() {
       var inset = trailingInset
       if reservesShowHideButton, let row = superview {
-        let limit = convert(NSPoint(x: row.bounds.maxX, y: 0), from: row).x
+        let limit =
+          convert(NSPoint(x: row.bounds.maxX, y: 0), from: row).x
           - Self.showHideButtonReserve
         inset = max(inset, bounds.maxX - limit)
       }

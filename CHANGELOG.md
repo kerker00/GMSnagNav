@@ -7,6 +7,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Clicking a row that can't be selected, such as a section header or an unselectable folder,
+  no longer clears the selection on macOS. The arrow keys still skip such rows.
+- Collapsing a folder on macOS keeps its selected elements in the selection binding, as on iOS,
+  instead of clearing the selection and closing the detail view. Their rows appear selected
+  again when the folder opens.
+- Clicking a section header on macOS collapses or expands it once. AppKit toggles group rows
+  on its own, and the outline used to toggle them a second time, undoing the click.
+
 ## [0.4.0] - 2026-10-08
 
 Keyboard navigation and right-to-left layout improvements, host-owned row badges,

@@ -58,6 +58,10 @@ one SwiftUI API for arbitrarily deep trees with selection, expansion and real dr
 - Drag and drop onto items, between rows and into the root, with host-side validation and
   redirection
 - Spring-loaded expansion while dragging
+- Keyboard navigation with the arrow keys on macOS and with a hardware keyboard on iPad
+- Reordering siblings without dragging: Command-Option-Up/Down and VoiceOver actions
+- Row badges for counts, short text, status symbols, dots and progress
+- VoiceOver support and right-to-left layouts on both platforms
 - Context menus, swipe actions, primary action (double-click / Return / tap) and non-selectable
   rows
 - Section headers, like "Favorites" in the Finder's sidebar

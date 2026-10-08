@@ -32,6 +32,11 @@ Navigator" in Xcode. It leaves the expansion alone for selections people make th
 this off with ``SnagOutline/outlineRevealsSelection(_:)`` only if your sidebar must keep exactly
 the expansion people chose.
 
+For "Show in Sidebar", use ``SnagOutline/outlineNavigation(_:onCompletion:)`` instead of
+assigning the same selection again. It can reveal an already-selected element and optionally
+transfer keyboard focus while preserving selection. The host clears search filters and exposes
+the sidebar column first; see <doc:OutlineNavigation>.
+
 ### Make actions available in more than one place
 
 - **Bottom bar:** On macOS, keep the toolbar above the sidebar for the sidebar toggle and put

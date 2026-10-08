@@ -243,6 +243,7 @@ struct OutlineBehavior<Element: Identifiable> where Element.ID: Sendable {
   var sectionTitle: ((Element) -> String?)?
   var renaming: OutlineRenameHandler<Element>?
   var revealsSelection = true
+  var navigation: OutlineNavigationHandler<Element.ID>?
 
   func canSelect(_ element: Element) -> Bool {
     isSelectable?(element) ?? true

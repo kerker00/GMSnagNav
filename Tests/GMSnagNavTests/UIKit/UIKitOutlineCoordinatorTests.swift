@@ -20,6 +20,8 @@
       var trailingSwipeActions: OutlineSwipeActions<String>?
       var sectionTitle: ((TestItem) -> String?)?
       var revealsSelection = true
+      var navigation: OutlineNavigationRequest<String>?
+      var navigationResults: [OutlineNavigationResult] = []
       var badge: OutlineBadge?
       var canReorder: ((TestItem) -> Bool)?
     }
@@ -45,6 +47,9 @@
       behavior.trailingSwipeActions = host.trailingSwipeActions
       behavior.sectionTitle = host.sectionTitle
       behavior.revealsSelection = host.revealsSelection
+      behavior.navigation = OutlineNavigationHandler(
+        request: Binding(get: { host.navigation }, set: { host.navigation = $0 }),
+        onCompletion: { _, result in host.navigationResults.append(result) })
       behavior.badge = { _ in host.badge }
       behavior.canReorder = host.canReorder
       let selection: OutlineSelection<String> =
@@ -61,6 +66,109 @@
           springLoading: host.springLoading,
           rowContent: { Text($0.id) }),
         layoutDirection: layoutDirection)
+    }
+
+    @Test func explicitRevealOpensAncestorsAndRepeatsWithoutChangingSelection() async throws {
+      let window = UIWindow(frame: collectionView.frame)
+      let controller = UIViewController()
+      window.rootViewController = controller
+      controller.view.addSubview(collectionView)
+      window.makeKeyAndVisible()
+      defer { window.isHidden = true }
+      host.single = "a2x"
+      host.revealsSelection = false
+      host.navigation = .reveal("a2x")
+      update()
+      await coordinator.navigationSettled()
+      #expect(host.expansion == ["a", "a2"])
+      #expect(try appliedSnapshot().visibleItems.contains("a2x"))
+      #expect(host.single == "a2x")
+      #expect(coordinator.selectedItemIDs == ["a2x"])
+      #expect(host.navigationResults == [.completed])
+      host.expansion = []
+      update()
+      host.navigation = .reveal("a2x")
+      update()
+      await coordinator.navigationSettled()
+      #expect(host.expansion == ["a", "a2"])
+      #expect(host.navigationResults == [.completed, .completed])
+    }
+
+    @Test func navigationUsesTheLatestTreeAndReportsMissingElements() async {
+      host.navigation = .reveal("a2x")
+      update()
+      host.roots = [.leaf("c")]
+      update()
+      await coordinator.navigationSettled()
+      #expect(host.navigationResults == [.elementNotFound])
+      #expect(host.expansion.isEmpty)
+      #expect(host.navigation == nil)
+    }
+
+    @Test func explicitNavigationTakesPrecedenceOverAutomaticSelectionReveal() async {
+      let window = UIWindow(frame: collectionView.frame)
+      let controller = UIViewController()
+      window.rootViewController = controller
+      controller.view.addSubview(collectionView)
+      window.makeKeyAndVisible()
+      defer { window.isHidden = true }
+      host.single = "a2x"
+      host.navigation = .reveal("b")
+      update()
+      await coordinator.navigationSettled()
+      update()
+      #expect(host.expansion.isEmpty)
+      #expect(host.single == "a2x")
+      #expect(host.navigationResults == [.completed])
+    }
+
+    @Test func focusRequestTransfersFromDetailAndPreservesSelection() async {
+      let window = UIWindow(frame: collectionView.frame)
+      let controller = UIViewController()
+      window.rootViewController = controller
+      controller.view.addSubview(collectionView)
+      window.makeKeyAndVisible()
+      defer { window.isHidden = true }
+      host.single = "c"
+      update()
+      let field = UITextField(frame: CGRect(x: 330, y: 0, width: 200, height: 40))
+      controller.view.addSubview(field)
+      #expect(field.becomeFirstResponder())
+      host.navigation = .focus()
+      update()
+      await coordinator.navigationSettled()
+      #expect(collectionView.isFirstResponder)
+      #expect(host.single == "c")
+      #expect(coordinator.selectedItemIDs == ["c"])
+      #expect(host.expansion.isEmpty)
+      #expect(host.navigationResults == [.completed])
+    }
+
+    @Test func explicitRevealPreservesInlineTextInput() async {
+      let window = UIWindow(frame: collectionView.frame)
+      let controller = UIViewController()
+      window.rootViewController = controller
+      controller.view.addSubview(collectionView)
+      window.makeKeyAndVisible()
+      defer { window.isHidden = true }
+      update()
+      let field = UITextField(frame: CGRect(x: 0, y: 0, width: 200, height: 40))
+      collectionView.addSubview(field)
+      #expect(field.becomeFirstResponder())
+      host.navigation = .reveal("a2x", focus: true)
+      update()
+      await coordinator.navigationSettled()
+      #expect(field.isFirstResponder)
+      #expect(host.expansion == ["a", "a2"])
+      #expect(host.navigationResults == [.focusUnavailable])
+    }
+
+    @Test func detachedOutlineReportsUnavailableWithoutExpanding() async {
+      host.navigation = .reveal("a2x")
+      update()
+      await coordinator.navigationSettled()
+      #expect(host.navigationResults == [.outlineUnavailable])
+      #expect(host.expansion.isEmpty)
     }
 
     @Test func buildsTheWholeTreeAndShowsExpandedLevels() {

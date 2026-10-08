@@ -69,6 +69,7 @@ one SwiftUI API for arbitrarily deep trees with selection, expansion and real dr
 - Copying with the Option key while dragging on macOS
 - Type select on macOS and empty-state content for empty outlines and searches
 - Revealing what the app selects: collapsed containers open and the row scrolls into view
+- Explicit reveal and keyboard-focus requests, including an already-selected element
 - Incremental, animated updates when your data changes
 - Navigation of collapsed split views, such as on iPhone, from the selection
 - Demo app for macOS and iOS
@@ -195,12 +196,35 @@ whose order differs from the model:
 See [Drag and drop](Sources/GMSnagNav/GMSnagNav.docc/DragAndDrop.md) for boundaries, redirects
 and host-owned execution.
 
+## Show an element in the sidebar
+
+Keep a request in state and bind it to the outline:
+
+```swift
+@State private var navigation: OutlineNavigationRequest<Item.ID>?
+
+// Apply directly to SnagOutline:
+.outlineNavigation($navigation) { request, result in
+  // Handle .elementNotFound, .outlineUnavailable or .focusUnavailable as needed.
+}
+
+// From a button or other host action:
+navigation = .reveal(item.id, focus: true)
+// Or transfer keyboard focus without expanding or scrolling:
+navigation = .focus()
+```
+
+Reveal opens ancestors and scrolls without changing selection, even when automatic selection
+reveal is disabled. Each new request runs once and clears its binding before completion.
+The host controls search filters and split-view visibility. See
+[Explicit navigation](Sources/GMSnagNav/GMSnagNav.docc/OutlineNavigation.md).
+
 ## Roadmap
 
 Ideas for versions after `0.3.0`, all planned to be backward compatible:
 
 - The `0.4.0` development focus: keyboard navigation, right-to-left layout, accessibility
-  regression tests, host-owned badges and keyboard/VoiceOver sibling reordering
+  regression tests, host-owned badges, keyboard/VoiceOver sibling reordering and explicit navigation
 - Large-tree benchmarks, followed by update optimizations and lazy loading where measurements
   show a need; include mostly collapsed trees and large sibling lists
 - Custom drag previews

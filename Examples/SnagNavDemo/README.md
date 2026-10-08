@@ -46,6 +46,7 @@ Then `import GMSnagNav` wherever you build your sidebar.
 | Host-owned mutations: move with insertion index, cycle protection, rename, delete | [`Model/Library.swift`](SnagNavDemo/Model/Library.swift) | ✅ |
 | Menu-based "Move to" fallback for keyboard and accessibility users | [`Sidebar/ItemActions.swift`](SnagNavDemo/Sidebar/ItemActions.swift) | ✅ |
 | `SnagOutline` with selection and expansion bindings, expand/collapse all, revealing new items | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ Native `NSOutlineView` on macOS, `UICollectionView` on iOS |
+| "Show in Sidebar" from the detail: clear search, show the sidebar, reveal the current item and transfer keyboard focus | [`ContentView.swift`](SnagNavDemo/ContentView.swift) and `outlineNavigation(_:onCompletion:)` | ✅ On a collapsed iPhone split view, the existing return-to-sidebar behavior clears selection |
 | Drag and drop onto items, between rows and into the root, validated by the host | [`Model/Library.swift`](SnagNavDemo/Model/Library.swift) | ✅ Cycles are rejected, drops onto documents are redirected next to them |
 | Spring-loaded folders while dragging | built in | ✅ Both platforms; on macOS it follows the system setting |
 | Non-selectable folders (toggle in the Outline menu); clicking them expands and collapses | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |

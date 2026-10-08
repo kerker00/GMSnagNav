@@ -193,12 +193,61 @@
       applySelection(selected)
       reveal.hostSelected(
         selected, in: tree, expansion: renderer.$expansion,
-        reveals: renderer.behavior.revealsSelection)
+        reveals: renderer.behavior.revealsSelection
+          && renderer.behavior.navigation?.request.wrappedValue == nil)
       scrollToRevealedElement()
+      navigation.update(renderer.behavior.navigation) { [weak self] request in
+        self?.navigate(request) ?? .outlineUnavailable
+      }
     }
 
     /// Reveals elements the host selects; see `outlineRevealsSelection(_:)`.
     private var reveal = SelectionReveal<ID>()
+    private let navigation = OutlineNavigationDriver<ID>()
+
+    func navigationSettled() async { await navigation.settled() }
+
+    private func navigate(_ request: OutlineNavigationRequest<ID>) -> OutlineNavigationResult {
+      guard let renderer, let collectionView, let dataSource else { return .outlineUnavailable }
+      if let id = request.target, !tree.contains(id) { return .elementNotFound }
+      guard collectionView.window != nil else { return .outlineUnavailable }
+      isApplyingUpdate = true
+      defer { isApplyingUpdate = false }
+      if let id = request.target {
+        renderer.expansion.formUnion(tree.ancestors(of: id))
+        dataSource.apply(
+          sectionSnapshot(expanded: displayedExpansion), to: 0, animatingDifferences: false)
+        applySelection(selectedIDs(in: renderer.selection))
+        collectionView.layoutIfNeeded()
+        guard let indexPath = dataSource.indexPath(for: id), displayedRowsContain(id) else {
+          return .outlineUnavailable
+        }
+        reveal.didReveal()
+        collectionView.scrollToItem(at: indexPath, at: .centeredVertically, animated: false)
+        collectionView.layoutIfNeeded()
+      }
+      if request.takesFocus {
+        guard renderer.behavior.renaming?.renaming.wrappedValue == nil,
+          let view = collectionView as? SnagCollectionView
+        else { return .focusUnavailable }
+        let focusID = keyboardItemID
+        let followsFocus = collectionView.selectionFollowsFocus
+        collectionView.selectionFollowsFocus = false
+        view.keyboardFocusTarget = focusID.flatMap { dataSource.indexPath(for: $0) }
+          .flatMap { collectionView.cellForItem(at: $0) }
+        defer {
+          collectionView.selectionFollowsFocus = followsFocus
+          view.keyboardFocusTarget = nil
+        }
+        guard view.takeKeyboardFocus() else { return .focusUnavailable }
+        if let focusID, let indexPath = dataSource.indexPath(for: focusID) {
+          updateNativeFocus(at: indexPath)
+        }
+        focusedItemID = focusID
+        applySelection(selectedIDs(in: renderer.selection))
+      }
+      return .completed
+    }
 
     /// Scrolls the element waiting to be revealed into view once its row exists.
     private func scrollToRevealedElement() {

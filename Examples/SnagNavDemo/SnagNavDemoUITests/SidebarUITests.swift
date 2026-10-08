@@ -76,6 +76,66 @@ final class SidebarUITests: XCTestCase {
 
   // MARK: Keyboard and accessibility
 
+  func testShowInSidebarClearsSearchAndRevealsTheSelectedNestedDocument() throws {
+    search("Contract")
+    select("Contract")
+    assertDetailLocation("Work › Clients › Globex › Contract")
+    #if os(iOS)
+      if app.navigationBars.buttons["Library"].exists {
+        throw XCTSkip(
+          "Selection is cleared on return in a collapsed split view; tested separately.")
+      }
+    #endif
+    let show = app.buttons["detail-show-in-sidebar"]
+    XCTAssertTrue(show.waitForExistence(timeout: 5))
+    #if os(macOS)
+      show.click()
+    #else
+      show.tap()
+    #endif
+    XCTAssertTrue(row("Inbox").waitForExistence(timeout: 5), "Search was not cleared")
+    XCTAssertTrue(row("Contract").waitForExistence(timeout: 5), "Ancestors were not expanded")
+    XCTAssertTrue(row("Contract").isHittable)
+    assertDetailLocation("Work › Clients › Globex › Contract")
+    app.typeKey(.downArrow, modifierFlags: [])
+    assertDetailLocation("Work › Internal")
+  }
+
+  func testShowInSidebarRestoresKeyboardFocusForAnAlreadySelectedDocument() throws {
+    select("Inbox")
+    #if os(iOS)
+      if app.navigationBars.buttons["Library"].exists {
+        throw XCTSkip(
+          "Selection is cleared on return in a collapsed split view; tested separately.")
+      }
+    #endif
+    let show = app.buttons["detail-show-in-sidebar"]
+    XCTAssertTrue(show.waitForExistence(timeout: 5))
+    for _ in 0..<2 {
+      #if os(macOS)
+        show.click()
+      #else
+        show.tap()
+      #endif
+      assertDetailLocation("Inbox")
+    }
+    app.typeKey(.downArrow, modifierFlags: [])
+    assertDetailLocation("Ideas")
+  }
+
+  #if os(iOS)
+    func testShowInSidebarReturnsToACollapsedSidebarAndAllowsReopening() throws {
+      select("Inbox")
+      guard app.navigationBars.buttons["Library"].exists else {
+        throw XCTSkip("The split view is not collapsed on this device.")
+      }
+      app.buttons["detail-show-in-sidebar"].tap()
+      XCTAssertTrue(row("Inbox").waitForExistence(timeout: 5))
+      select("Inbox")
+      assertDetailLocation("Inbox")
+    }
+  #endif
+
   private func assertRow(
     _ first: String, appearsBefore second: String,
     file: StaticString = #filePath, line: UInt = #line

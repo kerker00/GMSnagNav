@@ -9,6 +9,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `outlineNavigation(_:onCompletion:)` accepts repeatable reveal and keyboard-focus requests
+  without changing selection. It reports missing or filtered elements, unavailable outlines
+  and focus failures; the demo's "Show in Sidebar" clears search and reveals the current item.
+
 - `outlineReorderable(_:)` enables Command-Option-Up/Down on macOS and iPad and localized
   VoiceOver actions to move one element among its siblings through the existing drop callbacks.
   Boundaries, protected rows, active renaming and rejected proposals leave the model unchanged.

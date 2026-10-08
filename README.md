@@ -85,7 +85,7 @@ Add the package with Swift Package Manager:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/kerker00/GMSnagNav.git", from: "0.3.0")
+    .package(url: "https://github.com/kerker00/GMSnagNav.git", from: "0.4.0")
 ]
 ```
 
@@ -221,10 +221,10 @@ The host controls search filters and split-view visibility. See
 
 ## Roadmap
 
-Ideas for versions after `0.3.0`, all planned to be backward compatible:
+Ideas for versions after `0.4.0`, all planned to be backward compatible:
 
-- The `0.4.0` development focus: keyboard navigation, right-to-left layout, accessibility
-  regression tests, host-owned badges, keyboard/VoiceOver sibling reordering and explicit navigation
+- Reusable move/copy destination menus and navigation between hierarchy levels
+- Pinned rows with consistent drag-and-drop rules
 - Large-tree benchmarks, followed by update optimizations and lazy loading where measurements
   show a need; include mostly collapsed trees and large sibling lists
 - Custom drag previews

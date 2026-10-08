@@ -167,6 +167,7 @@
       applyStructure(from: oldTree, to: outlineView, reloading: reindented)
       boxes = boxes.filter { tree.contains($0.key) }
       refreshVisibleRows()
+      restartPendingRename()
       applyExpansion(renderer.expansion)
       let selected = selectedIDs(in: renderer.selection)
       applySelection(selected)
@@ -849,12 +850,34 @@
     func handleReturn() -> Bool {
       guard let renderer else { return false }
       let selected = selectedIDs(in: renderer.selection)
-      if selected.count == 1, let id = selected.first,
-        renderer.behavior.startRenaming(id, in: tree)
-      {
-        return true
+      if selected.count == 1, let id = selected.first {
+        switch renderer.behavior.startRenaming(id, in: tree) {
+        case .started:
+          return true
+        case .restarting:
+          pendingRenameRestart = id
+          return true
+        case .refused:
+          break
+        }
       }
       return handlePrimaryAction()
+    }
+
+    /// An element whose stuck rename starts over after the next update; see `handleReturn()`.
+    private var pendingRenameRestart: ID?
+
+    /// Names the element of a restarted rename again, once an update has shown its row without
+    /// the text field.
+    private func restartPendingRename() {
+      guard let id = pendingRenameRestart else { return }
+      pendingRenameRestart = nil
+      guard let binding = renderer?.behavior.renaming?.renaming, binding.wrappedValue == nil
+      else { return }
+      // Not during this update: SwiftUI would not notice a change made while it updates.
+      Task { @MainActor in
+        if binding.wrappedValue == nil { binding.wrappedValue = id }
+      }
     }
 
     /// Runs the primary action independently of the Return-to-rename behavior.

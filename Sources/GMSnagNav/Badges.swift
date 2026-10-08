@@ -132,6 +132,7 @@ struct OutlineBadgeView: View {
       #endif
       .accessibilityElement(children: .ignore)
       .accessibilityLabel(badge.accessibilityDescription(locale: locale))
+      .accessibilityAddTraits(.isStaticText)
       .help(badge.accessibilityDescription(locale: locale))
   }
 

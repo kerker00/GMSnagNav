@@ -16,7 +16,7 @@
   final class HostingCellView: NSTableCellView {
     static let reuseIdentifier = NSUserInterfaceItemIdentifier("GMSnagNav.HostingCell")
 
-    let hostingView = NSHostingView(rootView: AnyView(EmptyView()))
+    let hostingView = RowHostingView(rootView: AnyView(EmptyView()))
     private var content = AnyView(EmptyView())
     private lazy var trailingConstraint = hostingView.trailingAnchor.constraint(
       equalTo: trailingAnchor)
@@ -107,5 +107,11 @@
           .environment(
             \.backgroundProminence, backgroundStyle == .emphasized ? .increased : .standard))
     }
+  }
+
+  /// Hosts a row's SwiftUI content as part of its cell. As an accessibility element of its own,
+  /// the hosting view adds an unnamed group between the cell and the content.
+  final class RowHostingView: NSHostingView<AnyView> {
+    override func isAccessibilityElement() -> Bool { false }
   }
 #endif

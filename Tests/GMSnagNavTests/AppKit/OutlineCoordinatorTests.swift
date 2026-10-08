@@ -604,11 +604,27 @@
       update()
       #expect(coordinator.handleReturn())
       #expect(host.renaming == nil)
+      // Nothing happens until SwiftUI has shown the row without its text field.
+      for _ in 0..<5 { await Task.yield() }
+      #expect(host.renaming == nil)
+      update()
       // Wait for the binding write itself rather than a deadline: on CI, other tests can keep
       // the main actor busy for longer than any short deadline.
       var iterator = restarts.makeAsyncIterator()
       #expect(await iterator.next() == "c")
       #expect(host.renaming == "c")
+    }
+
+    @Test func dropsARenameRestartWhenTheHostRenamesSomethingElse() async {
+      host.canRename = { _ in true }
+      host.single = "c"
+      host.renaming = "c"
+      update()
+      #expect(coordinator.handleReturn())
+      host.renaming = "a"
+      update()
+      for _ in 0..<5 { await Task.yield() }
+      #expect(host.renaming == "a")
     }
 
     @Test func runsThePrimaryActionOnReturnForSeveralSelectedRows() {

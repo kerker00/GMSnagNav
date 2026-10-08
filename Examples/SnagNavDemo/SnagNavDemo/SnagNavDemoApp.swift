@@ -8,7 +8,7 @@ import SwiftUI
 
 @main
 struct SnagNavDemoApp: App {
-  @State private var library = Library()
+  @State private var library: Library
 
   /// UI tests start from the sample data, with every setting at its default and a fresh window.
   private let isUITesting = CommandLine.arguments.contains("-ui-testing")
@@ -22,6 +22,13 @@ struct SnagNavDemoApp: App {
     }
 
   init() {
+    var roots = Library.sample
+    if CommandLine.arguments.contains("-ui-testing"),
+      CommandLine.arguments.contains("-sample-section")
+    {
+      roots.insert(.section("Favorites", [.document("Favorite Note")]), at: 0)
+    }
+    _library = State(initialValue: Library(roots: roots))
     if isUITesting, let domain = Bundle.main.bundleIdentifier {
       UserDefaults.standard.removePersistentDomain(forName: domain)
     }
@@ -59,5 +66,30 @@ struct SnagNavDemoApp: App {
     #if os(macOS)
       .defaultSize(width: 960, height: 640)
     #endif
+  }
+}
+
+/// Exercises layout direction and text sizes without changing system preferences.
+struct DemoLayoutDirection: ViewModifier {
+  @ViewBuilder func body(content: Content) -> some View {
+    if CommandLine.arguments.contains("-ui-testing"),
+      CommandLine.arguments.contains("-right-to-left")
+    {
+      content.environment(\.layoutDirection, .rightToLeft).modifier(DemoTextSize())
+    } else {
+      content.modifier(DemoTextSize())
+    }
+  }
+}
+
+private struct DemoTextSize: ViewModifier {
+  @ViewBuilder func body(content: Content) -> some View {
+    if CommandLine.arguments.contains("-ui-testing"),
+      CommandLine.arguments.contains("-large-text")
+    {
+      content.environment(\.dynamicTypeSize, .accessibility5)
+    } else {
+      content
+    }
   }
 }

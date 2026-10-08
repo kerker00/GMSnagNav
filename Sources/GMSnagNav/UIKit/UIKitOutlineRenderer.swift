@@ -25,18 +25,22 @@
     }
 
     func makeUIView(context: Context) -> UICollectionView {
-      let collectionView = UICollectionView(
+      let collectionView = SnagCollectionView(
         frame: .zero,
         collectionViewLayout: UIKitOutlineCoordinator<Element, RowContent>.layout(
           for: appearance.style))
       collectionView.backgroundColor = .clear
       context.coordinator.attach(to: collectionView)
-      context.coordinator.update(with: self)
+      context.coordinator.update(
+        with: self, layoutDirection: context.environment.layoutDirection,
+        dynamicTypeSize: context.environment.dynamicTypeSize, locale: context.environment.locale)
       return collectionView
     }
 
     func updateUIView(_ collectionView: UICollectionView, context: Context) {
-      context.coordinator.update(with: self)
+      context.coordinator.update(
+        with: self, layoutDirection: context.environment.layoutDirection,
+        dynamicTypeSize: context.environment.dynamicTypeSize, locale: context.environment.locale)
     }
   }
 
@@ -58,6 +62,12 @@
     /// Set while the coordinator changes the collection view itself, so UIKit's callbacks for
     /// those changes are not mistaken for user interaction and written back into the bindings.
     private var isApplyingUpdate = false
+    /// Headers may receive focus without entering the host's selection.
+    private(set) var focusedItemID: ID?
+    private var lastAppliedSelection: Set<ID> = []
+    private var layoutDirection = LayoutDirection.leftToRight
+    private var dynamicTypeSizeOverride: DynamicTypeSize?
+    private var locale = Locale.current
 
     /// A list layout in the style's appearance, asking `swipeActions` for each row's swipe
     /// actions at the leading and trailing edge.
@@ -85,6 +95,16 @@
       collectionView.delegate = self
       collectionView.dragDelegate = self
       collectionView.dropDelegate = self
+      collectionView.allowsFocus = true
+      collectionView.selectionFollowsFocus = true
+      if let collectionView = collectionView as? SnagCollectionView {
+        collectionView.canHandleKeyboardAction = { [weak self] action in
+          self?.canHandleKeyboardAction(action) ?? false
+        }
+        collectionView.onKeyboardAction = { [weak self] action in
+          self?.handleKeyboardAction(action)
+        }
+      }
 
       let registration = UICollectionView.CellRegistration<UICollectionViewListCell, ID> {
         [weak self] cell, _, id in
@@ -107,12 +127,31 @@
     // MARK: Updates
 
     /// Applies a new snapshot, expansion and selection to the collection view.
-    func update(with renderer: Renderer) {
+    func update(
+      with renderer: Renderer, layoutDirection: LayoutDirection = .leftToRight,
+      dynamicTypeSize: DynamicTypeSize = .large, locale: Locale = .current
+    ) {
+      let oldTree = tree
       self.renderer = renderer
+      self.layoutDirection = layoutDirection
+      self.locale = locale
+      (collectionView as? SnagCollectionView)?.handlesReorderShortcuts =
+        renderer.behavior.canReorder != nil
+      // Keep UIKit's live trait environment when the host uses the system size. Only forward
+      // an explicit SwiftUI override; fixing every row to the initial size blocks trait changes.
+      // An unattached collection view still reports an unspecified size, so compare with the
+      // application's system preference instead of accidentally freezing rows during creation.
+      let nativeSize = DynamicTypeSize(UIApplication.shared.preferredContentSizeCategory) ?? .large
+      dynamicTypeSizeOverride = dynamicTypeSize == nativeSize ? nil : dynamicTypeSize
       renderer.behavior.reportDuplicateIDs(in: renderer.tree, previous: tree)
       tree = renderer.tree
+      if let focusedItemID, !tree.contains(focusedItemID) { self.focusedItemID = nil }
       dropCache.removeAll()
       guard let collectionView, let dataSource else { return }
+      collectionView.semanticContentAttribute =
+        layoutDirection == .rightToLeft ? .forceRightToLeft : .forceLeftToRight
+      (collectionView as? SnagCollectionView)?.outlineLayoutDirection =
+        layoutDirection == .rightToLeft ? .rightToLeft : .leftToRight
 
       isApplyingUpdate = true
       defer { isApplyingUpdate = false }
@@ -137,20 +176,78 @@
       collectionView.dragInteractionEnabled =
         renderer.behavior.canDrag != nil && !rowsDragThemselves
 
-      dataSource.apply(
-        sectionSnapshot(expanded: displayedExpansion), to: 0, animatingDifferences: hasLoaded)
+      let expanded = Set(displayedExpansion.filter { !tree.children(of: $0).isEmpty })
+      let applied = dataSource.snapshot(for: 0)
+      let expansionChanged = Set(applied.items.filter { applied.isExpanded($0) }) != expanded
+      if !hasLoaded || !tree.hasSameStructure(as: oldTree) || expansionChanged {
+        dataSource.apply(
+          sectionSnapshot(expanded: expanded), to: 0, animatingDifferences: hasLoaded)
+      }
       hasLoaded = true
       refreshVisibleCells()
       let selected = selectedIDs(in: renderer.selection)
+      if selected != lastAppliedSelection, selected.count == 1 {
+        focusedItemID = selected.first
+      }
+      lastAppliedSelection = selected
       applySelection(selected)
       reveal.hostSelected(
         selected, in: tree, expansion: renderer.$expansion,
-        reveals: renderer.behavior.revealsSelection)
+        reveals: renderer.behavior.revealsSelection
+          && renderer.behavior.navigation?.request.wrappedValue == nil)
       scrollToRevealedElement()
+      navigation.update(renderer.behavior.navigation) { [weak self] request in
+        self?.navigate(request) ?? .outlineUnavailable
+      }
     }
 
     /// Reveals elements the host selects; see `outlineRevealsSelection(_:)`.
     private var reveal = SelectionReveal<ID>()
+    private let navigation = OutlineNavigationDriver<ID>()
+
+    func navigationSettled() async { await navigation.settled() }
+
+    private func navigate(_ request: OutlineNavigationRequest<ID>) -> OutlineNavigationResult {
+      guard let renderer, let collectionView, let dataSource else { return .outlineUnavailable }
+      if let id = request.target, !tree.contains(id) { return .elementNotFound }
+      guard collectionView.window != nil else { return .outlineUnavailable }
+      isApplyingUpdate = true
+      defer { isApplyingUpdate = false }
+      if let id = request.target {
+        renderer.expansion.formUnion(tree.ancestors(of: id))
+        dataSource.apply(
+          sectionSnapshot(expanded: displayedExpansion), to: 0, animatingDifferences: false)
+        applySelection(selectedIDs(in: renderer.selection))
+        collectionView.layoutIfNeeded()
+        guard let indexPath = dataSource.indexPath(for: id), displayedRowsContain(id) else {
+          return .outlineUnavailable
+        }
+        reveal.didReveal()
+        collectionView.scrollToItem(at: indexPath, at: .centeredVertically, animated: false)
+        collectionView.layoutIfNeeded()
+      }
+      if request.takesFocus {
+        guard renderer.behavior.renaming?.renaming.wrappedValue == nil,
+          let view = collectionView as? SnagCollectionView
+        else { return .focusUnavailable }
+        let focusID = keyboardItemID
+        let followsFocus = collectionView.selectionFollowsFocus
+        collectionView.selectionFollowsFocus = false
+        view.keyboardFocusTarget = focusID.flatMap { dataSource.indexPath(for: $0) }
+          .flatMap { collectionView.cellForItem(at: $0) }
+        defer {
+          collectionView.selectionFollowsFocus = followsFocus
+          view.keyboardFocusTarget = nil
+        }
+        guard view.takeKeyboardFocus() else { return .focusUnavailable }
+        if let focusID, let indexPath = dataSource.indexPath(for: focusID) {
+          updateNativeFocus(at: indexPath)
+        }
+        focusedItemID = focusID
+        applySelection(selectedIDs(in: renderer.selection))
+      }
+      return .completed
+    }
 
     /// Scrolls the element waiting to be revealed into view once its row exists.
     private func scrollToRevealedElement() {
@@ -216,6 +313,7 @@
         isExpanded: !children.isEmpty && displayedExpansion.contains(id),
         childCount: children.count)
       let sectionTitle = renderer.behavior.sectionTitle(of: id, in: tree)
+      let badge = renderer.behavior.badge?(element)
       // The row draws its own leading chevron and indentation: UIKit places its outline
       // disclosure on the trailing edge of sidebar lists and does not indent hosted content.
       let canDrag = rowsDragThemselves && renderer.behavior.canDrag?(element) == true
@@ -224,13 +322,33 @@
       let menuIDs = activatedIDs(for: id)
       let indicator = dropIndicator
       let indentation = renderer.appearance.indentation
+      let togglesOnTap = !canSelect(id)
+      let layoutDirection = self.layoutDirection
+      let dynamicTypeSizeOverride = self.dynamicTypeSizeOverride
+      let locale = self.locale
+      let canMoveUp = canReorder(id, direction: .up)
+      let canMoveDown = canReorder(id, direction: .down)
       cell.contentConfiguration = UIHostingConfiguration {
-        OutlineRowView(
+        let content = OutlineRowView(
           row: row, indentation: renderer.appearance.indentation, isExpanded: row.isExpanded,
-          sectionTitle: sectionTitle, toggle: { [weak self] in self?.toggle(id) },
+          sectionTitle: sectionTitle, badge: badge, togglesOnTap: togglesOnTap,
+          toggle: { [weak self] in self?.toggle(id) },
           content: renderer.rowContent(element)
         )
-        .environment(\.outlineRenameSession, renderer.behavior.renameSession(for: id, in: tree))
+        .environment(\.layoutDirection, layoutDirection)
+        .environment(\.locale, locale)
+        .modifier(
+          ReorderingAccessibility(
+            canMoveUp: canMoveUp,
+            canMoveDown: canMoveDown,
+            move: { [weak self] direction in _ = self?.reorder(id, direction: direction) })
+        )
+        .environment(
+          \.outlineRenameSession,
+          renderer.behavior.renameSession(for: id, in: tree) { [weak self] in
+            self?.takeFocusBack()
+          }
+        )
         .frame(minHeight: Self.rowMinimumContentHeight)
         .modifier(RowMenu(menu: menu.map { menu in { menu(menuIDs) } }))
         .modifier(RowDrag(begin: canDrag ? { [weak self] in self?.beginDrag(from: id) } : nil))
@@ -253,6 +371,11 @@
             InsertionLine(indent: CGFloat(depth) * indentation)
               .offset(y: -Self.rowVerticalMargin - 1)
           }
+        }
+        if let dynamicTypeSizeOverride {
+          content.environment(\.dynamicTypeSize, dynamicTypeSizeOverride)
+        } else {
+          content
         }
       }
       .margins(.vertical, Self.rowVerticalMargin)
@@ -329,6 +452,178 @@
       case .multiple(let binding):
         let selected = Set(ids)
         if binding.wrappedValue != selected { binding.wrappedValue = selected }
+      }
+    }
+
+    // MARK: Keyboard focus
+
+    private func takeFocusBack() {
+      Task { @MainActor [weak self] in
+        // This is an explicit commit with Return, so take the focus even if SwiftUI has not yet
+        // removed the text field. Ordinary row selection must leave an active text field alone.
+        guard let self, let id = self.keyboardItemID,
+          let indexPath = self.dataSource?.indexPath(for: id)
+        else { return }
+        self.updateNativeFocus(at: indexPath, takingKeyboardFocus: true, afterRenaming: true)
+      }
+    }
+
+    private func canSelect(_ id: ID) -> Bool {
+      guard let renderer else { return false }
+      if case .none = renderer.selection { return false }
+      return renderer.behavior.canSelect(id, in: tree)
+    }
+
+    private var keyboardItemID: ID? {
+      if let focusedItemID, tree.contains(focusedItemID), displayedRowsContain(focusedItemID) {
+        return focusedItemID
+      }
+      return selectedItemIDs.first { displayedRowsContain($0) }
+    }
+
+    func canHandleKeyboardAction(_ action: OutlineKeyboardAction) -> Bool {
+      if action == .previous || action == .next {
+        return tree.visibleRows(expanded: displayedExpansion).contains {
+          canSelect($0.id) || !tree.children(of: $0.id).isEmpty
+        }
+      }
+      guard let id = keyboardItemID else { return false }
+      switch action {
+      case .moveUp, .moveDown:
+        guard let renderer, selectedIDs(in: renderer.selection).count <= 1 else { return false }
+        return canReorder(id, direction: action == .moveUp ? .up : .down)
+      case .previous, .next:
+        return true
+      case .expand:
+        return !tree.children(of: id).isEmpty
+      case .collapse:
+        return !tree.children(of: id).isEmpty || tree.parent(of: id) != nil
+      case .toggle:
+        return !tree.children(of: id).isEmpty || renderer?.behavior.primaryAction != nil
+      case .activate:
+        return renderer?.behavior.primaryAction != nil
+          || (!canSelect(id) && !tree.children(of: id).isEmpty)
+      }
+    }
+
+    /// Horizontal arrows navigate the hierarchy; Return activates and Space toggles containers.
+    func handleKeyboardAction(_ action: OutlineKeyboardAction) {
+      guard canHandleKeyboardAction(action) else { return }
+      if keyboardItemID == nil, action == .previous || action == .next {
+        let candidates = tree.visibleRows(expanded: displayedExpansion).filter {
+          canSelect($0.id) || !tree.children(of: $0.id).isEmpty
+        }
+        if let row = action == .next ? candidates.first : candidates.last { focus(row.id) }
+        return
+      }
+      guard let id = keyboardItemID else { return }
+      let children = tree.children(of: id)
+      switch action {
+      case .moveUp, .moveDown:
+        _ = reorder(id, direction: action == .moveUp ? .up : .down)
+      case .previous, .next:
+        let rows = tree.visibleRows(expanded: displayedExpansion)
+        guard let index = rows.firstIndex(where: { $0.id == id }) else { return }
+        let step = action == .next ? 1 : -1
+        var next = index + step
+        while rows.indices.contains(next) {
+          let candidate = rows[next].id
+          if canSelect(candidate) || !tree.children(of: candidate).isEmpty {
+            focus(candidate)
+            return
+          }
+          next += step
+        }
+      case .expand:
+        if displayedExpansion.contains(id) {
+          if let child = children.first { focus(child) }
+        } else {
+          userChangedExpansion(of: id, expanded: true)
+        }
+      case .collapse:
+        if displayedExpansion.contains(id), !children.isEmpty {
+          userChangedExpansion(of: id, expanded: false)
+        } else if let parent = tree.parent(of: id) {
+          focus(parent)
+        }
+      case .toggle:
+        if !children.isEmpty { toggle(id) } else { activate(id) }
+      case .activate:
+        if !canSelect(id), !children.isEmpty { toggle(id) } else { activate(id) }
+      }
+    }
+
+    private func activate(_ id: ID) {
+      renderer?.behavior.primaryAction?(activatedIDs(for: id))
+    }
+
+    func canReorder(_ id: ID, direction: OutlineReorderDirection) -> Bool {
+      guard let renderer else { return false }
+      return renderer.behavior.reorderingProposal(
+        for: id, direction: direction, tree: tree, expanded: displayedExpansion) != nil
+    }
+
+    @discardableResult func reorder(_ id: ID, direction: OutlineReorderDirection) -> Bool {
+      guard let renderer else { return false }
+      return renderer.behavior.reorder(
+        id, direction: direction, tree: tree, expanded: displayedExpansion)
+    }
+
+    private func focus(_ id: ID) {
+      guard let collectionView, let indexPath = dataSource?.indexPath(for: id) else { return }
+      focusedItemID = id
+      if canSelect(id) {
+        applySelection([id])
+        writeSelection()
+      }
+      collectionView.scrollToItem(at: indexPath, at: .centeredVertically, animated: false)
+      updateNativeFocus(at: indexPath)
+    }
+
+    private func updateNativeFocus(
+      at indexPath: IndexPath, takingKeyboardFocus: Bool = false, afterRenaming: Bool = false
+    ) {
+      guard let collectionView = collectionView as? SnagCollectionView else { return }
+      collectionView.layoutIfNeeded()
+      // Set the preferred cell before becoming first responder, otherwise UIKit can focus its
+      // remembered row and overwrite the row the user just touched or renamed.
+      collectionView.keyboardFocusTarget = collectionView.cellForItem(at: indexPath)
+      defer { collectionView.keyboardFocusTarget = nil }
+      if takingKeyboardFocus {
+        if afterRenaming {
+          collectionView.becomeFirstResponder()
+        } else if !collectionView.takeKeyboardFocus() {
+          return
+        }
+      }
+      let focusSystem = UIFocusSystem(for: collectionView)
+      focusSystem?.requestFocusUpdate(to: collectionView)
+      focusSystem?.updateFocusIfNeeded()
+    }
+
+    func collectionView(
+      _ collectionView: UICollectionView, canFocusItemAt indexPath: IndexPath
+    ) -> Bool {
+      guard let id = dataSource?.itemIdentifier(for: indexPath) else { return false }
+      return canSelect(id) || !tree.children(of: id).isEmpty
+    }
+
+    func collectionView(
+      _ collectionView: UICollectionView, selectionFollowsFocusForItemAt indexPath: IndexPath
+    ) -> Bool {
+      guard let id = dataSource?.itemIdentifier(for: indexPath) else { return false }
+      return canSelect(id)
+    }
+
+    func collectionView(
+      _ collectionView: UICollectionView,
+      didUpdateFocusIn context: UICollectionViewFocusUpdateContext,
+      with coordinator: UIFocusAnimationCoordinator
+    ) {
+      // Hosted content can briefly own native focus without an index path. Retain the logical
+      // outline position, including headers which deliberately have no selected index path.
+      if let id = context.nextFocusedIndexPath.flatMap({ dataSource?.itemIdentifier(for: $0) }) {
+        focusedItemID = id
       }
     }
 
@@ -776,16 +1071,14 @@
     func collectionView(
       _ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath
     ) -> Bool {
-      guard let renderer, let id = dataSource?.itemIdentifier(for: indexPath) else { return false }
-      var canSelect = renderer.behavior.canSelect(id, in: tree)
-      if case .none = renderer.selection { canSelect = false }
-      // Tapping a container that cannot be selected expands or collapses it instead.
-      if !canSelect { toggle(id) }
-      return canSelect
+      guard let id = dataSource?.itemIdentifier(for: indexPath) else { return false }
+      return canSelect(id)
     }
 
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+      focusedItemID = dataSource?.itemIdentifier(for: indexPath)
       writeSelection()
+      updateNativeFocus(at: indexPath, takingKeyboardFocus: true)
     }
 
     func collectionView(

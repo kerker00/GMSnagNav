@@ -19,6 +19,7 @@
       var primaryAction: ((Set<String>) -> Void)?
       var appearance = OutlineAppearance()
       var canDrag: ((TestItem) -> Bool)?
+      var canReorder: ((TestItem) -> Bool)?
       var drop: OutlineDropHandler<String>?
       var springLoading = SpringLoadingBehavior.automatic
       var reportedDuplicates: [Set<String>] = []
@@ -27,6 +28,8 @@
       var renaming: String?
       var canRename: ((TestItem) -> Bool)?
       var revealsSelection = true
+      var navigation: OutlineNavigationRequest<String>?
+      var navigationResults: [OutlineNavigationResult] = []
       var contextMenu: ((Set<String>) -> AnyView)?
     }
 
@@ -47,11 +50,15 @@
       behavior.isSelectable = host.isSelectable
       behavior.primaryAction = host.primaryAction
       behavior.canDrag = host.canDrag
+      behavior.canReorder = host.canReorder
       behavior.drop = host.drop
       behavior.duplicateIDs = { host.reportedDuplicates.append($0) }
       behavior.typeSelectText = host.typeSelectText
       behavior.sectionTitle = host.sectionTitle
       behavior.revealsSelection = host.revealsSelection
+      behavior.navigation = OutlineNavigationHandler(
+        request: Binding(get: { host.navigation }, set: { host.navigation = $0 }),
+        onCompletion: { _, result in host.navigationResults.append(result) })
       behavior.contextMenu = host.contextMenu
       if let canRename = host.canRename {
         behavior.renaming = OutlineRenameHandler(
@@ -77,6 +84,221 @@
       (0..<outlineView.numberOfRows).compactMap {
         (outlineView.item(atRow: $0) as? NodeBox<String>)?.id
       }
+    }
+
+    @Test func explicitRevealOpensAncestorsAndCanRepeatWithoutChangingSelection() async {
+      let window = NSWindow(
+        contentRect: CGRect(x: 0, y: 0, width: 320, height: 480), styleMask: [],
+        backing: .buffered, defer: false)
+      window.isReleasedWhenClosed = false
+      window.contentView = outlineView
+      defer { window.close() }
+      host.single = "a2x"
+      host.revealsSelection = false
+      host.navigation = .reveal("a2x")
+      update()
+      await coordinator.navigationSettled()
+      #expect(host.expansion == ["a", "a2"])
+      #expect(visibleIDs.contains("a2x"))
+      #expect(host.single == "a2x")
+      #expect(host.navigationResults == [.completed])
+      host.expansion = []
+      update()
+      host.navigation = .reveal("a2x")
+      update()
+      await coordinator.navigationSettled()
+      #expect(host.expansion == ["a", "a2"])
+      #expect(host.navigationResults == [.completed, .completed])
+    }
+
+    @Test func explicitRevealWithoutSelectionCanShowAnUnselectableRow() async {
+      let window = NSWindow(
+        contentRect: CGRect(x: 0, y: 0, width: 320, height: 480), styleMask: [],
+        backing: .buffered, defer: false)
+      window.isReleasedWhenClosed = false
+      window.contentView = outlineView
+      defer { window.close() }
+      host.isSelectable = { _ in false }
+      host.navigation = .reveal("a2")
+      update()
+      await coordinator.navigationSettled()
+      #expect(host.single == nil)
+      #expect(outlineView.selectedRowIndexes.isEmpty)
+      #expect(host.expansion == ["a"])
+      #expect(visibleIDs.contains("a2"))
+      #expect(host.navigationResults == [.completed])
+    }
+
+    @Test func navigationUsesTheLatestTreeAndReportsMissingElements() async {
+      host.navigation = .reveal("a2x")
+      update()
+      host.roots = [.leaf("c")]
+      update()
+      await coordinator.navigationSettled()
+      #expect(host.navigationResults == [.elementNotFound])
+      #expect(host.expansion.isEmpty)
+      #expect(host.navigation == nil)
+    }
+
+    @Test func explicitNavigationTakesPrecedenceOverAutomaticSelectionReveal() async {
+      let window = NSWindow(
+        contentRect: CGRect(x: 0, y: 0, width: 320, height: 480), styleMask: [],
+        backing: .buffered, defer: false)
+      window.isReleasedWhenClosed = false
+      window.contentView = outlineView
+      defer { window.close() }
+      host.single = "a2x"
+      host.navigation = .reveal("b")
+      update()
+      await coordinator.navigationSettled()
+      update()
+      #expect(host.expansion.isEmpty)
+      #expect(host.single == "a2x")
+      #expect(host.navigationResults == [.completed])
+    }
+
+    @Test func focusRequestTransfersFromDetailAndPreservesSelection() async throws {
+      let window = NSWindow(
+        contentRect: CGRect(x: 0, y: 0, width: 640, height: 480), styleMask: [],
+        backing: .buffered, defer: false)
+      window.isReleasedWhenClosed = false
+      defer { window.close() }
+      let root = try #require(window.contentView)
+      outlineView.frame = CGRect(x: 0, y: 0, width: 320, height: 480)
+      root.addSubview(outlineView)
+      let field = NSTextField(string: "Detail")
+      root.addSubview(field)
+      host.single = "c"
+      update()
+      #expect(window.makeFirstResponder(field))
+      host.navigation = .focus()
+      update()
+      await coordinator.navigationSettled()
+      #expect(window.firstResponder === outlineView)
+      #expect(host.single == "c")
+      #expect(host.expansion.isEmpty)
+      #expect(host.navigationResults == [.completed])
+    }
+
+    @Test func navigationPreservesInlineRenameAndReportsFocusFailure() async {
+      let window = NSWindow(
+        contentRect: CGRect(x: 0, y: 0, width: 320, height: 480), styleMask: [],
+        backing: .buffered, defer: false)
+      window.isReleasedWhenClosed = false
+      window.contentView = outlineView
+      defer { window.close() }
+      host.canRename = { _ in true }
+      host.renaming = "c"
+      host.navigation = .reveal("a2x", focus: true)
+      update()
+      await coordinator.navigationSettled()
+      #expect(host.expansion == ["a", "a2"])
+      #expect(host.renaming == "c")
+      #expect(host.navigationResults == [.focusUnavailable])
+    }
+
+    @Test func detachedOutlineReportsUnavailableWithoutExpanding() async {
+      host.navigation = .reveal("a2x")
+      update()
+      await coordinator.navigationSettled()
+      #expect(host.navigationResults == [.outlineUnavailable])
+      #expect(host.expansion.isEmpty)
+    }
+
+    @Test func commandOptionArrowsReorderAndKeepTheSameSelection() throws {
+      host.canReorder = { _ in true }
+      host.single = "b"
+      host.drop = OutlineDropHandler(
+        validate: { _ in .accept(.move) },
+        perform: { [host] proposal, _ in
+          guard let id = proposal.draggedIDs.first,
+            let source = host.roots.firstIndex(where: { $0.id == id }),
+            let destination = proposal.insertionIndexAfterRemoval
+          else { return false }
+          let item = host.roots.remove(at: source)
+          host.roots.insert(item, at: destination)
+          return true
+        })
+      update()
+      let window = NSWindow(
+        contentRect: CGRect(x: 0, y: 0, width: 320, height: 480),
+        styleMask: [.titled], backing: .buffered, defer: false)
+      window.isReleasedWhenClosed = false
+      defer { window.close() }
+      window.contentView = outlineView
+      #expect(window.makeFirstResponder(outlineView))
+      let down = try #require(
+        NSEvent.keyEvent(
+          with: .keyDown, location: .zero,
+          modifierFlags: [.command, .option], timestamp: 0, windowNumber: window.windowNumber,
+          context: nil, characters: "\u{F701}", charactersIgnoringModifiers: "\u{F701}",
+          isARepeat: false, keyCode: 125))
+      #expect(window.performKeyEquivalent(with: down))
+      #expect(host.roots.map(\.id) == ["a", "c", "b"])
+      update()
+      #expect(host.single == "b")
+      #expect(visibleIDs == ["a", "c", "b"])
+      #expect(window.firstResponder === outlineView)
+      #expect(!coordinator.canReorder("b", direction: .down))
+      let field = NSTextField(string: "Editing")
+      outlineView.addSubview(field)
+      #expect(window.makeFirstResponder(field))
+      var called = false
+      outlineView.onReorder = { _ in
+        called = true
+        return true
+      }
+      #expect(!outlineView.performKeyEquivalent(with: down))
+      #expect(!called)
+    }
+
+    @Test func reorderCommandsIgnoreMultipleAndHiddenSelections() {
+      host.canReorder = { _ in true }
+      var performed = false
+      host.drop = OutlineDropHandler(
+        validate: { _ in .accept(.move) },
+        perform: { _, _ in
+          performed = true
+          return true
+        })
+      host.multiple = ["b", "c"]
+      update(multipleSelection: true)
+      #expect(!coordinator.reorderSelection(.up))
+      host.single = "a2"
+      update()
+      #expect(!coordinator.reorderSelection(.up))
+      #expect(!performed)
+    }
+
+    @Test func unavailableReorderShortcutsDoNotFallThroughToNativeNavigation() throws {
+      host.canReorder = { _ in false }
+      host.single = "b"
+      host.drop = OutlineDropHandler(
+        validate: { _ in .accept(.move) },
+        perform: { _, _ in
+          Issue.record("Disabled move performed")
+          return true
+        })
+      update()
+      let window = NSWindow(
+        contentRect: CGRect(x: 0, y: 0, width: 320, height: 480),
+        styleMask: [.titled], backing: .buffered, defer: false)
+      window.isReleasedWhenClosed = false
+      defer { window.close() }
+      window.contentView = outlineView
+      #expect(window.makeFirstResponder(outlineView))
+      let up = try #require(
+        NSEvent.keyEvent(
+          with: .keyDown, location: .zero,
+          modifierFlags: [.command, .option], timestamp: 0, windowNumber: window.windowNumber,
+          context: nil, characters: "\u{F700}", charactersIgnoringModifiers: "\u{F700}",
+          isARepeat: false, keyCode: 126))
+      #expect(window.performKeyEquivalent(with: up))
+      #expect(host.single == "b")
+      #expect(visibleIDs == ["a", "b", "c"])
+      host.canReorder = nil
+      update()
+      #expect(!outlineView.performKeyEquivalent(with: up))
     }
 
     private func item(_ id: String) -> Any? {
@@ -276,6 +498,10 @@
       #expect(coordinator.handleReturn())
       #expect(host.renaming == nil)
       try await Task.sleep(for: .milliseconds(200))
+      let deadline = ContinuousClock.now + .seconds(2)
+      while host.renaming != "c", ContinuousClock.now < deadline {
+        try await Task.sleep(for: .milliseconds(10))
+      }
       #expect(host.renaming == "c")
     }
 
@@ -358,6 +584,92 @@
       update()
       pressReturn()
       #expect(activated == nil)
+    }
+
+    @Test(arguments: [("o", UInt16(31)), ("\u{F701}", UInt16(125))])
+    func opensTheSelectionWithCommandWithoutRenaming(key: String, keyCode: UInt16) throws {
+      var activated: Set<String>?
+      host.primaryAction = { activated = $0 }
+      host.canRename = { _ in true }
+      host.single = "c"
+      update()
+      let event = try #require(
+        NSEvent.keyEvent(
+          with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0,
+          windowNumber: 0, context: nil, characters: key, charactersIgnoringModifiers: key,
+          isARepeat: false, keyCode: keyCode))
+      outlineView.keyDown(with: event)
+      #expect(activated == ["c"])
+      #expect(host.renaming == nil)
+    }
+
+    @Test func primaryActionIgnoresASelectionFilteredOutOfTheTree() {
+      var activated = false
+      host.primaryAction = { _ in activated = true }
+      host.single = "missing"
+      update()
+      #expect(!coordinator.handlePrimaryAction())
+      #expect(!activated)
+    }
+
+    @Test func commandKeyEquivalentRequiresTheOutlinesFocus() throws {
+      var activated = 0
+      host.primaryAction = { _ in activated += 1 }
+      host.single = "c"
+      update()
+      let window = NSWindow(
+        contentRect: CGRect(x: 0, y: 0, width: 320, height: 480), styleMask: [.titled],
+        backing: .buffered, defer: false)
+      window.isReleasedWhenClosed = false
+      let scrollView = NSScrollView(frame: window.contentView!.bounds)
+      scrollView.documentView = outlineView
+      window.contentView = scrollView
+      defer { window.close() }
+      let commandO = try #require(
+        NSEvent.keyEvent(
+          with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0,
+          windowNumber: window.windowNumber, context: nil, characters: "o",
+          charactersIgnoringModifiers: "o", isARepeat: false, keyCode: 31))
+      #expect(window.makeFirstResponder(outlineView))
+      #expect(window.performKeyEquivalent(with: commandO))
+      #expect(activated == 1)
+      window.makeFirstResponder(nil)
+      #expect(!outlineView.performKeyEquivalent(with: commandO))
+      #expect(activated == 1)
+    }
+
+    @Test(arguments: [("o", UInt16(31)), ("\u{F701}", UInt16(125))])
+    func commandKeyEquivalentHandlesHostedRowFocusButLeavesTextEditingAlone(
+      key: String, keyCode: UInt16
+    ) throws {
+      var activated = 0
+      host.primaryAction = { _ in activated += 1 }
+      host.single = "c"
+      update()
+      let window = NSWindow(
+        contentRect: CGRect(x: 0, y: 0, width: 320, height: 480), styleMask: [.titled],
+        backing: .buffered, defer: false)
+      window.isReleasedWhenClosed = false
+      window.contentView = outlineView
+      defer { window.close() }
+      let row = NSHostingView(rootView: Text("Hosted row").focusable())
+      row.frame = CGRect(x: 0, y: 0, width: 300, height: 30)
+      outlineView.addSubview(row)
+      window.contentView?.layoutSubtreeIfNeeded()
+      let commandO = try #require(
+        NSEvent.keyEvent(
+          with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0,
+          windowNumber: window.windowNumber, context: nil, characters: key,
+          charactersIgnoringModifiers: key, isARepeat: false, keyCode: keyCode))
+      #expect(window.makeFirstResponder(row))
+      #expect(window.firstResponder === row)
+      #expect(window.performKeyEquivalent(with: commandO))
+      #expect(activated == 1)
+      let field = NSTextField(string: "Rename")
+      outlineView.addSubview(field)
+      #expect(window.makeFirstResponder(field))
+      #expect(!outlineView.performKeyEquivalent(with: commandO))
+      #expect(activated == 1)
     }
 
     @Test func appliesStyleAndIndentation() {
@@ -700,6 +1012,78 @@
     }
 
     // MARK: Clicks
+
+    @Test func clickingASelectableRowTakesFocusFromTheDetailAndEnablesKeyboardNavigation() throws {
+      host.single = "b"
+      var activated: Set<String> = []
+      host.primaryAction = { activated = $0 }
+      update()
+      let window = NSWindow(
+        contentRect: CGRect(x: 0, y: 0, width: 640, height: 480), styleMask: [.titled],
+        backing: .buffered, defer: false)
+      window.isReleasedWhenClosed = false
+      defer { window.close() }
+      let root = try #require(window.contentView)
+      outlineView.frame = CGRect(x: 0, y: 0, width: 320, height: 480)
+      root.addSubview(outlineView)
+      let detailField = NSTextField(string: "Detail name")
+      detailField.frame = CGRect(x: 330, y: 100, width: 260, height: 30)
+      root.addSubview(detailField)
+      #expect(window.makeFirstResponder(detailField))
+      coordinator.handleClick(onRow: 1, at: nil)
+      #expect(window.firstResponder === outlineView)
+      let down = try #require(
+        NSEvent.keyEvent(
+          with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+          windowNumber: window.windowNumber, context: nil, characters: "\u{F701}",
+          charactersIgnoringModifiers: "\u{F701}", isARepeat: false, keyCode: 125))
+      window.firstResponder?.keyDown(with: down)
+      #expect(host.single == "c")
+      update()
+      #expect(window.firstResponder === outlineView)
+      let commandO = try #require(
+        NSEvent.keyEvent(
+          with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0,
+          windowNumber: window.windowNumber, context: nil, characters: "o",
+          charactersIgnoringModifiers: "o", isARepeat: false, keyCode: 31))
+      #expect(window.performKeyEquivalent(with: commandO))
+      #expect(activated == ["c"])
+    }
+
+    @Test func rowFocusChangesLeaveInlineEditorsAndUnrelatedDetailEditsAlone() throws {
+      host.single = "c"
+      host.canRename = { _ in true }
+      host.renaming = "c"
+      update()
+      let window = NSWindow(
+        contentRect: CGRect(x: 0, y: 0, width: 640, height: 480), styleMask: [.titled],
+        backing: .buffered, defer: false)
+      window.isReleasedWhenClosed = false
+      defer { window.close() }
+      let root = try #require(window.contentView)
+      outlineView.frame = CGRect(x: 0, y: 0, width: 320, height: 480)
+      root.addSubview(outlineView)
+      let renameField = NSTextField(string: "Inline name")
+      renameField.frame = CGRect(x: 40, y: 100, width: 260, height: 30)
+      outlineView.addSubview(renameField)
+      #expect(window.makeFirstResponder(renameField))
+      let editor = window.firstResponder
+      coordinator.handleClick(onRow: 2, at: nil)
+      #expect(window.firstResponder === editor)
+      update()
+      #expect(window.firstResponder === editor)
+      host.renaming = nil
+      let detailField = NSTextField(string: "Detail name")
+      detailField.frame = CGRect(x: 330, y: 100, width: 260, height: 30)
+      root.addSubview(detailField)
+      #expect(window.makeFirstResponder(detailField))
+      let detailEditor = window.firstResponder
+      host.single = "b"
+      update()
+      #expect(window.firstResponder === detailEditor)
+      coordinator.handleClick(onRow: -1, at: nil)
+      #expect(window.firstResponder === detailEditor)
+    }
 
     @Test func clickingAnUnselectableContainerTogglesIt() {
       host.isSelectable = { $0.children == nil }

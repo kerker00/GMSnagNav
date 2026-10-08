@@ -13,11 +13,12 @@ iPad — so some interactions differ. Your bindings and callbacks receive the sa
 
 | | macOS | iOS and iPadOS |
 |---|---|---|
-| Select | Click, or the arrow keys | Tap |
+| Select | Click, or the arrow keys | Tap, or up/down with a hardware keyboard |
 | Select several | Command-click and Shift-click | Tap each row; tapping a selected row deselects it |
 | Row that can't be selected | A click on a container expands or collapses it | A tap on a container expands or collapses it |
 | Select by typing | Typing the start of a row's text, with ``SnagOutline/outlineTypeSelect(_:)`` | Not available |
 | Selection set by the app | Revealed: containers above it open, and the row scrolls into view | Revealed the same way |
+| Explicit reveal or keyboard focus | `outlineNavigation(_:onCompletion:)`, preserving selection | Same API; the host controls split-view visibility |
 
 Rows that ``SnagOutline/outlineSelectable(_:)`` excludes never become part of the selection. On
 macOS, when the outline also has a primary action, a single click on such a container toggles it
@@ -25,10 +26,30 @@ only after the double-click interval has passed, so a double-click can run the a
 
 ### Primary action
 
-``SnagOutline/outlinePrimaryAction(_:)`` runs on a double-click or the Return key on macOS, and
-on a tap on iOS and iPadOS, where the tap selects the row first. The action receives the whole
+``SnagOutline/outlinePrimaryAction(_:)`` runs on a double-click, Command-O or Command-Down on macOS.
+Return also runs it when it does not start renaming. On iOS and iPadOS, a tap selects the row first
+and runs the action; hardware-keyboard Return activates the focused row. The action receives the whole
 selection when the row is part of it, and the row alone otherwise. Return applies to the current
 selection.
+
+### Hardware keyboards on iPad
+
+Up and Down move UIKit's focus between visible rows. Selection follows focus on selectable rows;
+section headers and other unselectable containers can receive focus without becoming selected or
+opening as a side effect. Return or Space toggles a focused unselectable container.
+
+The forward arrow expands a container, or enters its first child if already expanded. The backward
+arrow collapses it, or returns to its parent. In a right-to-left interface, Left points forward
+and Right backward; the disclosure chevrons mirror too. Space toggles a container, or runs the
+primary action on a leaf. An active rename field keeps spaces, Return and cursor keys for editing.
+
+### Reordering
+
+With ``SnagOutline/outlineReorderable(_:)``, Command-Option-Up/Down moves one selected row on
+macOS or one focused row on iPad by one sibling position. VoiceOver offers the same localized
+actions on eligible rows on both platforms, independently of selection. Text fields keep their
+shortcuts. Unavailable moves do nothing; they do not fall through to native arrow navigation.
+Both renderers validate and perform through ``SnagOutline/onOutlineDrop(validate:perform:)``.
 
 ### Renaming
 

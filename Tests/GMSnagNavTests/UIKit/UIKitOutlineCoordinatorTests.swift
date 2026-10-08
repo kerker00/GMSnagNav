@@ -12,6 +12,7 @@
       var roots = sampleRoots
       var expansion: Set<String> = []
       var single: String?
+      var multiple: Set<String> = []
       var isSelectable: (TestItem) -> Bool = { _ in true }
       var primaryAction: ((Set<String>) -> Void)?
       var springLoading = SpringLoadingBehavior.automatic
@@ -19,11 +20,15 @@
       var trailingSwipeActions: OutlineSwipeActions<String>?
       var sectionTitle: ((TestItem) -> String?)?
       var revealsSelection = true
+      var navigation: OutlineNavigationRequest<String>?
+      var navigationResults: [OutlineNavigationResult] = []
+      var badge: OutlineBadge?
+      var canReorder: ((TestItem) -> Bool)?
     }
 
     let host = Host()
     let coordinator = UIKitOutlineCoordinator<TestItem, Text>()
-    let collectionView = UICollectionView(
+    let collectionView = SnagCollectionView(
       frame: CGRect(x: 0, y: 0, width: 320, height: 640),
       collectionViewLayout: UIKitOutlineCoordinator<TestItem, Text>.layout(for: .sidebar))
 
@@ -31,7 +36,9 @@
       coordinator.attach(to: collectionView)
     }
 
-    private func update() {
+    private func update(
+      layoutDirection: LayoutDirection = .leftToRight, multipleSelection: Bool = false
+    ) {
       let host = host
       var behavior = OutlineBehavior<TestItem>()
       behavior.isSelectable = host.isSelectable
@@ -40,15 +47,128 @@
       behavior.trailingSwipeActions = host.trailingSwipeActions
       behavior.sectionTitle = host.sectionTitle
       behavior.revealsSelection = host.revealsSelection
+      behavior.navigation = OutlineNavigationHandler(
+        request: Binding(get: { host.navigation }, set: { host.navigation = $0 }),
+        onCompletion: { _, result in host.navigationResults.append(result) })
+      behavior.badge = { _ in host.badge }
+      behavior.canReorder = host.canReorder
+      let selection: OutlineSelection<String> =
+        multipleSelection
+        ? .multiple(Binding(get: { host.multiple }, set: { host.multiple = $0 }))
+        : .single(Binding(get: { host.single }, set: { host.single = $0 }))
       coordinator.update(
         with: UIKitOutlineRenderer(
           tree: OutlineTree(host.roots, children: \.children),
-          selection: .single(Binding(get: { host.single }, set: { host.single = $0 })),
+          selection: selection,
           expansion: Binding(get: { host.expansion }, set: { host.expansion = $0 }),
           behavior: behavior,
           appearance: OutlineAppearance(),
           springLoading: host.springLoading,
-          rowContent: { Text($0.id) }))
+          rowContent: { Text($0.id) }),
+        layoutDirection: layoutDirection)
+    }
+
+    @Test func explicitRevealOpensAncestorsAndRepeatsWithoutChangingSelection() async throws {
+      let window = UIWindow(frame: collectionView.frame)
+      let controller = UIViewController()
+      window.rootViewController = controller
+      controller.view.addSubview(collectionView)
+      window.makeKeyAndVisible()
+      defer { window.isHidden = true }
+      host.single = "a2x"
+      host.revealsSelection = false
+      host.navigation = .reveal("a2x")
+      update()
+      await coordinator.navigationSettled()
+      #expect(host.expansion == ["a", "a2"])
+      #expect(try appliedSnapshot().visibleItems.contains("a2x"))
+      #expect(host.single == "a2x")
+      #expect(coordinator.selectedItemIDs == ["a2x"])
+      #expect(host.navigationResults == [.completed])
+      host.expansion = []
+      update()
+      host.navigation = .reveal("a2x")
+      update()
+      await coordinator.navigationSettled()
+      #expect(host.expansion == ["a", "a2"])
+      #expect(host.navigationResults == [.completed, .completed])
+    }
+
+    @Test func navigationUsesTheLatestTreeAndReportsMissingElements() async {
+      host.navigation = .reveal("a2x")
+      update()
+      host.roots = [.leaf("c")]
+      update()
+      await coordinator.navigationSettled()
+      #expect(host.navigationResults == [.elementNotFound])
+      #expect(host.expansion.isEmpty)
+      #expect(host.navigation == nil)
+    }
+
+    @Test func explicitNavigationTakesPrecedenceOverAutomaticSelectionReveal() async {
+      let window = UIWindow(frame: collectionView.frame)
+      let controller = UIViewController()
+      window.rootViewController = controller
+      controller.view.addSubview(collectionView)
+      window.makeKeyAndVisible()
+      defer { window.isHidden = true }
+      host.single = "a2x"
+      host.navigation = .reveal("b")
+      update()
+      await coordinator.navigationSettled()
+      update()
+      #expect(host.expansion.isEmpty)
+      #expect(host.single == "a2x")
+      #expect(host.navigationResults == [.completed])
+    }
+
+    @Test func focusRequestTransfersFromDetailAndPreservesSelection() async {
+      let window = UIWindow(frame: collectionView.frame)
+      let controller = UIViewController()
+      window.rootViewController = controller
+      controller.view.addSubview(collectionView)
+      window.makeKeyAndVisible()
+      defer { window.isHidden = true }
+      host.single = "c"
+      update()
+      let field = UITextField(frame: CGRect(x: 330, y: 0, width: 200, height: 40))
+      controller.view.addSubview(field)
+      #expect(field.becomeFirstResponder())
+      host.navigation = .focus()
+      update()
+      await coordinator.navigationSettled()
+      #expect(collectionView.isFirstResponder)
+      #expect(host.single == "c")
+      #expect(coordinator.selectedItemIDs == ["c"])
+      #expect(host.expansion.isEmpty)
+      #expect(host.navigationResults == [.completed])
+    }
+
+    @Test func explicitRevealPreservesInlineTextInput() async {
+      let window = UIWindow(frame: collectionView.frame)
+      let controller = UIViewController()
+      window.rootViewController = controller
+      controller.view.addSubview(collectionView)
+      window.makeKeyAndVisible()
+      defer { window.isHidden = true }
+      update()
+      let field = UITextField(frame: CGRect(x: 0, y: 0, width: 200, height: 40))
+      collectionView.addSubview(field)
+      #expect(field.becomeFirstResponder())
+      host.navigation = .reveal("a2x", focus: true)
+      update()
+      await coordinator.navigationSettled()
+      #expect(field.isFirstResponder)
+      #expect(host.expansion == ["a", "a2"])
+      #expect(host.navigationResults == [.focusUnavailable])
+    }
+
+    @Test func detachedOutlineReportsUnavailableWithoutExpanding() async {
+      host.navigation = .reveal("a2x")
+      update()
+      await coordinator.navigationSettled()
+      #expect(host.navigationResults == [.outlineUnavailable])
+      #expect(host.expansion.isEmpty)
     }
 
     @Test func buildsTheWholeTreeAndShowsExpandedLevels() {
@@ -74,6 +194,60 @@
       #expect(!snapshot.isExpanded("c"))
     }
 
+    private func appliedSnapshot() throws -> NSDiffableDataSourceSectionSnapshot<String> {
+      let dataSource = try #require(
+        collectionView.dataSource as? UICollectionViewDiffableDataSource<Int, String>)
+      return dataSource.snapshot(for: 0)
+    }
+
+    @Test func appliesExpansionChangesWithTheSameIdentifiersAndHierarchy() throws {
+      update()
+      #expect(try appliedSnapshot().visibleItems == ["a", "b", "c"])
+      host.expansion = ["a", "a2"]
+      update()
+      let expanded = try appliedSnapshot()
+      #expect(expanded.isExpanded("a"))
+      #expect(expanded.isExpanded("a2"))
+      #expect(expanded.visibleItems == ["a", "a1", "a2", "a2x", "b", "c"])
+      host.expansion = []
+      update()
+      #expect(try appliedSnapshot().visibleItems == ["a", "b", "c"])
+    }
+
+    @Test func appliesReorderingAndMovesWithTheSameIdentifiers() throws {
+      host.expansion = ["a", "a2", "b"]
+      update()
+      host.roots[0].children!.reverse()
+      update()
+      #expect(try appliedSnapshot().items == ["a", "a2", "a2x", "a1", "b", "c"])
+      let moved = host.roots[0].children!.removeLast()
+      host.roots[1].children = [moved]
+      update()
+      let snapshot = try appliedSnapshot()
+      #expect(snapshot.parent(of: "a1") == "b")
+      #expect(snapshot.visibleItems == ["a", "a2", "a2x", "b", "a1", "c"])
+    }
+
+    @Test func statusOnlyUpdatesPreserveSelectionFocusAndExpansion() throws {
+      host.expansion = ["a", "a2"]
+      host.single = "a2x"
+      host.badge = .text("New")
+      update()
+      let before = try appliedSnapshot()
+      let focused = coordinator.focusedItemID
+      host.badge = .progress(0.4, accessibilityLabel: "Uploading")
+      update()
+      let after = try appliedSnapshot()
+      #expect(after.items == before.items)
+      #expect(after.visibleItems == before.visibleItems)
+      #expect(after.isExpanded("a"))
+      #expect(after.isExpanded("a2"))
+      #expect(coordinator.selectedItemIDs == ["a2x"])
+      #expect(coordinator.focusedItemID == focused)
+      #expect(host.expansion == ["a", "a2"])
+      #expect(host.single == "a2x")
+    }
+
     @Test func appliesSelectionFromTheBinding() {
       host.single = "c"
       update()
@@ -82,6 +256,83 @@
       host.single = nil
       update()
       #expect(coordinator.selectedItemIDs.isEmpty)
+    }
+
+    @Test func physicalModifiedArrowsReorderWithoutChangingSelection() throws {
+      host.canReorder = { _ in true }
+      host.single = "b"
+      host.drop = OutlineDropHandler(
+        validate: { _ in .accept(.move) },
+        perform: { [host] proposal, _ in
+          guard let id = proposal.draggedIDs.first,
+            let source = host.roots.firstIndex(where: { $0.id == id }),
+            let destination = proposal.insertionIndexAfterRemoval
+          else { return false }
+          let item = host.roots.remove(at: source)
+          host.roots.insert(item, at: destination)
+          return true
+        })
+      update()
+      #expect(
+        collectionView.handleDirectionalKey(.keyboardDownArrow, modifiers: [.command, .alternate]))
+      #expect(host.roots.map(\.id) == ["a", "c", "b"])
+      update()
+      #expect(coordinator.selectedItemIDs == ["b"])
+      #expect(coordinator.focusedItemID == "b")
+      #expect(
+        collectionView.handleDirectionalKey(.keyboardDownArrow, modifiers: [.command, .alternate]))
+      #expect(host.roots.map(\.id) == ["a", "c", "b"])
+      #expect(
+        collectionView.handleDirectionalKey(.keyboardUpArrow, modifiers: [.command, .alternate]))
+      update(layoutDirection: .rightToLeft)
+      #expect(try appliedSnapshot().items == ["a", "a1", "a2", "a2x", "b", "c"])
+      #expect(host.single == "b")
+    }
+
+    @Test func reorderCommandsIgnoreMultipleSelectionIncludingHiddenRows() {
+      host.single = "b"
+      host.canReorder = { _ in true }
+      var performed = false
+      host.drop = OutlineDropHandler(
+        validate: { _ in .accept(.move) },
+        perform: { _, _ in
+          performed = true
+          return true
+        })
+      update()
+      host.multiple = ["b", "a1"]
+      update(multipleSelection: true)
+      #expect(!coordinator.canHandleKeyboardAction(.moveUp))
+      coordinator.handleKeyboardAction(.moveDown)
+      #expect(!performed)
+      #expect(host.multiple == ["b", "a1"])
+    }
+
+    @Test func registeredReorderCommandsRespectHostValidation() throws {
+      host.canReorder = { _ in true }
+      host.single = "b"
+      var allowed = true
+      var performed = false
+      host.drop = OutlineDropHandler(
+        validate: { _ in allowed ? .accept(.move) : .reject },
+        perform: { _, _ in
+          performed = true
+          return true
+        })
+      update()
+      let command = try #require(
+        collectionView.keyCommands?.first {
+          $0.input == UIKeyCommand.inputUpArrow && $0.modifierFlags == [.command, .alternate]
+        })
+      let selector = try #require(command.action)
+      #expect(collectionView.canPerformAction(selector, withSender: command))
+      allowed = false
+      #expect(!collectionView.canPerformAction(selector, withSender: command))
+      collectionView.perform(selector, with: command)
+      #expect(!performed)
+      #expect(
+        !collectionView.handleDirectionalKey(
+          .keyboardUpArrow, modifiers: [.command, .alternate, .shift]))
     }
 
     @Test func refusesToSelectUnselectableItems() {
@@ -101,6 +352,167 @@
       #expect(
         !coordinator.collectionView(
           collectionView, shouldSelectItemAt: IndexPath(item: 2, section: 0)))
+    }
+
+    @Test func enablesNativeKeyboardFocusWithoutExpandingOnSelectionQueries() {
+      host.isSelectable = { $0.children == nil }
+      update()
+      let folder = IndexPath(item: 0, section: 0)
+      #expect(collectionView.allowsFocus)
+      #expect(collectionView.selectionFollowsFocus)
+      #expect(coordinator.collectionView(collectionView, canFocusItemAt: folder))
+      #expect(!coordinator.collectionView(collectionView, selectionFollowsFocusForItemAt: folder))
+      #expect(!coordinator.collectionView(collectionView, shouldSelectItemAt: folder))
+      #expect(!coordinator.collectionView(collectionView, shouldSelectItemAt: folder))
+      #expect(host.expansion.isEmpty)
+      #expect(host.single == nil)
+    }
+
+    @Test func horizontalArrowsExpandEnterAndReturnToTheParent() {
+      host.single = "a"
+      update()
+      coordinator.handleKeyboardAction(.expand)
+      #expect(host.expansion == ["a"])
+      update()
+      coordinator.handleKeyboardAction(.expand)
+      #expect(host.single == "a1")
+      coordinator.handleKeyboardAction(.collapse)
+      #expect(host.single == "a")
+      coordinator.handleKeyboardAction(.collapse)
+      #expect(host.expansion.isEmpty)
+    }
+
+    @Test func verticalArrowsMoveFromATouchedRowWithoutActivatingIt() {
+      var activated = false
+      host.primaryAction = { _ in activated = true }
+      host.single = "b"
+      update()
+      coordinator.handleKeyboardAction(.next)
+      #expect(host.single == "c")
+      coordinator.handleKeyboardAction(.previous)
+      #expect(host.single == "b")
+      #expect(!activated)
+      #expect(host.expansion.isEmpty)
+    }
+
+    @Test func verticalArrowsStartNavigationWithoutAnExistingSelection() {
+      update()
+      #expect(coordinator.canHandleKeyboardAction(.next))
+      coordinator.handleKeyboardAction(.next)
+      #expect(host.single == "a")
+      #expect(host.expansion.isEmpty)
+    }
+
+    @Test func spaceTogglesAContainerAndReturnActivatesWithoutRenaming() {
+      var activated: Set<String>?
+      host.primaryAction = { activated = $0 }
+      host.single = "a"
+      update()
+      coordinator.handleKeyboardAction(.toggle)
+      #expect(host.expansion == ["a"])
+      #expect(activated == nil)
+      coordinator.handleKeyboardAction(.activate)
+      #expect(activated == ["a"])
+    }
+
+    @Test func keyboardActivationIgnoresMissingSelections() {
+      var activated = false
+      host.primaryAction = { _ in activated = true }
+      host.single = "missing"
+      update()
+      #expect(!coordinator.canHandleKeyboardAction(.activate))
+      coordinator.handleKeyboardAction(.activate)
+      #expect(!activated)
+    }
+
+    @Test func keyboardCommandsFollowANewSelectionFromTheHost() {
+      var activated: Set<String>?
+      host.primaryAction = { activated = $0 }
+      host.single = "a"
+      update()
+      coordinator.handleKeyboardAction(.next)
+      #expect(host.single == "b")
+      host.single = "c"
+      update()
+      coordinator.handleKeyboardAction(.activate)
+      #expect(activated == ["c"])
+    }
+
+    @Test func keyboardFocusCanVisitAHeaderWithoutSelectingOrExpandingIt() {
+      host.roots = [.leaf("first"), .group("section", [.leaf("child")])]
+      host.sectionTitle = { $0.id == "section" ? "Section" : nil }
+      host.single = "first"
+      update()
+      coordinator.handleKeyboardAction(.next)
+      #expect(coordinator.focusedItemID == "section")
+      #expect(host.single == "first")
+      #expect(host.expansion.isEmpty)
+      coordinator.handleKeyboardAction(.activate)
+      #expect(host.expansion == ["section"])
+      #expect(host.single == "first")
+    }
+
+    @Test func arrowsFollowTheActualLayoutDirection() {
+      update(layoutDirection: .leftToRight)
+      #expect(collectionView.action(for: UIKeyCommand.inputRightArrow) == .expand)
+      #expect(collectionView.action(for: UIKeyCommand.inputLeftArrow) == .collapse)
+      update(layoutDirection: .rightToLeft)
+      #expect(collectionView.action(for: UIKeyCommand.inputLeftArrow) == .expand)
+      #expect(collectionView.action(for: UIKeyCommand.inputRightArrow) == .collapse)
+    }
+
+    @Test func responderCommandsRouteEachShortcutOnce() throws {
+      host.single = "a"
+      update()
+      let commands = try #require(collectionView.keyCommands)
+      let backwards = commands.filter {
+        $0.input == UIKeyCommand.inputLeftArrow && $0.modifierFlags.isEmpty
+      }
+      #expect(backwards.isEmpty)
+      let forward = try #require(commands.first { $0.input == UIKeyCommand.inputDownArrow })
+      let repeated = try #require(
+        collectionView.keyCommands?.first { $0.input == UIKeyCommand.inputDownArrow })
+      #expect(repeated === forward)
+      #expect(forward.wantsPriorityOverSystemBehavior)
+      #expect(!forward.allowsAutomaticMirroring)
+      let selector = try #require(forward.action)
+      #expect(collectionView.responds(to: selector))
+      #expect(collectionView.canPerformAction(selector, withSender: forward))
+      // This SwiftPM suite has no running app scene. Check command eligibility and Objective-C
+      // dispatch here; the demo UI tests exercise UIKit's real hardware-keyboard routing.
+      collectionView.perform(selector, with: forward)
+      #expect(host.single == "b")
+      #expect(host.expansion.isEmpty)
+    }
+
+    @Test func physicalHierarchyArrowsPreserveModifiersAndMapRTL() {
+      host.single = "a"
+      update()
+      #expect(!collectionView.handleDirectionalKey(.keyboardRightArrow, modifiers: .command))
+      #expect(host.expansion.isEmpty)
+      #expect(collectionView.handleDirectionalKey(.keyboardRightArrow))
+      #expect(host.expansion == ["a"])
+      update(layoutDirection: .rightToLeft)
+      #expect(collectionView.handleDirectionalKey(.keyboardRightArrow))
+      #expect(host.expansion.isEmpty)
+    }
+
+    @Test func renameFieldsKeepTheirSpacesAndCursorMovement() throws {
+      let window = UIWindow(frame: collectionView.frame)
+      let controller = UIViewController()
+      window.rootViewController = controller
+      controller.view.addSubview(collectionView)
+      window.makeKeyAndVisible()
+      defer { window.isHidden = true }
+      let field = UITextField(frame: CGRect(x: 0, y: 0, width: 200, height: 40))
+      collectionView.addSubview(field)
+      host.single = "a"
+      update()
+      #expect(collectionView.keyCommands?.contains { $0.input == " " } == true)
+      #expect(field.becomeFirstResponder())
+      #expect(collectionView.keyCommands?.contains { $0.input == " " } != true)
+      #expect(
+        collectionView.keyCommands?.contains { $0.input == UIKeyCommand.inputLeftArrow } != true)
     }
 
     @Test func revealsElementsTheHostSelects() async {

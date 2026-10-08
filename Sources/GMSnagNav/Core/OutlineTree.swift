@@ -57,6 +57,15 @@ struct OutlineTree<Element: Identifiable> {
     self.init(roots, children: { $0[keyPath: children] })
   }
 
+  /// Whether the identifiers, ordering and leaf/container distinctions match, ignoring values.
+  func hasSameStructure(as other: Self) -> Bool {
+    roots == other.roots && nodes.count == other.nodes.count
+      && nodes.allSatisfy { id, node in
+        guard let old = other.nodes[id] else { return false }
+        return node.parent == old.parent && node.children == old.children
+      }
+  }
+
   /// The number of elements in the tree.
   var count: Int { nodes.count }
 

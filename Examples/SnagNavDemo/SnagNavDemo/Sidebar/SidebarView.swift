@@ -15,6 +15,8 @@ import SwiftUI
 struct SidebarView: View {
   @Environment(Library.self) private var library
   @Binding var selection: LibraryItem.ID?
+  @Binding var navigationRequest: OutlineNavigationRequest<LibraryItem.ID>?
+  @State private var pendingNavigation: OutlineNavigationRequest<LibraryItem.ID>?
   let onError: (Error) -> Void
 
   @State private var expansion: Set<LibraryItem.ID> = []
@@ -30,14 +32,24 @@ struct SidebarView: View {
   @AppStorage("foldersSelectable") private var foldersSelectable = true
   @AppStorage("outlineStyle") private var style = DemoOutlineStyle.automatic
   @AppStorage("indentationStep") private var indentationStep = IndentationStep.regular
+  @AppStorage("showsBadges") private var showsBadges = true
   @AppStorage("largeRows") private var largeRows = false
 
   var body: some View {
     outline
+      .modifier(DemoLayoutDirection())
       .searchable(text: $searchText, placement: .sidebar, prompt: "Search")
       .onChange(of: searchText) {
         // Open every folder on the way to a match; the user may still close them.
         searchExpansion = matchingIDs.filter { library.item($0)?.isFolder == true }
+      }
+      .onChange(of: navigationRequest, initial: true) {
+        guard let navigationRequest else { return }
+        // Navigation from the detail intentionally returns to the complete library. Pass the
+        // request to the outline only in the update that also contains the unfiltered tree.
+        searchText = ""
+        pendingNavigation = navigationRequest
+        self.navigationRequest = nil
       }
       .focusedSceneValue(\.sidebarActions, actions)
       .onAppear {
@@ -115,6 +127,7 @@ struct SidebarView: View {
     Button("Collapse All", systemImage: "arrow.up.left.and.arrow.down.right", action: collapseAll)
     Divider()
     Toggle("Folders Are Selectable", isOn: $foldersSelectable)
+    Toggle("Show Badges", isOn: $showsBadges)
     Divider()
     Picker("Style", selection: $style) {
       ForEach(DemoOutlineStyle.allCases) { Text($0.title).tag($0) }
@@ -217,6 +230,12 @@ struct SidebarView: View {
       OutlineLabel(item.name, systemImage: item.systemImage)
         .accessibilityIdentifier("sidebar-row-\(item.name)")
     }
+    .outlineBadge { showsBadges ? badge(for: $0) : nil }
+    .outlineNavigation($pendingNavigation) { _, result in
+      if result == .elementNotFound {
+        onError(LibraryNavigationError.itemNotFound)
+      }
+    }
     .outlineSelectable { item in foldersSelectable || !item.isFolder }
     // Top-level sections, like "Favorites" in the Finder; the outline draws their headers.
     .outlineSections { item in item.isSection ? item.name : nil }
@@ -235,6 +254,7 @@ struct SidebarView: View {
     .outlineStyle(style.outlineStyle)
     .outlineIndentation(indentationStep.width)
     .outlineDraggable { _ in !isSearching }
+    .outlineReorderable { _ in !isSearching }
     .onOutlineDrop(validate: library.dropResult(for:), perform: drop)
     // Lets drops onto the root level and the empty-space menu through, unlike a plain overlay.
     .outlineEmptyContent { [isSearching, searchText] in
@@ -260,6 +280,25 @@ struct SidebarView: View {
     #else
       return outline
     #endif
+  }
+
+  /// Examples of each accessory. No synchronization is performed by the demo.
+  private func badge(for item: LibraryItem) -> OutlineBadge? {
+    switch item.status {
+    case .none:
+      guard let count = item.children?.count else { return nil }
+      return .count(count, accessibilityLabel: count == 1 ? "1 item" : "\(count) items")
+    case .new: return .text("New")
+    case .unread: return .dot(accessibilityLabel: "Unread")
+    case .warning:
+      return .symbol(
+        systemImage: "exclamationmark.triangle.fill", accessibilityLabel: "Needs Attention",
+        tint: .orange)
+    case .syncing: return .progress(nil, accessibilityLabel: "Syncing")
+    case .uploading: return .progress(0.4, accessibilityLabel: "Uploading")
+    case .synced:
+      return .symbol(systemImage: "checkmark.circle", accessibilityLabel: "Synced", tint: .green)
+    }
   }
 
   /// The context menu: adding, moving and deleting for one item, bulk delete for several, and
@@ -405,6 +444,12 @@ struct SidebarView: View {
     selection = library.add(item, into: folder)
     renamingID = item.id
   }
+}
+
+private enum LibraryNavigationError: LocalizedError {
+  case itemNotFound
+
+  var errorDescription: String? { "This item is no longer in the library." }
 }
 
 /// The styles offered in the demo's Outline menu, storable in `@AppStorage`.

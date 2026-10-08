@@ -57,6 +57,7 @@ extension OutlineBehavior {
 /// A section header in the platform's sidebar style.
 struct OutlineSectionHeader: View {
   let title: String
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
   var body: some View {
     OutlineRenamableText(title)
@@ -67,7 +68,7 @@ struct OutlineSectionHeader: View {
         .font(.headline)
         .foregroundStyle(.primary)
       #endif
-      .lineLimit(1)
+      .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
       .accessibilityAddTraits(.isHeader)
   }
 }

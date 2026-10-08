@@ -12,6 +12,18 @@ struct LibraryItem: Identifiable, Hashable, Sendable {
     case document
   }
 
+  /// Demo-only states; real apps own their status and synchronization models.
+  enum Status: String, CaseIterable, Hashable, Sendable {
+    case none = "None"
+    case new = "New"
+    case unread = "Unread"
+    case warning = "Needs Attention"
+    case syncing = "Syncing"
+    case uploading = "Uploading"
+    case synced = "Synced"
+  }
+
+  var status: Status = .none
   let id: UUID
   var name: String
   var kind: Kind
@@ -26,8 +38,8 @@ struct LibraryItem: Identifiable, Hashable, Sendable {
     LibraryItem(id: UUID(), name: name, kind: .folder, children: children)
   }
 
-  static func document(_ name: String) -> LibraryItem {
-    LibraryItem(id: UUID(), name: name, kind: .document, children: nil)
+  static func document(_ name: String, status: Status = .none) -> LibraryItem {
+    LibraryItem(status: status, id: UUID(), name: name, kind: .document, children: nil)
   }
 
   /// Whether the item can contain other items: true for folders and sections.
@@ -37,7 +49,8 @@ struct LibraryItem: Identifiable, Hashable, Sendable {
 
   /// A copy with new identifiers for the item and everything inside it.
   func copy() -> LibraryItem {
-    LibraryItem(id: UUID(), name: name, kind: kind, children: children?.map { $0.copy() })
+    LibraryItem(
+      status: status, id: UUID(), name: name, kind: kind, children: children?.map { $0.copy() })
   }
 
   var systemImage: String {

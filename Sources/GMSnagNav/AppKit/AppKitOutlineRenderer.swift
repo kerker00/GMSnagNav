@@ -44,12 +44,12 @@
       scrollView.borderType = .noBorder
 
       context.coordinator.attach(to: outlineView)
-      context.coordinator.update(with: self)
+      context.coordinator.update(with: self, locale: context.environment.locale)
       return scrollView
     }
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
-      context.coordinator.update(with: self)
+      context.coordinator.update(with: self, locale: context.environment.locale)
     }
   }
 
@@ -94,6 +94,7 @@
     private var isSpringLoading = false
     /// Whether the outline has loaded a snapshot; the first one is loaded without animation.
     private var hasLoaded = false
+    private var locale = Locale.current
     /// Above this many steps, reloading everything is cheaper and calmer than animating them.
     static var maximumAnimatedChanges: Int { 250 }
     /// Set while the coordinator changes the outline itself, so AppKit's callbacks for those
@@ -125,6 +126,12 @@
       (outlineView as? SnagOutlineView)?.onReturn = { [weak self] in
         self?.handleReturn() ?? false
       }
+      (outlineView as? SnagOutlineView)?.onPrimaryAction = { [weak self] in
+        self?.handlePrimaryAction() ?? false
+      }
+      (outlineView as? SnagOutlineView)?.onReorder = { [weak self] direction in
+        self?.handleReorderShortcut(direction) ?? false
+      }
       outlineView.registerForDraggedTypes([Self.draggedRowType])
       outlineView.setDraggingSourceOperationMask([.move, .copy], forLocal: true)
       outlineView.setDraggingSourceOperationMask([], forLocal: false)
@@ -133,8 +140,9 @@
     // MARK: Updates
 
     /// Applies a new snapshot, expansion and selection to the outline.
-    func update(with renderer: Renderer) {
+    func update(with renderer: Renderer, locale: Locale = .current) {
       self.renderer = renderer
+      self.locale = locale
       let oldTree = tree
       renderer.behavior.reportDuplicateIDs(in: renderer.tree, previous: oldTree)
       tree = renderer.tree
@@ -143,6 +151,8 @@
         boxes = boxes.filter { tree.contains($0.key) }
         return
       }
+
+      let restoresKeyboardFocus = (outlineView as? SnagOutlineView)?.ownsKeyboardFocus == true
 
       isApplyingUpdate = true
       defer { isApplyingUpdate = false }
@@ -161,12 +171,48 @@
       applySelection(selected)
       reveal.hostSelected(
         selected, in: tree, expansion: renderer.$expansion,
-        reveals: renderer.behavior.revealsSelection)
+        reveals: renderer.behavior.revealsSelection
+          && renderer.behavior.navigation?.request.wrappedValue == nil)
       scrollToRevealedElement()
+      navigation.update(renderer.behavior.navigation) { [weak self] request in
+        self?.navigate(request) ?? .outlineUnavailable
+      }
+      // Replacing hosted rows can move AppKit's first responder to the surrounding SwiftUI
+      // view. Keep keyboard navigation in the outline, except when starting inline renaming.
+      if restoresKeyboardFocus, renderer.behavior.renaming?.renaming.wrappedValue == nil {
+        outlineView.window?.makeFirstResponder(outlineView)
+      }
     }
 
     /// Reveals elements the host selects; see `outlineRevealsSelection(_:)`.
     private var reveal = SelectionReveal<ID>()
+    private let navigation = OutlineNavigationDriver<ID>()
+
+    func navigationSettled() async { await navigation.settled() }
+
+    private func navigate(_ request: OutlineNavigationRequest<ID>) -> OutlineNavigationResult {
+      guard let renderer, let outlineView else { return .outlineUnavailable }
+      if let id = request.target, !tree.contains(id) { return .elementNotFound }
+      guard outlineView.window != nil else { return .outlineUnavailable }
+      isApplyingUpdate = true
+      defer { isApplyingUpdate = false }
+      if let id = request.target {
+        let expanded = renderer.expansion.union(tree.ancestors(of: id))
+        renderer.expansion = expanded
+        applyExpansion(expanded)
+        applySelection(selectedIDs(in: renderer.selection))
+        let row = outlineView.row(forItem: box(for: id))
+        guard row >= 0 else { return .outlineUnavailable }
+        reveal.didReveal()
+        outlineView.scrollRowToVisible(row)
+      }
+      if request.takesFocus {
+        guard renderer.behavior.renaming?.renaming.wrappedValue == nil,
+          outlineView.window?.makeFirstResponder(outlineView) == true
+        else { return .focusUnavailable }
+      }
+      return .completed
+    }
 
     /// Scrolls the element waiting to be revealed into view once its row exists.
     private func scrollToRevealedElement() {
@@ -235,6 +281,7 @@
           let content = rowContent(for: id)
         else { continue }
         cell.show(content)
+        cell.setAccessibilityCustomActions(reorderingActions(for: id))
       }
     }
 
@@ -250,7 +297,9 @@
       let session = renderer.behavior.renameSession(for: id, in: tree) { [weak self] in
         self?.takeFocusBack()
       }
-      let row = AnyView(content.environment(\.outlineRenameSession, session))
+      let badged = OutlineBadgedContent(badge: renderer.behavior.badge?(element)) { content }
+      let row = AnyView(
+        badged.environment(\.outlineRenameSession, session).environment(\.locale, locale))
       guard let menu = renderer.behavior.contextMenu else { return row }
       let ids = activatedIDs(for: id)
       return AnyView(row.contextMenu { menu(ids) })
@@ -533,6 +582,7 @@
         outlineView.makeView(withIdentifier: HostingCellView.reuseIdentifier, owner: nil)
         as? HostingCellView ?? HostingCellView()
       cell.show(content)
+      cell.setAccessibilityCustomActions(reorderingActions(for: id))
       return cell
     }
 
@@ -610,6 +660,48 @@
 
     // MARK: Clicks and keys
 
+    func canReorder(_ id: ID, direction: OutlineReorderDirection) -> Bool {
+      guard let renderer else { return false }
+      return renderer.behavior.reorderingProposal(
+        for: id, direction: direction, tree: tree, expanded: renderer.expansion) != nil
+    }
+
+    /// Attach actions to the native cell, which owns AppKit's row accessibility representation.
+    private func reorderingActions(for id: ID) -> [NSAccessibilityCustomAction] {
+      [OutlineReorderDirection.up, .down].compactMap { direction in
+        guard canReorder(id, direction: direction) else { return nil }
+        let name =
+          direction == .up
+          ? String(localized: "Move Up", bundle: .module, locale: locale)
+          : String(localized: "Move Down", bundle: .module, locale: locale)
+        return NSAccessibilityCustomAction(name: name) { [weak self] in
+          self?.reorder(id, direction: direction) ?? false
+        }
+      }
+    }
+
+    @discardableResult func reorder(_ id: ID, direction: OutlineReorderDirection) -> Bool {
+      guard let renderer else { return false }
+      return renderer.behavior.reorder(
+        id, direction: direction, tree: tree, expanded: renderer.expansion)
+    }
+
+    @discardableResult func reorderSelection(_ direction: OutlineReorderDirection) -> Bool {
+      guard let renderer else { return false }
+      let selected = selectedIDs(in: renderer.selection)
+      guard selected.count == 1, let id = selected.first,
+        let outlineView, outlineView.row(forItem: box(for: id)) >= 0
+      else { return false }
+      return reorder(id, direction: direction)
+    }
+
+    /// A disabled move must not fall through to AppKit's different modified-arrow navigation.
+    func handleReorderShortcut(_ direction: OutlineReorderDirection) -> Bool {
+      guard renderer?.behavior.canReorder != nil else { return false }
+      _ = reorderSelection(direction)
+      return true
+    }
+
     /// The elements an action on `id` applies to: the selection if `id` is part of it, otherwise
     /// `id` alone.
     private func activatedIDs(for id: ID) -> Set<ID> {
@@ -631,8 +723,11 @@
     ///   disclosure triangle are left to AppKit.
     func handleClick(onRow row: Int, at location: NSPoint?) {
       guard let renderer, let outlineView else { return }
-      guard row >= 0, let id = id(of: outlineView.item(atRow: row)),
-        !renderer.behavior.canSelect(id, in: tree), !tree.children(of: id).isEmpty
+      guard row >= 0, let id = id(of: outlineView.item(atRow: row)) else { return }
+      if renderer.behavior.renaming?.renaming.wrappedValue != id {
+        (outlineView as? SnagOutlineView)?.takeKeyboardFocusForRowClick(at: location)
+      }
+      guard !renderer.behavior.canSelect(id, in: tree), !tree.children(of: id).isEmpty
       else { return }
 
       // The disclosure triangle toggles on its own; do not toggle a second time.
@@ -686,7 +781,16 @@
       {
         return true
       }
-      guard let primaryAction = renderer.behavior.primaryAction, !selected.isEmpty else {
+      return handlePrimaryAction()
+    }
+
+    /// Runs the primary action independently of the Return-to-rename behavior.
+    func handlePrimaryAction() -> Bool {
+      guard let renderer else { return false }
+      let selected = selectedIDs(in: renderer.selection)
+      guard let primaryAction = renderer.behavior.primaryAction,
+        selected.contains(where: { tree.contains($0) })
+      else {
         return false
       }
       primaryAction(selected)

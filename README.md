@@ -69,6 +69,7 @@ one SwiftUI API for arbitrarily deep trees with selection, expansion and real dr
 - Copying with the Option key while dragging on macOS
 - Type select on macOS and empty-state content for empty outlines and searches
 - Revealing what the app selects: collapsed containers open and the row scrolls into view
+- Explicit reveal and keyboard-focus requests, including an already-selected element
 - Incremental, animated updates when your data changes
 - Navigation of collapsed split views, such as on iPhone, from the selection
 - Demo app for macOS and iOS
@@ -84,7 +85,7 @@ Add the package with Swift Package Manager:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/kerker00/GMSnagNav.git", from: "0.3.0")
+    .package(url: "https://github.com/kerker00/GMSnagNav.git", from: "0.4.0")
 ]
 ```
 
@@ -165,10 +166,67 @@ with **Product > Build Documentation**. Start with these articles:
 - [Designing a Sidebar](https://swiftpackageindex.com/kerker00/GMSnagNav/documentation/gmsnagnav/designingasidebar) — recommendations for the app around the
   outline, after Mario Guzmán's Mac design guidelines.
 
+## Badges and status
+
+Keep your row content and add a host-owned accessory:
+
+```swift
+SnagOutline(items, children: \.children, selection: $selection) { item in
+  OutlineLabel(item.name, systemImage: item.systemImage)
+}
+.outlineBadge { item in item.children.map { .count($0.count) } }
+```
+
+`OutlineBadge` also supports short text, status symbols, dots and progress. Values follow layout
+direction, support accessibility descriptions and update with observable host state. See
+[Badges and status](Sources/GMSnagNav/GMSnagNav.docc/BadgesAndStatus.md).
+
+## Reordering without dragging
+
+Apply `.outlineReorderable()` alongside `.onOutlineDrop(validate:perform:)` to offer
+Command-Option-Up/Down on macOS and iPad, plus VoiceOver actions on eligible rows. Each action
+moves one element by one position among its siblings using the existing drop validator and
+performer. Selection stays with the element. Disable reordering for filtered or sorted views
+whose order differs from the model:
+
+```swift
+.outlineReorderable { _ in !isSearching }
+```
+
+See [Drag and drop](Sources/GMSnagNav/GMSnagNav.docc/DragAndDrop.md) for boundaries, redirects
+and host-owned execution.
+
+## Show an element in the sidebar
+
+Keep a request in state and bind it to the outline:
+
+```swift
+@State private var navigation: OutlineNavigationRequest<Item.ID>?
+
+// Apply directly to SnagOutline:
+.outlineNavigation($navigation) { request, result in
+  // Handle .elementNotFound, .outlineUnavailable or .focusUnavailable as needed.
+}
+
+// From a button or other host action:
+navigation = .reveal(item.id, focus: true)
+// Or transfer keyboard focus without expanding or scrolling:
+navigation = .focus()
+```
+
+Reveal opens ancestors and scrolls without changing selection, even when automatic selection
+reveal is disabled. Each new request runs once and clears its binding before completion.
+The host controls search filters and split-view visibility. See
+[Explicit navigation](Sources/GMSnagNav/GMSnagNav.docc/OutlineNavigation.md).
+
 ## Roadmap
 
-Ideas for versions after `0.3.0`, all planned to be backward compatible:
+Ideas for versions after `0.4.0`, all planned to be backward compatible:
 
+- Reusable move/copy destination menus and navigation between hierarchy levels
+- Pinned rows with consistent drag-and-drop rules
+- Large-tree benchmarks, followed by update optimizations and lazy loading where measurements
+  show a need; include mostly collapsed trees and large sibling lists
 - Custom drag previews
 - Drops from other apps, such as file URLs
 - Loading children asynchronously

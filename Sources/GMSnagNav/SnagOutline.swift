@@ -132,9 +132,11 @@ where Data.Element: Identifiable, Data.Element.ID: Sendable {
 
   /// The content and behavior of the view.
   public var body: some View {
+    let tree = OutlineTree(data, children: children)
+    let behavior = behavior.resolvingBadges(in: tree)
     #if os(macOS)
       AppKitOutlineRenderer(
-        tree: OutlineTree(data, children: children),
+        tree: tree,
         selection: selection,
         expansion: expansion ?? $internalExpansion,
         behavior: behavior,
@@ -146,7 +148,7 @@ where Data.Element: Identifiable, Data.Element.ID: Sendable {
       .modifier(OutlineEmptyContent(isEmpty: data.isEmpty, content: behavior.emptyContent))
     #else
       UIKitOutlineRenderer(
-        tree: OutlineTree(data, children: children),
+        tree: tree,
         selection: selection,
         expansion: expansion ?? $internalExpansion,
         behavior: behavior,
@@ -180,7 +182,9 @@ extension SnagOutline {
 
   /// Performs an action when the user activates elements.
   ///
-  /// The action runs on a double-click or Return on macOS and on a tap on iOS. For outlines with selection,
+  /// The action runs on a double-click, Command-O or Command-Down on macOS, and on a tap or
+  /// hardware-keyboard Return on iOS. Return on macOS also activates unless it starts renaming.
+  /// For outlines with selection,
   /// it receives the selected elements when the activated row is part of the selection, otherwise
   /// the activated element alone.
   ///
@@ -221,6 +225,7 @@ extension SnagOutline {
 
 /// Optional behavior configured through `SnagOutline`'s modifiers.
 struct OutlineBehavior<Element: Identifiable> where Element.ID: Sendable {
+  var badge: ((Element) -> OutlineBadge?)?
   var isSelectable: ((Element) -> Bool)?
   var primaryAction: ((Set<Element.ID>) -> Void)?
   var contextMenu: ((Set<Element.ID>) -> AnyView)?
@@ -228,6 +233,7 @@ struct OutlineBehavior<Element: Identifiable> where Element.ID: Sendable {
   /// `contextMenu` for renderers that show the items as SwiftUI content.
   var contextMenuItems: (@MainActor (Set<Element.ID>) -> [OutlineMenuItem])?
   var canDrag: ((Element) -> Bool)?
+  var canReorder: ((Element) -> Bool)?
   var drop: OutlineDropHandler<Element.ID>?
   var duplicateIDs: ((Set<Element.ID>) -> Void)?
   var leadingSwipeActions: OutlineSwipeActions<Element.ID>?
@@ -237,6 +243,7 @@ struct OutlineBehavior<Element: Identifiable> where Element.ID: Sendable {
   var sectionTitle: ((Element) -> String?)?
   var renaming: OutlineRenameHandler<Element>?
   var revealsSelection = true
+  var navigation: OutlineNavigationHandler<Element.ID>?
 
   func canSelect(_ element: Element) -> Bool {
     isSelectable?(element) ?? true

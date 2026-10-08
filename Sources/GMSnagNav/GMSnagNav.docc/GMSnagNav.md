@@ -46,12 +46,22 @@ rows to their new place.
 
 - ``SnagOutline/outlineSelectable(_:)``
 - ``SnagOutline/outlineRevealsSelection(_:)``
+- ``SnagOutline/outlineNavigation(_:onCompletion:)``
+- ``OutlineNavigationRequest``
+- ``OutlineNavigationResult``
+- <doc:OutlineNavigation>
 - ``SnagOutline/outlinePrimaryAction(_:)``
 - ``SnagOutline/outlineTypeSelect(_:)``
 - ``SnagOutline/outlineRenaming(_:canRename:onRename:)``
 - ``OutlineRenamableText``
 - ``SnagOutline/outlineSwipeActions(edge:allowsFullSwipe:_:)``
 - ``SwiftUICore/View/outlineCompactNavigation(selection:column:)``
+
+### Badges and status
+
+- ``OutlineBadge``
+- ``SnagOutline/outlineBadge(_:)``
+- <doc:BadgesAndStatus>
 
 ### Context menus
 
@@ -63,6 +73,7 @@ rows to their new place.
 
 - <doc:DragAndDrop>
 - ``SnagOutline/outlineDraggable(_:)``
+- ``SnagOutline/outlineReorderable(_:)``
 - ``SnagOutline/onOutlineDrop(validate:perform:)``
 - ``OutlineDropProposal``
 - ``OutlineDropTarget``

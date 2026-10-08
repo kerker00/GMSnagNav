@@ -7,10 +7,25 @@ struct ContentView: View {
   @State private var errorMessage: String?
   /// Which column a collapsed split view shows, such as on iPhone.
   @State private var compactColumn = NavigationSplitViewColumn.sidebar
+  @State private var columnVisibility = NavigationSplitViewVisibility.all
+  @State private var navigationRequest: OutlineNavigationRequest<LibraryItem.ID>?
 
   var body: some View {
-    NavigationSplitView(preferredCompactColumn: $compactColumn) {
-      SidebarView(selection: $selection, onError: show)
+    if CommandLine.arguments.contains("-ui-testing"),
+      CommandLine.arguments.contains("-sidebar-only")
+    {
+      // Audit the real sidebar independently of the demo's navigation and detail views.
+      SidebarView(selection: $selection, navigationRequest: $navigationRequest, onError: show)
+        .frame(width: 320)
+    } else {
+      splitView
+    }
+  }
+
+  private var splitView: some View {
+    NavigationSplitView(columnVisibility: $columnVisibility, preferredCompactColumn: $compactColumn)
+    {
+      SidebarView(selection: $selection, navigationRequest: $navigationRequest, onError: show)
         .navigationTitle("Library")
         #if os(macOS)
           .navigationSplitViewColumnWidth(min: 225, ideal: 260, max: 400)
@@ -18,8 +33,12 @@ struct ContentView: View {
     } detail: {
       if let selection, library.item(selection) != nil {
         // A fresh detail view per item, so its state starts from the selected item.
-        ItemDetailView(itemID: selection, onError: show)
-          .id(selection)
+        ItemDetailView(itemID: selection, onError: show) {
+          navigationRequest = .reveal(selection, focus: true)
+          columnVisibility = .all
+          compactColumn = .sidebar
+        }
+        .id(selection)
       } else {
         ContentUnavailableView(
           "No Selection", systemImage: "sidebar.left",

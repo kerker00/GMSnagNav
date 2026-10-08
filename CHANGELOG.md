@@ -38,6 +38,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   outlast.
 - On macOS, resting the pointer on a badge shows its description as a tooltip again. The badge
   ignored the pointer, so its `help` text never appeared.
+- On iOS and iPadOS, the SwiftUI menu of `outlineContextMenu(_:)` opens on a long press anywhere
+  in a row, and the row can be dragged from there. A long press beside a short title used to
+  select the row instead.
 - Demo: the detail view shows names changed in the sidebar, deleting the selected item or its
   folder ends the selection, clearing the search reveals the selection, folder counts match the
   search results, a long location no longer shifts the detail form, and Return dismisses alerts.

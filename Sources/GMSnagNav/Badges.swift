@@ -124,7 +124,12 @@ struct OutlineBadgeView: View {
 
   var body: some View {
     visual
-      .allowsHitTesting(false)
+      #if os(iOS)
+        // Taps belong to the row. On macOS the badge stays hit-testable: its tooltip only shows
+        // for a view under the pointer, and clicks, drags and menus pass through it to the row
+        // like they do through the row's title.
+        .allowsHitTesting(false)
+      #endif
       .accessibilityElement(children: .ignore)
       .accessibilityLabel(badge.accessibilityDescription(locale: locale))
       .help(badge.accessibilityDescription(locale: locale))

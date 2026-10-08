@@ -56,7 +56,7 @@
   /// Data source and delegate of the outline; translates between AppKit and the host's bindings.
   @MainActor
   final class OutlineCoordinator<Element: Identifiable, RowContent: View>: NSObject,
-    NSOutlineViewDataSource, NSOutlineViewDelegate
+    NSOutlineViewDataSource, NSOutlineViewDelegate, NSMenuDelegate
   where Element.ID: Sendable {
     typealias ID = Element.ID
     typealias Renderer = AppKitOutlineRenderer<Element, RowContent>
@@ -162,6 +162,7 @@
       case .multiple: outlineView.allowsMultipleSelection = true
       }
       let reindented = applyAppearance(renderer.appearance, to: outlineView)
+      applyContextMenu(to: outlineView)
 
       applyStructure(from: oldTree, to: outlineView, reloading: reindented)
       boxes = boxes.filter { tree.contains($0.key) }
@@ -300,9 +301,55 @@
       let badged = OutlineBadgedContent(badge: renderer.behavior.badge?(element)) { content }
       let row = AnyView(
         badged.environment(\.outlineRenameSession, session).environment(\.locale, locale))
-      guard let menu = renderer.behavior.contextMenu else { return row }
+      // Menu items show in the outline's native menu instead; see `applyContextMenu(to:)`.
+      guard renderer.behavior.contextMenuItems == nil, let menu = renderer.behavior.contextMenu
+      else { return row }
       let ids = activatedIDs(for: id)
-      return AnyView(row.contextMenu { menu(ids) })
+      // The whole row opens the menu, not only the shape of its content.
+      return AnyView(
+        row.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+          .contentShape(.rect)
+          .contextMenu { menu(ids) })
+    }
+
+    // MARK: Context menu
+
+    /// The outline's native context menu, filled with the host's items when it opens.
+    private lazy var nativeContextMenu: NSMenu = {
+      let menu = NSMenu()
+      menu.autoenablesItems = false
+      // Only the host's items; AppKit would otherwise append services after a separator.
+      menu.allowsContextMenuPlugIns = false
+      menu.delegate = self
+      return menu
+    }()
+
+    /// Shows menu items in a native menu, which AppKit opens for the whole row and marks the
+    /// clicked row for, like the Finder. SwiftUI menus live in the rows instead.
+    private func applyContextMenu(to outlineView: NSOutlineView) {
+      guard let behavior = renderer?.behavior else { return }
+      let menu = behavior.contextMenuItems == nil ? nil : nativeContextMenu
+      if outlineView.menu !== menu { outlineView.menu = menu }
+      (outlineView as? SnagOutlineView)?.rowsShowHostedMenus =
+        behavior.contextMenuItems == nil && behavior.contextMenu != nil
+    }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+      menu.removeAllItems()
+      guard let items = renderer?.behavior.contextMenuItems,
+        let ids = contextMenuIDs(forRow: outlineView?.clickedRow ?? -1)
+      else { return }
+      menu.items = OutlineMenuItem.nativeItems(for: items(ids))
+    }
+
+    /// The identifiers a context menu on `row` applies to: the selection if the row is part of
+    /// it, otherwise the row's element. Empty space applies to no element, and offers no menu in
+    /// outlines without selection.
+    func contextMenuIDs(forRow row: Int) -> Set<ID>? {
+      guard let renderer, let outlineView else { return nil }
+      if row >= 0, let id = id(of: outlineView.item(atRow: row)) { return activatedIDs(for: id) }
+      if case .none = renderer.selection { return nil }
+      return []
     }
 
     /// Applies the style, the host's configuration and the indentation.

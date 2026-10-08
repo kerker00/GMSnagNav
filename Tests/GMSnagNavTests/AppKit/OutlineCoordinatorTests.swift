@@ -465,6 +465,54 @@
       #expect(host.multiple == ["b", "c"])
     }
 
+    @Test func clickingAnUnselectableRowKeepsTheSelection() {
+      host.isSelectable = { $0.children == nil }
+      host.single = "c"
+      update()
+      // Rows: a, b, c. Clicking the unselectable a proposes only its row.
+      let proposed = coordinator.outlineView(
+        outlineView, selectionIndexesForProposedSelection: [0])
+      #expect(proposed == [2])
+      // Clicking empty space still clears the selection.
+      #expect(
+        coordinator.outlineView(outlineView, selectionIndexesForProposedSelection: []).isEmpty)
+    }
+
+    @Test func clickingASectionHeaderKeepsTheSelection() {
+      host.sectionTitle = { $0.id == "a" ? "A" : nil }
+      host.single = "c"
+      update()
+      let proposed = coordinator.outlineView(
+        outlineView, selectionIndexesForProposedSelection: [0])
+      #expect(proposed == [2])
+    }
+
+    @Test func collapsingKeepsTheSelectionOfHiddenRows() {
+      host.expansion = ["a"]
+      host.single = "a1"
+      update()
+      outlineView.collapseItem(item("a"))
+      #expect(outlineView.selectedRowIndexes.isEmpty)
+      #expect(host.single == "a1")
+
+      outlineView.expandItem(item("a"))
+      #expect(outlineView.selectedRowIndexes == [outlineView.row(forItem: item("a1"))])
+      #expect(host.single == "a1")
+    }
+
+    @Test func collapsingKeepsHiddenRowsInAMultipleSelection() {
+      host.expansion = ["a"]
+      host.multiple = ["a1", "c"]
+      update(multipleSelection: true)
+      outlineView.collapseItem(item("a"))
+      #expect(host.multiple == ["a1", "c"])
+      #expect(outlineView.selectedRowIndexes == [outlineView.row(forItem: item("c"))])
+
+      // A selection the user makes afterwards replaces the hidden one.
+      outlineView.selectRowIndexes([1], byExtendingSelection: false)
+      #expect(host.multiple == ["b"])
+    }
+
     @Test func showsSectionsAsUnselectableGroupRows() {
       host.sectionTitle = { $0.id == "a" ? "A" : nil }
       host.expansion = ["a"]
@@ -1098,6 +1146,18 @@
       #expect(host.expansion == ["a"])
       coordinator.handleClick(onRow: 0, at: nil)
       #expect(host.expansion.isEmpty)
+    }
+
+    @Test func clickingASectionHeaderLeavesTogglingToAppKit() async {
+      host.sectionTitle = { $0.id == "a" ? "A" : nil }
+      host.expansion = ["a"]
+      host.primaryAction = { _ in }
+      coordinator.doubleClickDelayOverride = .zero
+      update()
+      coordinator.handleClick(onRow: 0, at: nil)
+      await coordinator.pendingToggleSettled()
+      #expect(host.expansion == ["a"])
+      #expect(outlineView.isItemExpanded(item("a")))
     }
 
     @Test func clickingASelectableRowOrNoRowDoesNotToggle() {

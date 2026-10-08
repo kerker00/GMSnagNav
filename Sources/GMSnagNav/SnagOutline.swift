@@ -20,7 +20,8 @@ import SwiftUI
 /// The outline never writes to the selection binding because the data changed. The identifier of
 /// a removed element stays selected, and its row appears selected again when the element returns
 /// — for example when a search filter is cleared. Remove identifiers of deleted elements from the
-/// selection yourself.
+/// selection yourself. Collapsing a container doesn't change the selection either: its selected
+/// elements stay in the binding while their rows are hidden.
 ///
 /// When your app selects an element, the outline expands the containers above it and scrolls it
 /// into view; see `outlineRevealsSelection(_:)`.

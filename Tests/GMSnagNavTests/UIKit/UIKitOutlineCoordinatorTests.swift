@@ -571,6 +571,22 @@
       #expect(coordinator.selectedItemIDs == ["c"])
     }
 
+    @Test func collapsingKeepsTheSelectionOfHiddenRows() {
+      host.expansion = ["a"]
+      host.single = "a1"
+      update()
+      #expect(coordinator.selectedItemIDs == ["a1"])
+
+      host.expansion = []
+      update()
+      #expect(coordinator.selectedItemIDs.isEmpty)
+      #expect(host.single == "a1")
+
+      host.expansion = ["a"]
+      update()
+      #expect(coordinator.selectedItemIDs == ["a1"])
+    }
+
     @Test func resolvesThePendingDropAgainstDataChangedDuringTheDrag() {
       var validations = 0
       var performed: OutlineDropProposal<String>?

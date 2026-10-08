@@ -20,8 +20,10 @@ iPad — so some interactions differ. Your bindings and callbacks receive the sa
 | Selection set by the app | Revealed: containers above it open, and the row scrolls into view | Revealed the same way |
 | Explicit reveal or keyboard focus | `outlineNavigation(_:onCompletion:)`, preserving selection | Same API; the host controls split-view visibility |
 
-Rows that ``SnagOutline/outlineSelectable(_:)`` excludes never become part of the selection. On
-macOS, when the outline also has a primary action, a single click on such a container toggles it
+Rows that ``SnagOutline/outlineSelectable(_:)`` excludes never become part of the selection, and
+clicking or tapping them keeps the current selection; the arrow keys skip them. Collapsing a
+container keeps its hidden elements selected on both platforms, and their rows appear selected
+again once it opens. On macOS, when the outline also has a primary action, a single click on such a container toggles it
 only after the double-click interval has passed, so a double-click can run the action instead.
 
 ### Primary action

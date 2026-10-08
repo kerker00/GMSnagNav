@@ -639,10 +639,14 @@
     ) -> IndexSet {
       guard let renderer else { return [] }
       if case .none = renderer.selection { return [] }
-      return proposedSelectionIndexes.filteredIndexSet { row in
+      let selectable = proposedSelectionIndexes.filteredIndexSet { row in
         guard let id = id(of: outlineView.item(atRow: row)) else { return false }
         return renderer.behavior.canSelect(id, in: tree)
       }
+      // A click on an unselectable row, such as a section header, proposes only that row. It
+      // must leave the selection alone rather than clear it.
+      guard selectable.isEmpty, !proposedSelectionIndexes.isEmpty else { return selectable }
+      return outlineView.selectedRowIndexes
     }
 
     func outlineView(
@@ -669,6 +673,15 @@
     func outlineViewSelectionDidChange(_ notification: Notification) {
       guard !isApplyingUpdate, let renderer, let outlineView else { return }
       let ids = outlineView.selectedRowIndexes.compactMap { id(of: outlineView.item(atRow: $0)) }
+      // Collapsing a container deselects the rows it hides. Those elements stay selected, as on
+      // iOS, and their rows appear selected again once the container opens.
+      let selected = selectedIDs(in: renderer.selection)
+      let deselected = selected.subtracting(ids).filter(tree.contains)
+      if !deselected.isEmpty, Set(ids).isSubset(of: selected),
+        deselected.allSatisfy({ outlineView.row(forItem: box(for: $0)) < 0 })
+      {
+        return
+      }
       reveal.userSelected(Set(ids))
       switch renderer.selection {
       case .none:
@@ -694,6 +707,8 @@
       for child in tree.children(of: id) where renderer.expansion.contains(child) {
         outlineView.expandItem(box(for: child))
       }
+      // Rows of selected elements that were hidden while the item was collapsed.
+      applySelection(selectedIDs(in: renderer.selection))
     }
 
     func outlineViewItemDidCollapse(_ notification: Notification) {
@@ -774,7 +789,9 @@
       if renderer.behavior.renaming?.renaming.wrappedValue != id {
         (outlineView as? SnagOutlineView)?.takeKeyboardFocusForRowClick(at: location)
       }
-      guard !renderer.behavior.canSelect(id, in: tree), !tree.children(of: id).isEmpty
+      // AppKit toggles a section header on a click anywhere in it; toggling again would undo it.
+      guard renderer.behavior.sectionTitle(of: id, in: tree) == nil,
+        !renderer.behavior.canSelect(id, in: tree), !tree.children(of: id).isEmpty
       else { return }
 
       // The disclosure triangle toggles on its own; do not toggle a second time.

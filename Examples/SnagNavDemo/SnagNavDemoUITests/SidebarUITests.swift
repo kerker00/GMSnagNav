@@ -229,13 +229,46 @@ final class SidebarUITests: XCTestCase {
       header.tap()
     #endif
     XCTAssertTrue(row("Favorite Note").waitForNonExistence(timeout: 5))
+    // The header must stay collapsed: a second, delayed toggle used to reopen it after the
+    // double-click interval.
+    RunLoop.current.run(until: Date().addingTimeInterval(1.5))
+    XCTAssertFalse(row("Favorite Note").exists, "The section opened again by itself")
     #if os(macOS)
       header.click()
     #else
       header.tap()
     #endif
     XCTAssertTrue(row("Favorite Note").waitForExistence(timeout: 5))
+    RunLoop.current.run(until: Date().addingTimeInterval(1.5))
+    XCTAssertTrue(row("Favorite Note").exists, "The section closed again by itself")
   }
+
+  #if os(macOS)
+    func testClickingASectionHeaderKeepsTheSelection() {
+      app.terminate()
+      app.launchArguments.append("-sample-section")
+      app.launch()
+      select("Inbox")
+      assertDetailLocation("Inbox")
+      let header = app.descendants(matching: .any)
+        .matching(NSPredicate(format: "label BEGINSWITH %@", "Favorites")).firstMatch
+      XCTAssertTrue(header.waitForExistence(timeout: 5))
+      header.click()
+      XCTAssertTrue(row("Favorite Note").waitForNonExistence(timeout: 5))
+      assertDetailLocation("Inbox")
+    }
+
+    func testCollapsingAFolderKeepsTheSelectionOfAHiddenRow() {
+      select("Weekly Report")
+      assertDetailLocation("Work › Weekly Report")
+      let disclosure = app.outlineRows
+        .containing(.any, identifier: "sidebar-row-Work").disclosureTriangles.firstMatch
+      XCTAssertTrue(disclosure.waitForExistence(timeout: 5))
+      disclosure.click()
+      XCTAssertTrue(row("Weekly Report").waitForNonExistence(timeout: 5))
+      assertDetailLocation("Work › Weekly Report")
+    }
+  #endif
 
   func testChangingAStatusUpdatesTheBadgeWithoutChangingSelection() {
     select("Inbox")

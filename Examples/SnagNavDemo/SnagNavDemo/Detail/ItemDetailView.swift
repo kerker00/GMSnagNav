@@ -4,6 +4,7 @@ struct ItemDetailView: View {
   @Environment(Library.self) private var library
   let itemID: LibraryItem.ID
   let onError: (Error) -> Void
+  let onShowInSidebar: () -> Void
 
   @State private var name = ""
 
@@ -55,6 +56,7 @@ struct ItemDetailView: View {
         Section {
           LabeledContent("Organize:") {
             EqualWidthStack(spacing: 6) {
+              showInSidebarButton
               ItemActions(itemID: itemID, onError: onError)
             }
           }
@@ -82,12 +84,18 @@ struct ItemDetailView: View {
           }
         }
         Section {
+          showInSidebarButton
           ItemActions(itemID: itemID, onError: onError)
         }
       }
       .formStyle(.grouped)
     }
   #endif
+
+  private var showInSidebarButton: some View {
+    Button("Show in Sidebar", systemImage: "sidebar.left", action: onShowInSidebar)
+      .accessibilityIdentifier("detail-show-in-sidebar")
+  }
 
   private var statusPicker: some View {
     Picker(

@@ -15,6 +15,8 @@ import SwiftUI
 struct SidebarView: View {
   @Environment(Library.self) private var library
   @Binding var selection: LibraryItem.ID?
+  @Binding var navigationRequest: OutlineNavigationRequest<LibraryItem.ID>?
+  @State private var pendingNavigation: OutlineNavigationRequest<LibraryItem.ID>?
   let onError: (Error) -> Void
 
   @State private var expansion: Set<LibraryItem.ID> = []
@@ -40,6 +42,14 @@ struct SidebarView: View {
       .onChange(of: searchText) {
         // Open every folder on the way to a match; the user may still close them.
         searchExpansion = matchingIDs.filter { library.item($0)?.isFolder == true }
+      }
+      .onChange(of: navigationRequest, initial: true) {
+        guard let navigationRequest else { return }
+        // Navigation from the detail intentionally returns to the complete library. Pass the
+        // request to the outline only in the update that also contains the unfiltered tree.
+        searchText = ""
+        pendingNavigation = navigationRequest
+        self.navigationRequest = nil
       }
       .focusedSceneValue(\.sidebarActions, actions)
       .onAppear {
@@ -221,6 +231,11 @@ struct SidebarView: View {
         .accessibilityIdentifier("sidebar-row-\(item.name)")
     }
     .outlineBadge { showsBadges ? badge(for: $0) : nil }
+    .outlineNavigation($pendingNavigation) { _, result in
+      if result == .elementNotFound {
+        onError(LibraryNavigationError.itemNotFound)
+      }
+    }
     .outlineSelectable { item in foldersSelectable || !item.isFolder }
     // Top-level sections, like "Favorites" in the Finder; the outline draws their headers.
     .outlineSections { item in item.isSection ? item.name : nil }
@@ -429,6 +444,12 @@ struct SidebarView: View {
     selection = library.add(item, into: folder)
     renamingID = item.id
   }
+}
+
+private enum LibraryNavigationError: LocalizedError {
+  case itemNotFound
+
+  var errorDescription: String? { "This item is no longer in the library." }
 }
 
 /// The styles offered in the demo's Outline menu, storable in `@AppStorage`.

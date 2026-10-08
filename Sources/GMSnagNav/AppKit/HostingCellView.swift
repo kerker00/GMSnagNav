@@ -16,8 +16,26 @@
   final class HostingCellView: NSTableCellView {
     static let reuseIdentifier = NSUserInterfaceItemIdentifier("GMSnagNav.HostingCell")
 
-    private let hostingView = NSHostingView(rootView: AnyView(EmptyView()))
+    let hostingView = RowHostingView(rootView: AnyView(EmptyView()))
     private var content = AnyView(EmptyView())
+    private lazy var trailingConstraint = hostingView.trailingAnchor.constraint(
+      equalTo: trailingAnchor)
+
+    /// The space kept free at the trailing edge, such as in plain outlines whose cells reach the
+    /// edge of the row.
+    var trailingInset: CGFloat = 0 {
+      didSet { if trailingInset != oldValue { needsLayout = true } }
+    }
+
+    /// Whether the cell heads a section in a source list. AppKit shows a show/hide button at its
+    /// trailing edge while the pointer rests on it and shrinks the cell to make room; the content
+    /// keeps that room at all times, so accessories such as badges stay in place.
+    var reservesShowHideButton = false {
+      didSet { if reservesShowHideButton != oldValue { needsLayout = true } }
+    }
+
+    /// The room for the show/hide button, measured from the trailing edge of the row.
+    static var showHideButtonReserve: CGFloat { 26 }
 
     init() {
       super.init(frame: .zero)
@@ -29,7 +47,7 @@
       addSubview(hostingView)
       NSLayoutConstraint.activate([
         hostingView.leadingAnchor.constraint(equalTo: leadingAnchor),
-        hostingView.trailingAnchor.constraint(equalTo: trailingAnchor),
+        trailingConstraint,
         hostingView.topAnchor.constraint(equalTo: topAnchor),
         hostingView.bottomAnchor.constraint(equalTo: bottomAnchor),
       ])
@@ -38,6 +56,18 @@
     @available(*, unavailable)
     required init?(coder: NSCoder) {
       nil
+    }
+
+    override func layout() {
+      var inset = trailingInset
+      if reservesShowHideButton, let row = superview {
+        let limit =
+          convert(NSPoint(x: row.bounds.maxX, y: 0), from: row).x
+          - Self.showHideButtonReserve
+        inset = max(inset, bounds.maxX - limit)
+      }
+      if trailingConstraint.constant != -inset { trailingConstraint.constant = -inset }
+      super.layout()
     }
 
     override var backgroundStyle: NSView.BackgroundStyle {
@@ -72,9 +102,16 @@
       hostingView.rootView = AnyView(
         content
           .font(fontSize.map { .system(size: $0) })
+          .environment(\.outlineRowTextSize, fontSize)
           .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
           .environment(
             \.backgroundProminence, backgroundStyle == .emphasized ? .increased : .standard))
     }
+  }
+
+  /// Hosts a row's SwiftUI content as part of its cell. As an accessibility element of its own,
+  /// the hosting view adds an unnamed group between the cell and the content.
+  final class RowHostingView: NSHostingView<AnyView> {
+    override func isAccessibilityElement() -> Bool { false }
   }
 #endif

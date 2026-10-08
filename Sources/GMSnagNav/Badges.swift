@@ -108,17 +108,31 @@ struct OutlineBadgedContent<Content: View>: View {
   }
 }
 
+extension EnvironmentValues {
+  /// The point size of a row's text when the renderer sets one, such as for AppKit's row sizes;
+  /// accessories and section headers scale with it.
+  @Entry var outlineRowTextSize: CGFloat?
+}
+
 /// Uses system foreground/background styles so capsules remain readable on selected rows.
 struct OutlineBadgeView: View {
   let badge: OutlineBadge
   @Environment(\.dynamicTypeSize) private var dynamicTypeSize
   @Environment(\.locale) private var locale
+  @Environment(\.backgroundProminence) private var backgroundProminence
+  @Environment(\.outlineRowTextSize) private var rowTextSize
 
   var body: some View {
     visual
-      .allowsHitTesting(false)
+      #if os(iOS)
+        // Taps belong to the row. On macOS the badge stays hit-testable: its tooltip only shows
+        // for a view under the pointer, and clicks, drags and menus pass through it to the row
+        // like they do through the row's title.
+        .allowsHitTesting(false)
+      #endif
       .accessibilityElement(children: .ignore)
       .accessibilityLabel(badge.accessibilityDescription(locale: locale))
+      .accessibilityAddTraits(.isStaticText)
       .help(badge.accessibilityDescription(locale: locale))
   }
 
@@ -130,30 +144,38 @@ struct OutlineBadgeView: View {
       capsule(Text(text))
     case .symbol(let systemImage, _, let tint):
       Image(systemName: systemImage)
-        .font(.callout)
-        .foregroundStyle(tint)
+        .font(rowTextSize.map { .system(size: $0 - 1) } ?? .callout)
+        .foregroundStyle(onSelection(tint))
     case .dot(_, let tint):
-      Circle().fill(tint).frame(width: 8, height: 8)
+      let size = rowTextSize.map { ($0 * 8 / 13).rounded() } ?? 8
+      Circle().fill(onSelection(tint)).frame(width: size, height: size)
     case .progress:
+      let size = rowTextSize.map { $0 + 3 } ?? 16
       if let value = badge.progressValue {
         // SwiftUI's circular ProgressView is indeterminate on macOS. Draw the fraction on both
         // platforms so a known progress value is visible rather than represented as a spinner.
         ZStack {
           Circle().stroke(.quaternary, lineWidth: 2)
           Circle().trim(from: 0, to: value)
-            .stroke(.tint, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+            .stroke(onSelection(.tint), style: StrokeStyle(lineWidth: 2, lineCap: .round))
             .rotationEffect(.degrees(-90))
         }
-        .frame(width: 16, height: 16)
+        .frame(width: size, height: size)
       } else {
-        ProgressView().controlSize(.small).frame(width: 16, height: 16)
+        ProgressView().controlSize(.small).frame(width: size, height: size)
       }
     }
   }
 
+  /// A tint on the selection's accent-colored background would vanish, like a blue dot on a blue
+  /// row; there the accessory takes the row's high-contrast foreground instead, as native rows do.
+  private func onSelection(_ tint: some ShapeStyle) -> AnyShapeStyle {
+    backgroundProminence == .increased ? AnyShapeStyle(.primary) : AnyShapeStyle(tint)
+  }
+
   private func capsule(_ text: some View) -> some View {
     text
-      .font(.caption)
+      .font(rowTextSize.map { .system(size: max($0 - 3, 9)) } ?? .caption)
       .foregroundStyle(.primary)
       .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
       .fixedSize(horizontal: !dynamicTypeSize.isAccessibilitySize, vertical: true)

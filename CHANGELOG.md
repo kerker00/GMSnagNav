@@ -7,6 +7,57 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-08
+
+Fixes for selection, section headers, context menus, badges and keyboard navigation, mostly on
+macOS, and better VoiceOver support on macOS 27.
+
+### Fixed
+
+- On macOS, dot, progress and symbol badges stay visible on a selected row. Their tint used to
+  vanish on the accent-colored selection, such as a blue unread dot on a blue row; they now take
+  the row's high-contrast foreground there.
+- On macOS, the badge of a section header no longer moves when the pointer rests on the header.
+  The header keeps room for AppKit's show/hide button at all times.
+- On macOS, badges in plain outlines keep a distance from the outline's trailing edge.
+- On macOS, badges and section headers scale with large and small sidebar rows, like the rows'
+  text.
+- Clicking a row that can't be selected, such as a section header or an unselectable folder,
+  no longer clears the selection on macOS. The arrow keys still skip such rows.
+- Collapsing a folder on macOS keeps its selected elements in the selection binding, as on iOS,
+  instead of clearing the selection and closing the detail view. Their rows appear selected
+  again when the folder opens.
+- Clicking a section header on macOS collapses or expands it once. AppKit toggles group rows
+  on its own, and the outline used to toggle them a second time, undoing the click.
+- On macOS, `outlineContextMenuItems(_:)` now shows a native menu. It opens anywhere in a row,
+  including its indentation and the space beside a short title, outlines the row it applies to
+  like the Finder, and no longer ends with an empty separator. A right-click beside a row's
+  title used to open the menu for empty space instead.
+- On macOS, the SwiftUI menu of `outlineContextMenu(_:)` opens across the whole width of a row's
+  content. A right-click in a row's indentation no longer opens the menu for empty space.
+- The primary action and context menus no longer receive selected identifiers that the data
+  no longer contains. A removed element stays selected, as documented, but actions such as
+  Command-O used to pass it along with the remaining selection.
+- On macOS, Return restarts a rename whose text field never got the focus once the row has been
+  shown without the field, instead of after a fixed 50 ms delay that a busy main thread could
+  outlast.
+- On macOS, resting the pointer on a badge shows its description as a tooltip again. The badge
+  ignored the pointer, so its `help` text never appeared.
+- On iOS and iPadOS, the SwiftUI menu of `outlineContextMenu(_:)` opens on a long press anywhere
+  in a row, and the row can be dragged from there. A long press beside a short title used to
+  select the row instead.
+- On macOS, the forward arrow enters the first child of an expanded container, and the
+  backward arrow returns to the parent of a collapsed row, on every macOS version. macOS 27
+  left the selection on the container. Rows that can't be selected are not entered.
+- On macOS, VoiceOver names a sidebar-style outline "Sidebar", and reads a row's title and
+  badge as text directly in its cell, without an unnamed group around them. On macOS 27 the
+  outline had no name and the titles and badges had no role. Like the text of native sidebar
+  rows, they are static text whose text is their value; UI tests match it there instead of in
+  the label.
+- Demo: the detail view shows names changed in the sidebar, deleting the selected item or its
+  folder ends the selection, clearing the search reveals the selection, folder counts match the
+  search results, a long location no longer shifts the detail form, and Return dismisses alerts.
+
 ## [0.4.0] - 2026-10-08
 
 Keyboard navigation and right-to-left layout improvements, host-owned row badges,
@@ -160,7 +211,8 @@ It requires macOS 26 or iOS 26 and Swift 6.2.
 - English and German texts for what VoiceOver reads on iOS. They follow the host app's language.
 - `SnagNavDemo`, a multiplatform demo app in `Examples/`.
 
-[Unreleased]: https://github.com/kerker00/GMSnagNav/compare/0.4.0...HEAD
+[Unreleased]: https://github.com/kerker00/GMSnagNav/compare/0.4.1...HEAD
+[0.4.1]: https://github.com/kerker00/GMSnagNav/compare/0.4.0...0.4.1
 [0.4.0]: https://github.com/kerker00/GMSnagNav/compare/0.3.0...0.4.0
 [0.3.0]: https://github.com/kerker00/GMSnagNav/releases/tag/0.3.0
 [0.2.0]: https://github.com/kerker00/GMSnagNav/releases/tag/0.2.0

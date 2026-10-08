@@ -8,6 +8,18 @@
     /// Opens the selection without starting renaming, as in the Finder.
     var onPrimaryAction: (() -> Bool)?
     var onReorder: ((OutlineReorderDirection) -> Bool)?
+    /// Called for the forward and backward arrows without modifiers; returns whether the key
+    /// press was handled. Forward is Right, or Left in a right-to-left interface.
+    var onHorizontalArrow: ((_ forward: Bool) -> Bool)?
+    /// Set while rows show SwiftUI context menus of their own. A right-click on a row outside
+    /// its content, such as in its indentation, then shows no menu rather than letting the event
+    /// reach the menu for empty space around the outline.
+    var rowsShowHostedMenus = false
+
+    override func rightMouseDown(with event: NSEvent) {
+      if rowsShowHostedMenus, row(at: convert(event.locationInWindow, from: nil)) >= 0 { return }
+      super.rightMouseDown(with: event)
+    }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
       if ownsKeyboardFocus, let direction = reorderingDirection(event),
@@ -38,6 +50,11 @@
       }
       let isReturn = event.keyCode == 36 || event.keyCode == 76
       if isReturn, modifiers.isEmpty, onReturn?() == true { return }
+      if modifiers.isEmpty, event.keyCode == 123 || event.keyCode == 124 {
+        let isRight = event.keyCode == 124
+        let forward = userInterfaceLayoutDirection == .rightToLeft ? !isRight : isRight
+        if onHorizontalArrow?(forward) == true { return }
+      }
       super.keyDown(with: event)
     }
 

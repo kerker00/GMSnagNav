@@ -42,6 +42,8 @@ public struct OutlineLabel: View {
         label
           .accessibilityElement(children: .ignore)
           .accessibilityLabel(title)
+          // Without a trait, the combined element has no role on macOS 27.
+          .accessibilityAddTraits(.isStaticText)
       }
     #endif
   }

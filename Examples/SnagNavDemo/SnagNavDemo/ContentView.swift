@@ -53,13 +53,19 @@ struct ContentView: View {
     }
     // On iPhone: open the detail for a selection, clear the selection on the way back.
     .outlineCompactNavigation(selection: $selection, column: $compactColumn)
+    // Deleting the selected item, or a folder around it, ends the selection, so Delete and the
+    // bottom bar don't act on an item that is gone.
+    .onChange(of: library.roots) {
+      if let selection, library.item(selection) == nil { self.selection = nil }
+    }
     .alert(
       "Action Failed",
       isPresented: Binding(
         get: { errorMessage != nil },
         set: { if !$0 { errorMessage = nil } })
     ) {
-      Button("OK", role: .cancel) {}
+      // Not a cancel button: Return dismisses only the alert's default button.
+      Button("OK") {}
     } message: {
       Text(errorMessage ?? "")
     }

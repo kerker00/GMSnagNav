@@ -20,8 +20,10 @@ iPad — so some interactions differ. Your bindings and callbacks receive the sa
 | Selection set by the app | Revealed: containers above it open, and the row scrolls into view | Revealed the same way |
 | Explicit reveal or keyboard focus | `outlineNavigation(_:onCompletion:)`, preserving selection | Same API; the host controls split-view visibility |
 
-Rows that ``SnagOutline/outlineSelectable(_:)`` excludes never become part of the selection. On
-macOS, when the outline also has a primary action, a single click on such a container toggles it
+Rows that ``SnagOutline/outlineSelectable(_:)`` excludes never become part of the selection, and
+clicking or tapping them keeps the current selection; the arrow keys skip them. Collapsing a
+container keeps its hidden elements selected on both platforms, and their rows appear selected
+again once it opens. On macOS, when the outline also has a primary action, a single click on such a container toggles it
 only after the double-click interval has passed, so a double-click can run the action instead.
 
 ### Primary action
@@ -75,12 +77,15 @@ actions, so offer the same actions in a context menu there.
 Both context menu modifiers receive the same identifiers: the selection when the pressed row is
 part of it, and the pressed row alone otherwise.
 
-- ``SnagOutline/outlineContextMenuItems(_:)`` builds a native menu on both platforms. On iOS and
-  iPadOS, the menu and dragging share one long press, like in the Files app: moving the finger
-  drags the row, holding it still opens the menu.
-- ``SnagOutline/outlineContextMenu(_:)`` accepts any SwiftUI menu content. On iOS and iPadOS, its
-  menu appears first when the user long-presses a row; the row can then be dragged out of the
-  menu's preview.
+- ``SnagOutline/outlineContextMenuItems(_:)`` builds a native menu on both platforms. On macOS it
+  opens anywhere in a row, including its indentation, and AppKit outlines the row it applies to,
+  like in the Finder. On iOS and iPadOS, the menu and dragging share one long press, like in the
+  Files app: moving the finger drags the row, holding it still opens the menu.
+- ``SnagOutline/outlineContextMenu(_:)`` accepts any SwiftUI menu content. On macOS it opens across
+  the row's content, but not in its indentation, and the row is not outlined while the menu is
+  open. On iOS and iPadOS, its menu appears first when the user long-presses a row; the row can
+  then be dragged out of the menu's preview. Prefer ``SnagOutline/outlineContextMenuItems(_:)``
+  where its items suffice.
 
 In an outline with selection, a right-click on the empty space below the rows opens the menu with
 an empty set of identifiers — useful for actions such as “New Folder”. On iOS and iPadOS, only

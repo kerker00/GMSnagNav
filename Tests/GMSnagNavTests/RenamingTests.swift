@@ -35,36 +35,20 @@ import Testing
   }
 
   @Test func startsRenamingOnlyRenamableElements() {
-    #expect(!behavior { $0.id != "c" }.startRenaming("c", in: tree))
+    #expect(behavior { $0.id != "c" }.startRenaming("c", in: tree) == .refused)
     #expect(host.renaming == nil)
-    #expect(!behavior().startRenaming("missing", in: tree))
-    #expect(behavior().startRenaming("c", in: tree))
+    #expect(behavior().startRenaming("missing", in: tree) == .refused)
+    #expect(behavior().startRenaming("c", in: tree) == .started)
     #expect(host.renaming == "c")
   }
 
-  @Test(.timeLimit(.minutes(1))) func restartsARenameThatIsStillPending() async {
+  @Test func clearsARenameThatIsStillPendingForTheRendererToRestart() {
     // The text field never got the focus, so the binding still names the row: starting again
-    // must not be a no-op that SwiftUI ignores.
+    // must not be a no-op that SwiftUI ignores. The renderer names the row again after the
+    // update that shows it without the field.
     host.renaming = "c"
-    let (restarts, continuation) = AsyncStream<String>.makeStream()
-    defer { continuation.finish() }
-    let host = host
-    var restarting = behavior()
-    restarting.renaming = OutlineRenameHandler(
-      renaming: Binding(
-        get: { host.renaming },
-        set: {
-          host.renaming = $0
-          if let id = $0 { continuation.yield(id) }
-        }),
-      canRename: { _ in true }, onRename: { _, _ in })
-    #expect(restarting.startRenaming("c", in: tree))
+    #expect(behavior().startRenaming("c", in: tree) == .restarting)
     #expect(host.renaming == nil)
-    // Wait for the binding write itself. Native rendering in other tests can occupy the main
-    // actor past a polling deadline even though the restart is queued and will complete.
-    var iterator = restarts.makeAsyncIterator()
-    #expect(await iterator.next() == "c")
-    #expect(host.renaming == "c")
   }
 
   @Test func commitsOnlyChangedNamesAndEndsRenaming() throws {

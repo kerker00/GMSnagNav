@@ -58,11 +58,13 @@ extension OutlineBehavior {
 struct OutlineSectionHeader: View {
   let title: String
   @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+  @Environment(\.outlineRowTextSize) private var rowTextSize
 
   var body: some View {
     OutlineRenamableText(title)
       #if os(macOS)
-        .font(.system(size: 11, weight: .semibold))
+        // 11 points next to medium rows, and larger or smaller along with the rows.
+        .font(.system(size: rowTextSize.map { max($0 - 2, 10) } ?? 11, weight: .semibold))
         .foregroundStyle(.secondary)
       #else
         .font(.headline)

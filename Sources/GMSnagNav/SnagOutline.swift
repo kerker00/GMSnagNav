@@ -20,7 +20,8 @@ import SwiftUI
 /// The outline never writes to the selection binding because the data changed. The identifier of
 /// a removed element stays selected, and its row appears selected again when the element returns
 /// — for example when a search filter is cleared. Remove identifiers of deleted elements from the
-/// selection yourself.
+/// selection yourself. Collapsing a container doesn't change the selection either: its selected
+/// elements stay in the binding while their rows are hidden.
 ///
 /// When your app selects an element, the outline expands the containers above it and scrolls it
 /// into view; see `outlineRevealsSelection(_:)`.
@@ -186,7 +187,8 @@ extension SnagOutline {
   /// hardware-keyboard Return on iOS. Return on macOS also activates unless it starts renaming.
   /// For outlines with selection,
   /// it receives the selected elements when the activated row is part of the selection, otherwise
-  /// the activated element alone.
+  /// the activated element alone. Selected identifiers that are no longer in the data are left
+  /// out.
   ///
   /// On iOS, a tap first selects the row, then runs the action.
   ///
@@ -203,7 +205,8 @@ extension SnagOutline {
   ///
   /// The menu receives the identifiers it applies to:
   ///
-  /// - the whole selection when the user opens the menu on a selected row,
+  /// - the whole selection when the user opens the menu on a selected row, without identifiers
+  ///   that are no longer in the data,
   /// - only the clicked element when the row is not selected or not selectable,
   /// - an empty set when the menu opens on empty space in an outline with selection — useful for
   ///   actions such as "New Folder" at the root level. macOS only: on iOS, empty space shows no
@@ -269,7 +272,8 @@ struct EmptySpaceContextMenu<Element: Identifiable>: ViewModifier where Element.
   func body(content: Content) -> some View {
     if case .none = selection {
       content
-    } else if let menu = behavior.contextMenu {
+    } else if behavior.contextMenuItems == nil, let menu = behavior.contextMenu {
+      // Menu items show in the outline's native menu, which also covers empty space.
       content.contextMenu { menu([]) }
     } else {
       content

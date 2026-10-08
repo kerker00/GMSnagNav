@@ -24,6 +24,17 @@ final class SidebarUITests: XCTestCase {
 
   // MARK: Helpers
 
+  /// Skips tests that keep using the sidebar after selecting a row. On iPhone, the split view is
+  /// collapsed: selecting a row replaces the sidebar with the detail view, and there is no
+  /// hardware keyboard to drive the outline with.
+  private func requireSidebarBesideDetail() throws {
+    #if os(iOS)
+      if UIDevice.current.userInterfaceIdiom == .phone {
+        throw XCTSkip("The split view is collapsed on iPhone.")
+      }
+    #endif
+  }
+
   private func row(_ name: String) -> XCUIElement {
     app.descendants(matching: .any).matching(identifier: "sidebar-row-\(name)").firstMatch
   }
@@ -103,14 +114,16 @@ final class SidebarUITests: XCTestCase {
 
   func testShowInSidebarRestoresKeyboardFocusForAnAlreadySelectedDocument() throws {
     select("Inbox")
+    let show = app.buttons["detail-show-in-sidebar"]
+    XCTAssertTrue(show.waitForExistence(timeout: 5))
     #if os(iOS)
+      // Only once the detail view is shown, the back button tells whether the split view is
+      // collapsed; right after the tap, the navigation may still be on its way.
       if app.navigationBars.buttons["Library"].exists {
         throw XCTSkip(
           "Selection is cleared on return in a collapsed split view; tested separately.")
       }
     #endif
-    let show = app.buttons["detail-show-in-sidebar"]
-    XCTAssertTrue(show.waitForExistence(timeout: 5))
     for _ in 0..<2 {
       #if os(macOS)
         show.click()
@@ -152,7 +165,8 @@ final class SidebarUITests: XCTestCase {
       "Expected \(first) before \(second)", file: file, line: line)
   }
 
-  func testModifiedArrowsReorderSiblingsAndKeepSelection() {
+  func testModifiedArrowsReorderSiblingsAndKeepSelection() throws {
+    try requireSidebarBesideDetail()
     select("Inbox")
     assertRow("Inbox", appearsBefore: "Ideas")
     app.typeKey(.downArrow, modifierFlags: [.command, .option])
@@ -167,7 +181,8 @@ final class SidebarUITests: XCTestCase {
     assertDetailLocation("Ideas")
   }
 
-  func testReorderingAnExpandedFolderMovesTheWholeSubtree() {
+  func testReorderingAnExpandedFolderMovesTheWholeSubtree() throws {
+    try requireSidebarBesideDetail()
     select("Work")
     app.typeKey(.downArrow, modifierFlags: [.command, .option])
     assertRow("Personal", appearsBefore: "Work")
@@ -178,7 +193,8 @@ final class SidebarUITests: XCTestCase {
     assertDetailLocation("Work › Clients")
   }
 
-  func testReorderingIsDisabledInSearchResults() {
+  func testReorderingIsDisabledInSearchResults() throws {
+    try requireSidebarBesideDetail()
     search("i")
     select("Ideas")
     assertDetailLocation("Ideas")
@@ -188,7 +204,8 @@ final class SidebarUITests: XCTestCase {
     assertDetailLocation("Ideas")
   }
 
-  func testArrowKeysNavigateTheVisibleRows() {
+  func testArrowKeysNavigateTheVisibleRows() throws {
+    try requireSidebarBesideDetail()
     select("Inbox")
     #if os(macOS)
       // A row click must restore native keyboard focus even when the selection stays the same.
@@ -203,7 +220,8 @@ final class SidebarUITests: XCTestCase {
     assertDetailLocation("Inbox")
   }
 
-  func testHorizontalArrowsCollapseExpandAndEnterAFolder() {
+  func testHorizontalArrowsCollapseExpandAndEnterAFolder() throws {
+    try requireSidebarBesideDetail()
     select("Work")
     app.typeKey(.leftArrow, modifierFlags: [])
     XCTAssertTrue(row("Weekly Report").waitForNonExistence(timeout: 5))
@@ -229,15 +247,49 @@ final class SidebarUITests: XCTestCase {
       header.tap()
     #endif
     XCTAssertTrue(row("Favorite Note").waitForNonExistence(timeout: 5))
+    // The header must stay collapsed: a second, delayed toggle used to reopen it after the
+    // double-click interval.
+    RunLoop.current.run(until: Date().addingTimeInterval(1.5))
+    XCTAssertFalse(row("Favorite Note").exists, "The section opened again by itself")
     #if os(macOS)
       header.click()
     #else
       header.tap()
     #endif
     XCTAssertTrue(row("Favorite Note").waitForExistence(timeout: 5))
+    RunLoop.current.run(until: Date().addingTimeInterval(1.5))
+    XCTAssertTrue(row("Favorite Note").exists, "The section closed again by itself")
   }
 
-  func testChangingAStatusUpdatesTheBadgeWithoutChangingSelection() {
+  #if os(macOS)
+    func testClickingASectionHeaderKeepsTheSelection() {
+      app.terminate()
+      app.launchArguments.append("-sample-section")
+      app.launch()
+      select("Inbox")
+      assertDetailLocation("Inbox")
+      let header = app.descendants(matching: .any)
+        .matching(NSPredicate(format: "label BEGINSWITH %@", "Favorites")).firstMatch
+      XCTAssertTrue(header.waitForExistence(timeout: 5))
+      header.click()
+      XCTAssertTrue(row("Favorite Note").waitForNonExistence(timeout: 5))
+      assertDetailLocation("Inbox")
+    }
+
+    func testCollapsingAFolderKeepsTheSelectionOfAHiddenRow() {
+      select("Weekly Report")
+      assertDetailLocation("Work › Weekly Report")
+      let disclosure = app.outlineRows
+        .containing(.any, identifier: "sidebar-row-Work").disclosureTriangles.firstMatch
+      XCTAssertTrue(disclosure.waitForExistence(timeout: 5))
+      disclosure.click()
+      XCTAssertTrue(row("Weekly Report").waitForNonExistence(timeout: 5))
+      assertDetailLocation("Work › Weekly Report")
+    }
+  #endif
+
+  func testChangingAStatusUpdatesTheBadgeWithoutChangingSelection() throws {
+    try requireSidebarBesideDetail()
     select("Inbox")
     let status = app.descendants(matching: .any).matching(identifier: "detail-status").firstMatch
     XCTAssertTrue(status.waitForExistence(timeout: 5))
@@ -246,8 +298,9 @@ final class SidebarUITests: XCTestCase {
       app.menuItems["New"].click()
       let inbox = app.outlines.firstMatch.descendants(matching: .outlineRow)
         .containing(.any, identifier: "sidebar-row-Inbox").firstMatch
-      let badges = inbox.descendants(matching: .any)
-        .matching(NSPredicate(format: "label == %@", "New"))
+      // Badges are static text, like the row's title; their text is the value.
+      let badges = inbox.descendants(matching: .staticText)
+        .matching(NSPredicate(format: "value == %@", "New"))
     #else
       status.tap()
       app.buttons["New"].firstMatch.tap()
@@ -275,6 +328,17 @@ final class SidebarUITests: XCTestCase {
     #endif
     #if os(macOS)
       let types: XCUIAccessibilityAuditType = [.elementDetection, .sufficientElementDescription]
+      // On macOS 27, SwiftUI and AppKit expose unnamed containers of their own, such as the
+      // groups around the split view's columns and the search field, and a Touch Bar element.
+      // The app can't name them; an accessibility label adds another group instead. Exempt only
+      // such containers outside the outline; the outline and all controls are still audited.
+      let outline = app.outlines.firstMatch
+      XCTAssertTrue(outline.waitForExistence(timeout: 5))
+      let outlineFrame = outline.frame
+      func isFrameworkContainer(_ element: XCUIElement) -> Bool {
+        [.group, .touchBar].contains(element.elementType) && element.label.isEmpty
+          && !outlineFrame.contains(element.frame)
+      }
     #else
       app.terminate()
       app.launchArguments += ["-sidebar-only", "-sample-section"]
@@ -303,11 +367,19 @@ final class SidebarUITests: XCTestCase {
       #endif
       print("Accessibility type \(issue.auditType.rawValue): \(issue.detailedDescription)")
       if let element = issue.element { print(element.debugDescription) }
+      #if os(macOS)
+        if issue.auditType == .sufficientElementDescription, let element = issue.element,
+          isFrameworkContainer(element)
+        {
+          return true
+        }
+      #endif
       return false
     }
   }
 
-  func testAddingToACollapsedFolderRevealsTheNewSelection() {
+  func testAddingToACollapsedFolderRevealsTheNewSelection() throws {
+    try requireSidebarBesideDetail()
     select("Work")
     app.typeKey(.leftArrow, modifierFlags: [])
     XCTAssertTrue(row("Weekly Report").waitForNonExistence(timeout: 5))
@@ -375,7 +447,8 @@ final class SidebarUITests: XCTestCase {
       XCTAssertGreaterThan(header.frame.height, standardHeaderHeight)
     }
 
-    func testInlineRenamingKeepsSpacesAndRestoresKeyboardNavigation() {
+    func testInlineRenamingKeepsSpacesAndRestoresKeyboardNavigation() throws {
+      try requireSidebarBesideDetail()
       app.terminate()
       app.launchArguments.append("-disable-animations")
       app.launch()
@@ -391,7 +464,8 @@ final class SidebarUITests: XCTestCase {
       assertDetailLocation("Renamed Work › Clients")
     }
 
-    func testSpaceTogglesTheSelectedFolder() {
+    func testSpaceTogglesTheSelectedFolder() throws {
+      try requireSidebarBesideDetail()
       select("Work")
       app.typeKey(" ", modifierFlags: [])
       XCTAssertTrue(row("Weekly Report").waitForNonExistence(timeout: 5))
@@ -399,7 +473,8 @@ final class SidebarUITests: XCTestCase {
       XCTAssertTrue(row("Weekly Report").waitForExistence(timeout: 5))
     }
 
-    func testHorizontalArrowsFollowRightToLeftLayout() {
+    func testHorizontalArrowsFollowRightToLeftLayout() throws {
+      try requireSidebarBesideDetail()
       app.terminate()
       app.launchArguments.append("-right-to-left")
       app.launch()

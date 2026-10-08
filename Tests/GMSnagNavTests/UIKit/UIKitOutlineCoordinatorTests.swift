@@ -549,6 +549,15 @@
       #expect(coordinator.activatedIDs(for: "a") == ["a"])
     }
 
+    @Test func actionsLeaveOutSelectedElementsThatWereRemoved() {
+      host.multiple = ["a", "c"]
+      update(multipleSelection: true)
+      host.roots.removeLast()
+      update(multipleSelection: true)
+      #expect(host.multiple == ["a", "c"])
+      #expect(coordinator.activatedIDs(for: "a") == ["a"])
+    }
+
     @Test func runsThePrimaryActionForTheTappedRow() {
       var activated: Set<String>?
       host.primaryAction = { activated = $0 }
@@ -569,6 +578,22 @@
       host.roots = sampleRoots
       update()
       #expect(coordinator.selectedItemIDs == ["c"])
+    }
+
+    @Test func collapsingKeepsTheSelectionOfHiddenRows() {
+      host.expansion = ["a"]
+      host.single = "a1"
+      update()
+      #expect(coordinator.selectedItemIDs == ["a1"])
+
+      host.expansion = []
+      update()
+      #expect(coordinator.selectedItemIDs.isEmpty)
+      #expect(host.single == "a1")
+
+      host.expansion = ["a"]
+      update()
+      #expect(coordinator.selectedItemIDs == ["a1"])
     }
 
     @Test func resolvesThePendingDropAgainstDataChangedDuringTheDrag() {

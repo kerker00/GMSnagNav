@@ -56,7 +56,7 @@
   /// Data source and delegate of the outline; translates between AppKit and the host's bindings.
   @MainActor
   final class OutlineCoordinator<Element: Identifiable, RowContent: View>: NSObject,
-    NSOutlineViewDataSource, NSOutlineViewDelegate
+    NSOutlineViewDataSource, NSOutlineViewDelegate, NSMenuDelegate
   where Element.ID: Sendable {
     typealias ID = Element.ID
     typealias Renderer = AppKitOutlineRenderer<Element, RowContent>
@@ -132,6 +132,9 @@
       (outlineView as? SnagOutlineView)?.onReorder = { [weak self] direction in
         self?.handleReorderShortcut(direction) ?? false
       }
+      (outlineView as? SnagOutlineView)?.onHorizontalArrow = { [weak self] forward in
+        self?.handleHorizontalArrow(forward: forward) ?? false
+      }
       outlineView.registerForDraggedTypes([Self.draggedRowType])
       outlineView.setDraggingSourceOperationMask([.move, .copy], forLocal: true)
       outlineView.setDraggingSourceOperationMask([], forLocal: false)
@@ -162,10 +165,12 @@
       case .multiple: outlineView.allowsMultipleSelection = true
       }
       let reindented = applyAppearance(renderer.appearance, to: outlineView)
+      applyContextMenu(to: outlineView)
 
       applyStructure(from: oldTree, to: outlineView, reloading: reindented)
       boxes = boxes.filter { tree.contains($0.key) }
       refreshVisibleRows()
+      restartPendingRename()
       applyExpansion(renderer.expansion)
       let selected = selectedIDs(in: renderer.selection)
       applySelection(selected)
@@ -280,9 +285,19 @@
           let id = id(of: outlineView.item(atRow: row)),
           let content = rowContent(for: id)
         else { continue }
-        cell.show(content)
-        cell.setAccessibilityCustomActions(reorderingActions(for: id))
+        configure(cell, for: id, content: content)
       }
+    }
+
+    /// Shows an element's content in a cell, laid out for the outline's style.
+    private func configure(_ cell: HostingCellView, for id: ID, content: AnyView) {
+      cell.show(content)
+      cell.setAccessibilityCustomActions(reorderingActions(for: id))
+      let isSourceList = outlineView?.style == .sourceList
+      // Plain rows reach the edge of the outline; keep accessories off it.
+      cell.trailingInset = isSourceList ? 0 : 8
+      cell.reservesShowHideButton =
+        isSourceList && renderer?.behavior.sectionTitle(of: id, in: tree) != nil
     }
 
     /// The host's row content for an element, with the context menu attached.
@@ -300,9 +315,55 @@
       let badged = OutlineBadgedContent(badge: renderer.behavior.badge?(element)) { content }
       let row = AnyView(
         badged.environment(\.outlineRenameSession, session).environment(\.locale, locale))
-      guard let menu = renderer.behavior.contextMenu else { return row }
+      // Menu items show in the outline's native menu instead; see `applyContextMenu(to:)`.
+      guard renderer.behavior.contextMenuItems == nil, let menu = renderer.behavior.contextMenu
+      else { return row }
       let ids = activatedIDs(for: id)
-      return AnyView(row.contextMenu { menu(ids) })
+      // The whole row opens the menu, not only the shape of its content.
+      return AnyView(
+        row.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+          .contentShape(.rect)
+          .contextMenu { menu(ids) })
+    }
+
+    // MARK: Context menu
+
+    /// The outline's native context menu, filled with the host's items when it opens.
+    private lazy var nativeContextMenu: NSMenu = {
+      let menu = NSMenu()
+      menu.autoenablesItems = false
+      // Only the host's items; AppKit would otherwise append services after a separator.
+      menu.allowsContextMenuPlugIns = false
+      menu.delegate = self
+      return menu
+    }()
+
+    /// Shows menu items in a native menu, which AppKit opens for the whole row and marks the
+    /// clicked row for, like the Finder. SwiftUI menus live in the rows instead.
+    private func applyContextMenu(to outlineView: NSOutlineView) {
+      guard let behavior = renderer?.behavior else { return }
+      let menu = behavior.contextMenuItems == nil ? nil : nativeContextMenu
+      if outlineView.menu !== menu { outlineView.menu = menu }
+      (outlineView as? SnagOutlineView)?.rowsShowHostedMenus =
+        behavior.contextMenuItems == nil && behavior.contextMenu != nil
+    }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+      menu.removeAllItems()
+      guard let items = renderer?.behavior.contextMenuItems,
+        let ids = contextMenuIDs(forRow: outlineView?.clickedRow ?? -1)
+      else { return }
+      menu.items = OutlineMenuItem.nativeItems(for: items(ids))
+    }
+
+    /// The identifiers a context menu on `row` applies to: the selection if the row is part of
+    /// it, otherwise the row's element. Empty space applies to no element, and offers no menu in
+    /// outlines without selection.
+    func contextMenuIDs(forRow row: Int) -> Set<ID>? {
+      guard let renderer, let outlineView else { return nil }
+      if row >= 0, let id = id(of: outlineView.item(atRow: row)) { return activatedIDs(for: id) }
+      if case .none = renderer.selection { return nil }
+      return []
     }
 
     /// Applies the style, the host's configuration and the indentation.
@@ -318,6 +379,10 @@
         case .plain: .plain
         }
       if outlineView.style != style { outlineView.style = style }
+      // VoiceOver names a sidebar like SwiftUI's sidebar lists, instead of only "outline". Set
+      // before the host's configuration, which may name it differently.
+      outlineView.setAccessibilityLabel(
+        style == .sourceList ? String(localized: "Sidebar", bundle: .module, locale: locale) : nil)
       appearance.appKitConfiguration?(outlineView)
       // After the host's configuration: AppKit resets the indentation when the row size changes.
       guard outlineView.indentationPerLevel != appearance.indentation else { return false }
@@ -581,8 +646,7 @@
       let cell =
         outlineView.makeView(withIdentifier: HostingCellView.reuseIdentifier, owner: nil)
         as? HostingCellView ?? HostingCellView()
-      cell.show(content)
-      cell.setAccessibilityCustomActions(reorderingActions(for: id))
+      configure(cell, for: id, content: content)
       return cell
     }
 
@@ -592,10 +656,14 @@
     ) -> IndexSet {
       guard let renderer else { return [] }
       if case .none = renderer.selection { return [] }
-      return proposedSelectionIndexes.filteredIndexSet { row in
+      let selectable = proposedSelectionIndexes.filteredIndexSet { row in
         guard let id = id(of: outlineView.item(atRow: row)) else { return false }
         return renderer.behavior.canSelect(id, in: tree)
       }
+      // A click on an unselectable row, such as a section header, proposes only that row. It
+      // must leave the selection alone rather than clear it.
+      guard selectable.isEmpty, !proposedSelectionIndexes.isEmpty else { return selectable }
+      return outlineView.selectedRowIndexes
     }
 
     func outlineView(
@@ -622,6 +690,15 @@
     func outlineViewSelectionDidChange(_ notification: Notification) {
       guard !isApplyingUpdate, let renderer, let outlineView else { return }
       let ids = outlineView.selectedRowIndexes.compactMap { id(of: outlineView.item(atRow: $0)) }
+      // Collapsing a container deselects the rows it hides. Those elements stay selected, as on
+      // iOS, and their rows appear selected again once the container opens.
+      let selected = selectedIDs(in: renderer.selection)
+      let deselected = selected.subtracting(ids).filter(tree.contains)
+      if !deselected.isEmpty, Set(ids).isSubset(of: selected),
+        deselected.allSatisfy({ outlineView.row(forItem: box(for: $0)) < 0 })
+      {
+        return
+      }
       reveal.userSelected(Set(ids))
       switch renderer.selection {
       case .none:
@@ -647,6 +724,8 @@
       for child in tree.children(of: id) where renderer.expansion.contains(child) {
         outlineView.expandItem(box(for: child))
       }
+      // Rows of selected elements that were hidden while the item was collapsed.
+      applySelection(selectedIDs(in: renderer.selection))
     }
 
     func outlineViewItemDidCollapse(_ notification: Notification) {
@@ -702,12 +781,36 @@
       return true
     }
 
+    /// Enters the first child of an expanded container with the forward arrow, and returns to
+    /// the parent of a collapsed row or leaf with the backward arrow, as on iPad. Expanding and
+    /// collapsing stay with AppKit, so the behavior doesn't depend on the macOS version.
+    func handleHorizontalArrow(forward: Bool) -> Bool {
+      guard let renderer, let outlineView, outlineView.selectedRowIndexes.count == 1,
+        let id = id(of: outlineView.item(atRow: outlineView.selectedRow))
+      else { return false }
+      let isExpanded = outlineView.isItemExpanded(box(for: id))
+      let target: ID?
+      if forward {
+        guard isExpanded else { return false }
+        target = tree.children(of: id).first
+      } else {
+        guard !isExpanded || tree.children(of: id).isEmpty else { return false }
+        target = tree.parent(of: id)
+      }
+      guard let target, renderer.behavior.canSelect(target, in: tree) else { return false }
+      let row = outlineView.row(forItem: box(for: target))
+      guard row >= 0 else { return false }
+      outlineView.selectRowIndexes([row], byExtendingSelection: false)
+      outlineView.scrollRowToVisible(row)
+      return true
+    }
+
     /// The elements an action on `id` applies to: the selection if `id` is part of it, otherwise
-    /// `id` alone.
+    /// `id` alone. Selected elements that the data no longer contains are left out.
     private func activatedIDs(for id: ID) -> Set<ID> {
       guard let renderer else { return [id] }
       let selected = selectedIDs(in: renderer.selection)
-      return selected.contains(id) ? selected : [id]
+      return selected.contains(id) ? selected.filter(tree.contains) : [id]
     }
 
     private func handleClick() {
@@ -727,7 +830,9 @@
       if renderer.behavior.renaming?.renaming.wrappedValue != id {
         (outlineView as? SnagOutlineView)?.takeKeyboardFocusForRowClick(at: location)
       }
-      guard !renderer.behavior.canSelect(id, in: tree), !tree.children(of: id).isEmpty
+      // AppKit toggles a section header on a click anywhere in it; toggling again would undo it.
+      guard renderer.behavior.sectionTitle(of: id, in: tree) == nil,
+        !renderer.behavior.canSelect(id, in: tree), !tree.children(of: id).isEmpty
       else { return }
 
       // The disclosure triangle toggles on its own; do not toggle a second time.
@@ -776,21 +881,42 @@
     func handleReturn() -> Bool {
       guard let renderer else { return false }
       let selected = selectedIDs(in: renderer.selection)
-      if selected.count == 1, let id = selected.first,
-        renderer.behavior.startRenaming(id, in: tree)
-      {
-        return true
+      if selected.count == 1, let id = selected.first {
+        switch renderer.behavior.startRenaming(id, in: tree) {
+        case .started:
+          return true
+        case .restarting:
+          pendingRenameRestart = id
+          return true
+        case .refused:
+          break
+        }
       }
       return handlePrimaryAction()
+    }
+
+    /// An element whose stuck rename starts over after the next update; see `handleReturn()`.
+    private var pendingRenameRestart: ID?
+
+    /// Names the element of a restarted rename again, once an update has shown its row without
+    /// the text field.
+    private func restartPendingRename() {
+      guard let id = pendingRenameRestart else { return }
+      pendingRenameRestart = nil
+      guard let binding = renderer?.behavior.renaming?.renaming, binding.wrappedValue == nil
+      else { return }
+      // Not during this update: SwiftUI would not notice a change made while it updates.
+      Task { @MainActor in
+        if binding.wrappedValue == nil { binding.wrappedValue = id }
+      }
     }
 
     /// Runs the primary action independently of the Return-to-rename behavior.
     func handlePrimaryAction() -> Bool {
       guard let renderer else { return false }
-      let selected = selectedIDs(in: renderer.selection)
-      guard let primaryAction = renderer.behavior.primaryAction,
-        selected.contains(where: { tree.contains($0) })
-      else {
+      // Removed elements can stay selected; the action applies to the ones that remain.
+      let selected = selectedIDs(in: renderer.selection).filter(tree.contains)
+      guard let primaryAction = renderer.behavior.primaryAction, !selected.isEmpty else {
         return false
       }
       primaryAction(selected)

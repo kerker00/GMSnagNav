@@ -969,11 +969,11 @@
     }
 
     /// The elements an action on `id` applies to: the selection if `id` is part of it, otherwise
-    /// `id` alone.
+    /// `id` alone. Selected elements that the data no longer contains are left out.
     func activatedIDs(for id: ID) -> Set<ID> {
       guard let renderer else { return [id] }
       let selected = selectedIDs(in: renderer.selection)
-      return selected.contains(id) ? selected : [id]
+      return selected.contains(id) ? selected.filter(tree.contains) : [id]
     }
 
     // MARK: Native context menu
@@ -1108,10 +1108,18 @@
 
     func body(content: Content) -> some View {
       if let begin {
-        content.onDrag { begin() ?? NSItemProvider() }
+        content.wholeRowShape().onDrag { begin() ?? NSItemProvider() }
       } else {
         content
       }
+    }
+  }
+
+  extension View {
+    /// Spans the row and makes all of it respond, not only the shape of its content — beside a
+    /// short title, too.
+    fileprivate func wholeRowShape() -> some View {
+      frame(maxWidth: .infinity, alignment: .leading).contentShape(.rect)
     }
   }
 
@@ -1121,7 +1129,7 @@
 
     func body(content: Content) -> some View {
       if let menu {
-        content.contextMenu { menu() }
+        content.wholeRowShape().contextMenu { menu() }
       } else {
         content
       }

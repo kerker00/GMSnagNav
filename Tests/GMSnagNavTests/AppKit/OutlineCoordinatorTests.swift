@@ -26,11 +26,14 @@
       var typeSelectText: ((TestItem) -> String?)?
       var sectionTitle: ((TestItem) -> String?)?
       var renaming: String?
+      /// Called with every write to the renaming binding.
+      var renamingChanged: ((String?) -> Void)?
       var canRename: ((TestItem) -> Bool)?
       var revealsSelection = true
       var navigation: OutlineNavigationRequest<String>?
       var navigationResults: [OutlineNavigationResult] = []
       var contextMenu: ((Set<String>) -> AnyView)?
+      var contextMenuItems: (@MainActor (Set<String>) -> [OutlineMenuItem])?
     }
 
     let host = Host()
@@ -60,9 +63,19 @@
         request: Binding(get: { host.navigation }, set: { host.navigation = $0 }),
         onCompletion: { _, result in host.navigationResults.append(result) })
       behavior.contextMenu = host.contextMenu
+      if let items = host.contextMenuItems {
+        // As `outlineContextMenuItems(_:)` sets them.
+        behavior.contextMenuItems = items
+        behavior.contextMenu = { ids in AnyView(OutlineMenuItemsView(items: items(ids))) }
+      }
       if let canRename = host.canRename {
         behavior.renaming = OutlineRenameHandler(
-          renaming: Binding(get: { host.renaming }, set: { host.renaming = $0 }),
+          renaming: Binding(
+            get: { host.renaming },
+            set: {
+              host.renaming = $0
+              host.renamingChanged?($0)
+            }),
           canRename: canRename, onRename: { _, _ in })
       }
       let selection: OutlineSelection<String> =
@@ -252,6 +265,56 @@
       #expect(!called)
     }
 
+    private func pressArrow(right: Bool) {
+      let key = right ? "\u{F703}" : "\u{F702}"
+      let event = NSEvent.keyEvent(
+        with: .keyDown, location: .zero, modifierFlags: [.numericPad, .function], timestamp: 0,
+        windowNumber: 0, context: nil, characters: key, charactersIgnoringModifiers: key,
+        isARepeat: false, keyCode: right ? 124 : 123)
+      if let event { outlineView.keyDown(with: event) }
+    }
+
+    @Test func horizontalArrowsEnterAContainerAndReturnToItsParent() {
+      host.expansion = ["a", "a2"]
+      host.single = "a"
+      update()
+      pressArrow(right: true)
+      #expect(host.single == "a1")
+      pressArrow(right: true)
+      #expect(host.single == "a1")
+      pressArrow(right: false)
+      #expect(host.single == "a")
+      // An expanded container collapses first; AppKit handles that.
+      host.single = "a2"
+      update()
+      #expect(!coordinator.handleHorizontalArrow(forward: false))
+      host.expansion = ["a"]
+      update()
+      #expect(coordinator.handleHorizontalArrow(forward: false))
+      #expect(host.single == "a")
+      // A collapsed container doesn't move; AppKit expands it.
+      host.expansion = []
+      update()
+      #expect(!coordinator.handleHorizontalArrow(forward: true))
+      #expect(host.single == "a")
+    }
+
+    @Test func horizontalArrowsSkipUnselectableTargetsAndFollowRightToLeft() {
+      host.isSelectable = { $0.id != "a" }
+      host.expansion = ["a"]
+      host.single = "a1"
+      update()
+      #expect(!coordinator.handleHorizontalArrow(forward: false))
+      #expect(host.single == "a1")
+      host.isSelectable = { _ in true }
+      outlineView.userInterfaceLayoutDirection = .rightToLeft
+      update()
+      pressArrow(right: true)
+      #expect(host.single == "a")
+      pressArrow(right: false)
+      #expect(host.single == "a1")
+    }
+
     @Test func reorderCommandsIgnoreMultipleAndHiddenSelections() {
       host.canReorder = { _ in true }
       var performed = false
@@ -334,6 +397,64 @@
       host.roots = sampleRoots + [.leaf("a1"), .leaf("c")]
       update()
       #expect(host.reportedDuplicates == [["a1"], ["a1", "c"]])
+    }
+
+    @Test func sectionHeadersKeepRoomForTheShowHideButton() throws {
+      let row = NSView(frame: CGRect(x: 0, y: 0, width: 260, height: 24))
+      let cell = HostingCellView()
+      row.addSubview(cell)
+      // Without the button, AppKit gives a header cell nearly the whole row.
+      cell.frame = CGRect(x: 14, y: 0, width: 244, height: 24)
+      cell.reservesShowHideButton = true
+      cell.layoutSubtreeIfNeeded()
+      #expect(abs(cell.convert(cell.hostingView.frame, to: row).maxX - (260 - 26)) < 0.5)
+
+      // With the button showing, the cell shrinks; the content stays where it was.
+      cell.frame = CGRect(x: 14, y: 0, width: 220, height: 24)
+      cell.layoutSubtreeIfNeeded()
+      #expect(abs(cell.convert(cell.hostingView.frame, to: row).maxX - (260 - 26)) < 0.5)
+
+      cell.reservesShowHideButton = false
+      cell.trailingInset = 8
+      cell.layoutSubtreeIfNeeded()
+      #expect(abs(cell.hostingView.frame.maxX - (cell.bounds.maxX - 8)) < 0.5)
+    }
+
+    @Test func laysOutCellsForTheStyleAndSectionHeaders() throws {
+      host.sectionTitle = { $0.id == "a" ? "A" : nil }
+      host.appearance.style = .sidebar
+      update()
+      let header = try #require(
+        outlineView.view(atColumn: 0, row: 0, makeIfNecessary: true) as? HostingCellView)
+      let row = try #require(
+        outlineView.view(atColumn: 0, row: 1, makeIfNecessary: true) as? HostingCellView)
+      #expect(header.reservesShowHideButton)
+      #expect(!row.reservesShowHideButton)
+      #expect(row.trailingInset == 0)
+
+      host.appearance.style = .plain
+      update()
+      let plainHeader = try #require(
+        outlineView.view(atColumn: 0, row: 0, makeIfNecessary: true) as? HostingCellView)
+      let plainRow = try #require(
+        outlineView.view(atColumn: 0, row: 1, makeIfNecessary: true) as? HostingCellView)
+      #expect(!plainHeader.reservesShowHideButton)
+      #expect(plainRow.trailingInset == 8)
+    }
+
+    @Test func namesSidebarsForAccessibility() {
+      host.appearance.style = .automatic
+      update()
+      let sidebar = String(localized: "Sidebar", bundle: .module)
+      #expect(outlineView.accessibilityLabel() == sidebar)
+      host.appearance.style = .plain
+      update()
+      #expect(outlineView.accessibilityLabel()?.isEmpty ?? true)
+      // The host's configuration names the outline its own way.
+      host.appearance.style = .sidebar
+      host.appearance.appKitConfiguration = { $0.setAccessibilityLabel("Projects") }
+      update()
+      #expect(outlineView.accessibilityLabel() == "Projects")
     }
 
     @Test func sizesRowTextLikeNativeSidebarRows() throws {
@@ -459,6 +580,54 @@
       #expect(host.multiple == ["b", "c"])
     }
 
+    @Test func clickingAnUnselectableRowKeepsTheSelection() {
+      host.isSelectable = { $0.children == nil }
+      host.single = "c"
+      update()
+      // Rows: a, b, c. Clicking the unselectable a proposes only its row.
+      let proposed = coordinator.outlineView(
+        outlineView, selectionIndexesForProposedSelection: [0])
+      #expect(proposed == [2])
+      // Clicking empty space still clears the selection.
+      #expect(
+        coordinator.outlineView(outlineView, selectionIndexesForProposedSelection: []).isEmpty)
+    }
+
+    @Test func clickingASectionHeaderKeepsTheSelection() {
+      host.sectionTitle = { $0.id == "a" ? "A" : nil }
+      host.single = "c"
+      update()
+      let proposed = coordinator.outlineView(
+        outlineView, selectionIndexesForProposedSelection: [0])
+      #expect(proposed == [2])
+    }
+
+    @Test func collapsingKeepsTheSelectionOfHiddenRows() {
+      host.expansion = ["a"]
+      host.single = "a1"
+      update()
+      outlineView.collapseItem(item("a"))
+      #expect(outlineView.selectedRowIndexes.isEmpty)
+      #expect(host.single == "a1")
+
+      outlineView.expandItem(item("a"))
+      #expect(outlineView.selectedRowIndexes == [outlineView.row(forItem: item("a1"))])
+      #expect(host.single == "a1")
+    }
+
+    @Test func collapsingKeepsHiddenRowsInAMultipleSelection() {
+      host.expansion = ["a"]
+      host.multiple = ["a1", "c"]
+      update(multipleSelection: true)
+      outlineView.collapseItem(item("a"))
+      #expect(host.multiple == ["a1", "c"])
+      #expect(outlineView.selectedRowIndexes == [outlineView.row(forItem: item("c"))])
+
+      // A selection the user makes afterwards replaces the hidden one.
+      outlineView.selectRowIndexes([1], byExtendingSelection: false)
+      #expect(host.multiple == ["b"])
+    }
+
     @Test func showsSectionsAsUnselectableGroupRows() {
       host.sectionTitle = { $0.id == "a" ? "A" : nil }
       host.expansion = ["a"]
@@ -490,19 +659,37 @@
       #expect(activated == ["a"])
     }
 
-    @Test func restartsAPendingRenameOnReturn() async throws {
+    @Test(.timeLimit(.minutes(5))) func restartsAPendingRenameOnReturn() async {
+      host.canRename = { _ in true }
+      host.single = "c"
+      host.renaming = "c"
+      let (restarts, continuation) = AsyncStream<String>.makeStream()
+      defer { continuation.finish() }
+      host.renamingChanged = { if let id = $0 { continuation.yield(id) } }
+      update()
+      #expect(coordinator.handleReturn())
+      #expect(host.renaming == nil)
+      // Nothing happens until SwiftUI has shown the row without its text field.
+      for _ in 0..<5 { await Task.yield() }
+      #expect(host.renaming == nil)
+      update()
+      // Wait for the binding write itself rather than a deadline: on CI, other tests can keep
+      // the main actor busy for longer than any short deadline.
+      var iterator = restarts.makeAsyncIterator()
+      #expect(await iterator.next() == "c")
+      #expect(host.renaming == "c")
+    }
+
+    @Test func dropsARenameRestartWhenTheHostRenamesSomethingElse() async {
       host.canRename = { _ in true }
       host.single = "c"
       host.renaming = "c"
       update()
       #expect(coordinator.handleReturn())
-      #expect(host.renaming == nil)
-      try await Task.sleep(for: .milliseconds(200))
-      let deadline = ContinuousClock.now + .seconds(2)
-      while host.renaming != "c", ContinuousClock.now < deadline {
-        try await Task.sleep(for: .milliseconds(10))
-      }
-      #expect(host.renaming == "c")
+      host.renaming = "a"
+      update()
+      for _ in 0..<5 { await Task.yield() }
+      #expect(host.renaming == "a")
     }
 
     @Test func runsThePrimaryActionOnReturnForSeveralSelectedRows() {
@@ -610,6 +797,22 @@
       update()
       #expect(!coordinator.handlePrimaryAction())
       #expect(!activated)
+    }
+
+    @Test func actionsLeaveOutSelectedElementsThatWereRemoved() {
+      var activated: Set<String>?
+      host.primaryAction = { activated = $0 }
+      host.multiple = ["a", "c"]
+      update(multipleSelection: true)
+      host.roots.removeLast()
+      update(multipleSelection: true)
+      #expect(host.multiple == ["a", "c"])
+
+      #expect(coordinator.handlePrimaryAction())
+      #expect(activated == ["a"])
+      coordinator.handleDoubleClick(onRow: 0)
+      #expect(activated == ["a"])
+      #expect(coordinator.contextMenuIDs(forRow: 0) == ["a"])
     }
 
     @Test func commandKeyEquivalentRequiresTheOutlinesFocus() throws {
@@ -1094,6 +1297,18 @@
       #expect(host.expansion.isEmpty)
     }
 
+    @Test func clickingASectionHeaderLeavesTogglingToAppKit() async {
+      host.sectionTitle = { $0.id == "a" ? "A" : nil }
+      host.expansion = ["a"]
+      host.primaryAction = { _ in }
+      coordinator.doubleClickDelayOverride = .zero
+      update()
+      coordinator.handleClick(onRow: 0, at: nil)
+      await coordinator.pendingToggleSettled()
+      #expect(host.expansion == ["a"])
+      #expect(outlineView.isItemExpanded(item("a")))
+    }
+
     @Test func clickingASelectableRowOrNoRowDoesNotToggle() {
       host.isSelectable = { $0.id != "a" }
       update()
@@ -1208,6 +1423,59 @@
       host.roots = (0..<300).map { .leaf("new\($0)") }
       update()
       #expect(visibleIDs == host.roots.map(\.id))
+    }
+
+    @Test func usesANativeMenuOnlyForMenuItems() {
+      update()
+      #expect(outlineView.menu == nil)
+      #expect(!outlineView.rowsShowHostedMenus)
+
+      host.contextMenu = { _ in AnyView(Button("Delete") {}) }
+      update()
+      #expect(outlineView.menu == nil)
+      #expect(outlineView.rowsShowHostedMenus)
+
+      host.contextMenuItems = { _ in [.action("Delete") {}] }
+      update()
+      #expect(outlineView.menu != nil)
+      #expect(!outlineView.rowsShowHostedMenus)
+    }
+
+    @Test func fillsTheNativeMenuForTheClickedRowOrEmptySpace() throws {
+      var requested: [Set<String>] = []
+      host.single = "c"
+      host.contextMenuItems = { ids in
+        requested.append(ids)
+        return [
+          .action("Open") {},
+          .divider,
+          .menu("Move to", children: [.action("Top Level", isDisabled: true) {}]),
+        ]
+      }
+      update()
+      let menu = try #require(outlineView.menu)
+      // No row was clicked: empty space.
+      coordinator.menuNeedsUpdate(menu)
+      #expect(requested == [[]])
+      #expect(menu.items.map(\.title) == ["Open", "", "Move to"])
+      #expect(menu.items[1].isSeparatorItem)
+      #expect(menu.items[2].submenu?.items.first?.isEnabled == false)
+
+      // Rows: a, b, c. The selected row applies to the selection, others to themselves.
+      #expect(coordinator.contextMenuIDs(forRow: 2) == ["c"])
+      #expect(coordinator.contextMenuIDs(forRow: 0) == ["a"])
+    }
+
+    @Test func nativeMenuItemsRunTheirActions() throws {
+      var performed = false
+      let items = OutlineMenuItem.nativeItems(for: [
+        .action("Delete", systemImage: "trash") { performed = true }
+      ])
+      let item = try #require(items.first)
+      #expect(item.image != nil)
+      let target = try #require(item.target as? OutlineMenuActionTarget)
+      target.performAction(item)
+      #expect(performed)
     }
 
     @Test func attachesTheContextMenuToRows() {

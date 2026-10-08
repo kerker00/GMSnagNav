@@ -42,6 +42,11 @@ struct SidebarView: View {
       .onChange(of: searchText) {
         // Open every folder on the way to a match; the user may still close them.
         searchExpansion = matchingIDs.filter { library.item($0)?.isFolder == true }
+        // Back in the whole library, the selection may sit in a collapsed folder: show it, unless
+        // a navigation from the detail view cleared the search and reveals it already.
+        if !isSearching, pendingNavigation == nil, let selection, library.item(selection) != nil {
+          pendingNavigation = .reveal(selection)
+        }
       }
       .onChange(of: navigationRequest, initial: true) {
         guard let navigationRequest else { return }
@@ -86,7 +91,8 @@ struct SidebarView: View {
           get: { openedDocument != nil },
           set: { if !$0 { openedDocument = nil } })
       ) {
-        Button("OK", role: .cancel) {}
+        // Not a cancel button: Return dismisses only the alert's default button.
+        Button("OK") {}
       } message: {
         Text("A real app would open the document here.")
       }
@@ -230,7 +236,7 @@ struct SidebarView: View {
       OutlineLabel(item.name, systemImage: item.systemImage)
         .accessibilityIdentifier("sidebar-row-\(item.name)")
     }
-    .outlineBadge { showsBadges ? badge(for: $0) : nil }
+    .outlineBadge { showsBadges ? badge(for: $0, matches: matches) : nil }
     .outlineNavigation($pendingNavigation) { _, result in
       if result == .elementNotFound {
         onError(LibraryNavigationError.itemNotFound)
@@ -283,10 +289,13 @@ struct SidebarView: View {
   }
 
   /// Examples of each accessory. No synchronization is performed by the demo.
-  private func badge(for item: LibraryItem) -> OutlineBadge? {
+  ///
+  /// While searching, folders count only their matching items, which are the ones shown.
+  private func badge(for item: LibraryItem, matches: Set<LibraryItem.ID>?) -> OutlineBadge? {
     switch item.status {
     case .none:
-      guard let count = item.children?.count else { return nil }
+      guard let children = item.children else { return nil }
+      let count = children.filter { matches?.contains($0.id) ?? true }.count
       return .count(count, accessibilityLabel: count == 1 ? "1 item" : "\(count) items")
     case .new: return .text("New")
     case .unread: return .dot(accessibilityLabel: "Unread")

@@ -9,6 +9,7 @@ import Testing
     ("en", "Expanded", "Expanded"), ("en", "Collapse", "Collapse"),
     ("de", "Expanded", "Erweitert"), ("de", "Collapsed", "Reduziert"),
     ("de", "Expand", "Erweitern"), ("de", "Collapse", "Reduzieren"), ("de", "Name", "Name"),
+    ("en", "Sidebar", "Sidebar"), ("de", "Sidebar", "Seitenleiste"),
   ])
   func translatesDisclosureTexts(language: String, key: String, expected: String) throws {
     let path = try #require(Bundle.module.path(forResource: language, ofType: "lproj"))

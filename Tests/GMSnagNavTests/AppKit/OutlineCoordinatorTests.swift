@@ -336,6 +336,49 @@
       #expect(host.reportedDuplicates == [["a1"], ["a1", "c"]])
     }
 
+    @Test func sectionHeadersKeepRoomForTheShowHideButton() throws {
+      let row = NSView(frame: CGRect(x: 0, y: 0, width: 260, height: 24))
+      let cell = HostingCellView()
+      row.addSubview(cell)
+      // Without the button, AppKit gives a header cell nearly the whole row.
+      cell.frame = CGRect(x: 14, y: 0, width: 244, height: 24)
+      cell.reservesShowHideButton = true
+      cell.layoutSubtreeIfNeeded()
+      #expect(abs(cell.convert(cell.hostingView.frame, to: row).maxX - (260 - 26)) < 0.5)
+
+      // With the button showing, the cell shrinks; the content stays where it was.
+      cell.frame = CGRect(x: 14, y: 0, width: 220, height: 24)
+      cell.layoutSubtreeIfNeeded()
+      #expect(abs(cell.convert(cell.hostingView.frame, to: row).maxX - (260 - 26)) < 0.5)
+
+      cell.reservesShowHideButton = false
+      cell.trailingInset = 8
+      cell.layoutSubtreeIfNeeded()
+      #expect(abs(cell.hostingView.frame.maxX - (cell.bounds.maxX - 8)) < 0.5)
+    }
+
+    @Test func laysOutCellsForTheStyleAndSectionHeaders() throws {
+      host.sectionTitle = { $0.id == "a" ? "A" : nil }
+      host.appearance.style = .sidebar
+      update()
+      let header = try #require(
+        outlineView.view(atColumn: 0, row: 0, makeIfNecessary: true) as? HostingCellView)
+      let row = try #require(
+        outlineView.view(atColumn: 0, row: 1, makeIfNecessary: true) as? HostingCellView)
+      #expect(header.reservesShowHideButton)
+      #expect(!row.reservesShowHideButton)
+      #expect(row.trailingInset == 0)
+
+      host.appearance.style = .plain
+      update()
+      let plainHeader = try #require(
+        outlineView.view(atColumn: 0, row: 0, makeIfNecessary: true) as? HostingCellView)
+      let plainRow = try #require(
+        outlineView.view(atColumn: 0, row: 1, makeIfNecessary: true) as? HostingCellView)
+      #expect(!plainHeader.reservesShowHideButton)
+      #expect(plainRow.trailingInset == 8)
+    }
+
     @Test func sizesRowTextLikeNativeSidebarRows() throws {
       let sizes: [(NSTableView.RowSizeStyle, CGFloat)] = [
         (.small, 11), (.medium, 13), (.large, 15),

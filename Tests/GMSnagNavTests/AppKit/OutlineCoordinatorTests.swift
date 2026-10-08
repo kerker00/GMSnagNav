@@ -265,6 +265,56 @@
       #expect(!called)
     }
 
+    private func pressArrow(right: Bool) {
+      let key = right ? "\u{F703}" : "\u{F702}"
+      let event = NSEvent.keyEvent(
+        with: .keyDown, location: .zero, modifierFlags: [.numericPad, .function], timestamp: 0,
+        windowNumber: 0, context: nil, characters: key, charactersIgnoringModifiers: key,
+        isARepeat: false, keyCode: right ? 124 : 123)
+      if let event { outlineView.keyDown(with: event) }
+    }
+
+    @Test func horizontalArrowsEnterAContainerAndReturnToItsParent() {
+      host.expansion = ["a", "a2"]
+      host.single = "a"
+      update()
+      pressArrow(right: true)
+      #expect(host.single == "a1")
+      pressArrow(right: true)
+      #expect(host.single == "a1")
+      pressArrow(right: false)
+      #expect(host.single == "a")
+      // An expanded container collapses first; AppKit handles that.
+      host.single = "a2"
+      update()
+      #expect(!coordinator.handleHorizontalArrow(forward: false))
+      host.expansion = ["a"]
+      update()
+      #expect(coordinator.handleHorizontalArrow(forward: false))
+      #expect(host.single == "a")
+      // A collapsed container doesn't move; AppKit expands it.
+      host.expansion = []
+      update()
+      #expect(!coordinator.handleHorizontalArrow(forward: true))
+      #expect(host.single == "a")
+    }
+
+    @Test func horizontalArrowsSkipUnselectableTargetsAndFollowRightToLeft() {
+      host.isSelectable = { $0.id != "a" }
+      host.expansion = ["a"]
+      host.single = "a1"
+      update()
+      #expect(!coordinator.handleHorizontalArrow(forward: false))
+      #expect(host.single == "a1")
+      host.isSelectable = { _ in true }
+      outlineView.userInterfaceLayoutDirection = .rightToLeft
+      update()
+      pressArrow(right: true)
+      #expect(host.single == "a")
+      pressArrow(right: false)
+      #expect(host.single == "a1")
+    }
+
     @Test func reorderCommandsIgnoreMultipleAndHiddenSelections() {
       host.canReorder = { _ in true }
       var performed = false
@@ -390,6 +440,21 @@
         outlineView.view(atColumn: 0, row: 1, makeIfNecessary: true) as? HostingCellView)
       #expect(!plainHeader.reservesShowHideButton)
       #expect(plainRow.trailingInset == 8)
+    }
+
+    @Test func namesSidebarsForAccessibility() {
+      host.appearance.style = .automatic
+      update()
+      let sidebar = String(localized: "Sidebar", bundle: .module)
+      #expect(outlineView.accessibilityLabel() == sidebar)
+      host.appearance.style = .plain
+      update()
+      #expect(outlineView.accessibilityLabel()?.isEmpty ?? true)
+      // The host's configuration names the outline its own way.
+      host.appearance.style = .sidebar
+      host.appearance.appKitConfiguration = { $0.setAccessibilityLabel("Projects") }
+      update()
+      #expect(outlineView.accessibilityLabel() == "Projects")
     }
 
     @Test func sizesRowTextLikeNativeSidebarRows() throws {

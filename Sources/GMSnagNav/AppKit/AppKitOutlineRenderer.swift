@@ -132,6 +132,9 @@
       (outlineView as? SnagOutlineView)?.onReorder = { [weak self] direction in
         self?.handleReorderShortcut(direction) ?? false
       }
+      (outlineView as? SnagOutlineView)?.onHorizontalArrow = { [weak self] forward in
+        self?.handleHorizontalArrow(forward: forward) ?? false
+      }
       outlineView.registerForDraggedTypes([Self.draggedRowType])
       outlineView.setDraggingSourceOperationMask([.move, .copy], forLocal: true)
       outlineView.setDraggingSourceOperationMask([], forLocal: false)
@@ -376,6 +379,10 @@
         case .plain: .plain
         }
       if outlineView.style != style { outlineView.style = style }
+      // VoiceOver names a sidebar like SwiftUI's sidebar lists, instead of only "outline". Set
+      // before the host's configuration, which may name it differently.
+      outlineView.setAccessibilityLabel(
+        style == .sourceList ? String(localized: "Sidebar", bundle: .module, locale: locale) : nil)
       appearance.appKitConfiguration?(outlineView)
       // After the host's configuration: AppKit resets the indentation when the row size changes.
       guard outlineView.indentationPerLevel != appearance.indentation else { return false }
@@ -771,6 +778,30 @@
     func handleReorderShortcut(_ direction: OutlineReorderDirection) -> Bool {
       guard renderer?.behavior.canReorder != nil else { return false }
       _ = reorderSelection(direction)
+      return true
+    }
+
+    /// Enters the first child of an expanded container with the forward arrow, and returns to
+    /// the parent of a collapsed row or leaf with the backward arrow, as on iPad. Expanding and
+    /// collapsing stay with AppKit, so the behavior doesn't depend on the macOS version.
+    func handleHorizontalArrow(forward: Bool) -> Bool {
+      guard let renderer, let outlineView, outlineView.selectedRowIndexes.count == 1,
+        let id = id(of: outlineView.item(atRow: outlineView.selectedRow))
+      else { return false }
+      let isExpanded = outlineView.isItemExpanded(box(for: id))
+      let target: ID?
+      if forward {
+        guard isExpanded else { return false }
+        target = tree.children(of: id).first
+      } else {
+        guard !isExpanded || tree.children(of: id).isEmpty else { return false }
+        target = tree.parent(of: id)
+      }
+      guard let target, renderer.behavior.canSelect(target, in: tree) else { return false }
+      let row = outlineView.row(forItem: box(for: target))
+      guard row >= 0 else { return false }
+      outlineView.selectRowIndexes([row], byExtendingSelection: false)
+      outlineView.scrollRowToVisible(row)
       return true
     }
 

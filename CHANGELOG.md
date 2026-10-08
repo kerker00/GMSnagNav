@@ -9,9 +9,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- On macOS, dot, progress and symbol badges stay visible on a selected row. Their tint used to vanish on
-  the accent-colored selection, such as a blue unread dot on a blue row; they now take the row's
-  high-contrast foreground there.
+- On macOS, dot, progress and symbol badges stay visible on a selected row. Their tint used to
+  vanish on the accent-colored selection, such as a blue unread dot on a blue row; they now take
+  the row's high-contrast foreground there.
 - On macOS, the badge of a section header no longer moves when the pointer rests on the header.
   The header keeps room for AppKit's show/hide button at all times.
 - On macOS, badges in plain outlines keep a distance from the outline's trailing edge.
@@ -30,6 +30,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   title used to open the menu for empty space instead.
 - On macOS, the SwiftUI menu of `outlineContextMenu(_:)` opens across the whole width of a row's
   content. A right-click in a row's indentation no longer opens the menu for empty space.
+- Demo: the detail view shows names changed in the sidebar, deleting the selected item or its
+  folder ends the selection, clearing the search reveals the selection, folder counts match the
+  search results, a long location no longer shifts the detail form, and Return dismisses alerts.
 
 ## [0.4.0] - 2026-10-08
 

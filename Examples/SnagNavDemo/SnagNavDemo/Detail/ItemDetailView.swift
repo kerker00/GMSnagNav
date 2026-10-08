@@ -16,6 +16,8 @@ struct ItemDetailView: View {
           .navigationSubtitle(subtitle(for: item))
         #endif
         .onAppear { name = item.name }
+        // Renaming in the sidebar must show here too; Return would otherwise restore the old name.
+        .onChange(of: item.name) { name = item.name }
     }
   }
 
@@ -46,7 +48,14 @@ struct ItemDetailView: View {
           // Text rows keep the 6 points between stacked controls.
           Group {
             LabeledContent("Kind:", value: kind(of: item))
-            LabeledContent("Location:") { location }
+            // One line as wide as the fields, so a long path doesn't shift the whole form.
+            LabeledContent("Location:") {
+              location
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(width: 260, alignment: .leading)
+                .help(library.path(to: itemID).joined(separator: " › "))
+            }
             if let children = item.children {
               LabeledContent("Items:", value: "\(children.count)")
             }

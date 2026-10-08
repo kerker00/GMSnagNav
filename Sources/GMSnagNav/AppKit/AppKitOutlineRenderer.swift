@@ -280,9 +280,19 @@
           let id = id(of: outlineView.item(atRow: row)),
           let content = rowContent(for: id)
         else { continue }
-        cell.show(content)
-        cell.setAccessibilityCustomActions(reorderingActions(for: id))
+        configure(cell, for: id, content: content)
       }
+    }
+
+    /// Shows an element's content in a cell, laid out for the outline's style.
+    private func configure(_ cell: HostingCellView, for id: ID, content: AnyView) {
+      cell.show(content)
+      cell.setAccessibilityCustomActions(reorderingActions(for: id))
+      let isSourceList = outlineView?.style == .sourceList
+      // Plain rows reach the edge of the outline; keep accessories off it.
+      cell.trailingInset = isSourceList ? 0 : 8
+      cell.reservesShowHideButton =
+        isSourceList && renderer?.behavior.sectionTitle(of: id, in: tree) != nil
     }
 
     /// The host's row content for an element, with the context menu attached.
@@ -581,8 +591,7 @@
       let cell =
         outlineView.makeView(withIdentifier: HostingCellView.reuseIdentifier, owner: nil)
         as? HostingCellView ?? HostingCellView()
-      cell.show(content)
-      cell.setAccessibilityCustomActions(reorderingActions(for: id))
+      configure(cell, for: id, content: content)
       return cell
     }
 

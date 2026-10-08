@@ -254,6 +254,22 @@
       #expect(window.contentView?.fittingSize.height ?? 0 > 0)
     }
 
+    @Test(arguments: [
+      OutlineBadge.symbol(systemImage: "checkmark.circle", accessibilityLabel: "Synced"),
+      .dot(accessibilityLabel: "Unread"),
+      .progress(0.4, accessibilityLabel: "Uploading"),
+    ])
+    func rendersTintedBadgesOnSelectedRowsAndInLargeRows(badge: OutlineBadge) {
+      for prominence in [BackgroundProminence.standard, .increased] {
+        let window = render(
+          OutlineBadgedContent(badge: badge) { Text("Title") }
+            .environment(\.backgroundProminence, prominence)
+            .environment(\.outlineRowTextSize, 15))
+        defer { window.close() }
+        #expect(window.contentView?.fittingSize.height ?? 0 > 0)
+      }
+    }
+
     @Test func rendersCompactNavigation() {
       var column = NavigationSplitViewColumn.sidebar
       render(

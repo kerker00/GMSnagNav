@@ -37,7 +37,10 @@ SnagOutline(items, children: \.children, selection: $selection) { item in
 
 Localize text and status descriptions in your app. A dot needs another way for users to understand
 its meaning; use a familiar convention or explain it in the detail view. Symbols and descriptions
-should communicate meaning without relying only on color.
+should communicate meaning without relying only on color: on a selected row whose background is
+the accent color, symbols, dots and progress drop their tint and take the row's high-contrast
+foreground, as native sidebar rows do. On macOS, accessories scale with the row size that AppKit
+picks for source lists, following the sidebar icon size in System Settings.
 
 ## Preserve behavior and updates
 

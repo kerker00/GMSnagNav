@@ -9,6 +9,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- On macOS, dot, progress and symbol badges stay visible on a selected row. Their tint used to vanish on
+  the accent-colored selection, such as a blue unread dot on a blue row; they now take the row's
+  high-contrast foreground there.
+- On macOS, the badge of a section header no longer moves when the pointer rests on the header.
+  The header keeps room for AppKit's show/hide button at all times.
+- On macOS, badges in plain outlines keep a distance from the outline's trailing edge.
+- On macOS, badges and section headers scale with large and small sidebar rows, like the rows'
+  text.
 - Clicking a row that can't be selected, such as a section header or an unselectable folder,
   no longer clears the selection on macOS. The arrow keys still skip such rows.
 - Collapsing a folder on macOS keeps its selected elements in the selection binding, as on iOS,

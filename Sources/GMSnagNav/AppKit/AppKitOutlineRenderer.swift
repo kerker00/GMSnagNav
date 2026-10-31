@@ -456,8 +456,8 @@
     func outlineView(
       _ outlineView: NSOutlineView, pasteboardWriterForItem item: Any
     ) -> NSPasteboardWriting? {
-      guard let canDrag = renderer?.behavior.canDrag, let id = id(of: item),
-        let element = tree.element(id), canDrag(element)
+      guard let behavior = renderer?.behavior, let id = id(of: item),
+        let element = tree.element(id), behavior.isDraggable(element)
       else { return nil }
       let token = UUID().uuidString
       draggedIDsByToken[token] = id
@@ -604,7 +604,7 @@
       return dropCache.resolution(for: ids, target: target, isCopyRequested: copying) {
         drop.resolve(
           draggedIDs: ids, target: target, tree: tree, expanded: renderer.expansion,
-          isCopyRequested: copying)
+          isCopyRequested: copying, isPinned: renderer.behavior.isPinned)
       }
     }
 

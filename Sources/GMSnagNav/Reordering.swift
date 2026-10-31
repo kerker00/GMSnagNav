@@ -36,6 +36,7 @@ extension OutlineBehavior {
     expanded: Set<Element.ID>
   ) -> OutlineDropProposal<Element.ID>? {
     guard let canReorder, let drop, let node = tree.node(id), canReorder(node.element),
+      isPinned?(node.element) != true,
       renaming?.renaming.wrappedValue == nil
     else { return nil }
     let destination = node.index + (direction == .up ? -1 : 1)
@@ -44,7 +45,7 @@ extension OutlineBehavior {
     guard
       let resolved = drop.resolve(
         draggedIDs: [id], target: .insert(into: node.parent, at: insertion),
-        tree: tree, expanded: expanded),
+        tree: tree, expanded: expanded, isPinned: isPinned),
       resolved.operation == .move,
       !resolved.proposal.isDroppingIntoOwnSubtree,
       resolved.proposal.target.parent == node.parent,

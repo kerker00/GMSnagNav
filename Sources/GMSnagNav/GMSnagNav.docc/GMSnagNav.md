@@ -74,6 +74,7 @@ rows to their new place.
 - <doc:DragAndDrop>
 - ``SnagOutline/outlineDraggable(_:)``
 - ``SnagOutline/outlineReorderable(_:)``
+- ``SnagOutline/outlinePinned(_:)``
 - ``SnagOutline/onOutlineDrop(validate:perform:)``
 - ``OutlineDropProposal``
 - ``OutlineDropTarget``

@@ -316,7 +316,7 @@
       let badge = renderer.behavior.badge?(element)
       // The row draws its own leading chevron and indentation: UIKit places its outline
       // disclosure on the trailing edge of sidebar lists and does not indent hosted content.
-      let canDrag = rowsDragThemselves && renderer.behavior.canDrag?(element) == true
+      let canDrag = rowsDragThemselves && renderer.behavior.isDraggable(element)
       // A native menu is shown by the collection view; only a SwiftUI menu lives in the row.
       let menu = renderer.behavior.contextMenuItems == nil ? renderer.behavior.contextMenu : nil
       let menuIDs = activatedIDs(for: id)
@@ -645,7 +645,7 @@
     private let draggedRowType = "io.github.kerker00.gmsnagnav.outline-row.\(UUID().uuidString)"
 
     /// The elements of the drag that is in progress, recorded when it begins.
-    private var currentDragIDs: [ID] = []
+    private(set) var currentDragIDs: [ID] = []
 
     /// The frames of the visible rows when the drag entered the list, in display order.
     ///
@@ -676,12 +676,15 @@
     /// the menu and moving the finger lifts the row out of it — like the Files app. A row that
     /// belongs to a multiple selection drags the whole selection.
     func beginDrag(from id: ID) -> NSItemProvider {
-      var ids = [id]
+      var ids =
+        tree.element(id).map { renderer?.behavior.isDraggable($0) == true } == true
+        ? [id] : []
       if let renderer, case .multiple(let binding) = renderer.selection,
-        binding.wrappedValue.contains(id), let canDrag = renderer.behavior.canDrag
+        !ids.isEmpty, binding.wrappedValue.contains(id)
       {
         ids = tree.visibleRows(expanded: displayedExpansion).map(\.id).filter { row in
-          binding.wrappedValue.contains(row) && tree.element(row).map(canDrag) == true
+          binding.wrappedValue.contains(row)
+            && tree.element(row).map(renderer.behavior.isDraggable) == true
         }
       }
       currentDragIDs = ids
@@ -719,9 +722,9 @@
     }
 
     private func draggableID(at indexPath: IndexPath) -> ID? {
-      guard let canDrag = renderer?.behavior.canDrag,
+      guard let behavior = renderer?.behavior,
         let id = dataSource?.itemIdentifier(for: indexPath),
-        let element = tree.element(id), canDrag(element)
+        let element = tree.element(id), behavior.isDraggable(element)
       else { return nil }
       return id
     }
@@ -805,7 +808,9 @@
     ) -> (proposal: OutlineDropProposal<ID>, operation: OutlineDropOperation)? {
       guard let renderer, let drop = renderer.behavior.drop, !ids.isEmpty else { return nil }
       return dropCache.resolution(for: ids, target: target) {
-        drop.resolve(draggedIDs: ids, target: target, tree: tree, expanded: renderer.expansion)
+        drop.resolve(
+          draggedIDs: ids, target: target, tree: tree, expanded: renderer.expansion,
+          isPinned: renderer.behavior.isPinned)
       }
     }
 

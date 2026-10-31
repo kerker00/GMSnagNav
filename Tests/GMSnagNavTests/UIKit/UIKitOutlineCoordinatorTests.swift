@@ -24,6 +24,8 @@
       var navigationResults: [OutlineNavigationResult] = []
       var badge: OutlineBadge?
       var canReorder: ((TestItem) -> Bool)?
+      var canDrag: ((TestItem) -> Bool)?
+      var isPinned: ((TestItem) -> Bool)?
     }
 
     let host = Host()
@@ -52,6 +54,8 @@
         onCompletion: { _, result in host.navigationResults.append(result) })
       behavior.badge = { _ in host.badge }
       behavior.canReorder = host.canReorder
+      behavior.canDrag = host.canDrag
+      behavior.isPinned = host.isPinned
       let selection: OutlineSelection<String> =
         multipleSelection
         ? .multiple(Binding(get: { host.multiple }, set: { host.multiple = $0 }))
@@ -66,6 +70,37 @@
           springLoading: host.springLoading,
           rowContent: { Text($0.id) }),
         layoutDirection: layoutDirection)
+    }
+
+    @Test func pinnedRowsProtectDragsAndDropsAndRefreshWithHostPolicy() {
+      host.canDrag = { _ in true }
+      host.isPinned = { ["a", "a1"].contains($0.id) }
+      host.multiple = ["a", "a1", "a2", "c"]
+      host.expansion = ["a"]
+      var performed: OutlineDropProposal<String>?
+      host.drop = OutlineDropHandler(
+        validate: { _ in .accept(.move) },
+        perform: { proposal, _ in
+          performed = proposal
+          return true
+        })
+      update(multipleSelection: true)
+      _ = coordinator.beginDrag(from: "c")
+      #expect(coordinator.currentDragIDs == ["a2", "c"])
+      _ = coordinator.beginDrag(from: "a")
+      #expect(coordinator.currentDragIDs.isEmpty)
+      #expect(coordinator.performDrop(of: ["c"], at: .insert(into: "a", at: 0)))
+      #expect(performed?.target == .insert(into: "a", at: 1))
+      #expect(host.multiple == ["a", "a1", "a2", "c"])
+      #expect(host.expansion == ["a"])
+      #expect(
+        coordinator.resolveDrop(of: ["c"], at: .insert(into: nil, at: 0))?.proposal.target
+          == .insert(into: nil, at: 1))
+      host.isPinned = nil
+      update(multipleSelection: true)
+      #expect(
+        coordinator.resolveDrop(of: ["c"], at: .insert(into: nil, at: 0))?.proposal.target
+          == .insert(into: nil, at: 0))
     }
 
     @Test func explicitRevealOpensAncestorsAndRepeatsWithoutChangingSelection() async throws {

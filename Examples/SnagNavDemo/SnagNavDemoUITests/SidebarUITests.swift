@@ -165,6 +165,34 @@ final class SidebarUITests: XCTestCase {
       "Expected \(first) before \(second)", file: file, line: line)
   }
 
+  func testPinnedRowsKeepTheirPositionsAtRootAndNestedLevels() throws {
+    try requireSidebarBesideDetail()
+    app.terminate()
+    app.launchArguments.append("-pin-leading-rows")
+    app.launch()
+    select("Work")
+    app.typeKey(.downArrow, modifierFlags: [.command, .option])
+    assertRow("Work", appearsBefore: "Personal")
+    assertDetailLocation("Work")
+    select("Personal")
+    app.typeKey(.upArrow, modifierFlags: [.command, .option])
+    assertRow("Work", appearsBefore: "Personal")
+    assertDetailLocation("Personal")
+    select("Clients")
+    app.typeKey(.downArrow, modifierFlags: [.command, .option])
+    assertRow("Clients", appearsBefore: "Internal")
+    assertDetailLocation("Work › Clients")
+    select("Internal")
+    app.typeKey(.upArrow, modifierFlags: [.command, .option])
+    assertRow("Clients", appearsBefore: "Internal")
+    assertDetailLocation("Work › Internal")
+    // Ordinary rows still reorder below the protected prefix.
+    select("Inbox")
+    app.typeKey(.downArrow, modifierFlags: [.command, .option])
+    assertRow("Ideas", appearsBefore: "Inbox")
+    assertDetailLocation("Inbox")
+  }
+
   func testModifiedArrowsReorderSiblingsAndKeepSelection() throws {
     try requireSidebarBesideDetail()
     select("Inbox")

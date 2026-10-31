@@ -28,7 +28,13 @@ struct SnagNavDemoApp: App {
     {
       roots.insert(.section("Favorites", [.document("Favorite Note")]), at: 0)
     }
-    _library = State(initialValue: Library(roots: roots))
+    let library = Library(roots: roots)
+    if CommandLine.arguments.contains("-ui-testing"),
+      CommandLine.arguments.contains("-pin-leading-rows")
+    {
+      library.pinsLeadingRows = true
+    }
+    _library = State(initialValue: library)
     if isUITesting, let domain = Bundle.main.bundleIdentifier {
       UserDefaults.standard.removePersistentDomain(forName: domain)
     }

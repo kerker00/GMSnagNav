@@ -122,18 +122,22 @@ struct SidebarView: View {
     return SidebarActions(
       newSection: { newSection() }, newFolder: { newFolder() }, newDocument: { newDocument() },
       deleteSelection: delete,
-      expandAll: { expandAll() }, collapseAll: { collapseAll() })
+      expandAll: { expandAll() }, collapseAll: { collapseAll() },
+      pinsLeadingRows: Binding(
+        get: { library.pinsLeadingRows }, set: { library.pinsLeadingRows = $0 }))
   }
 
   private var versionText: String { "GMSnagNav \(GMSnagNav.version)" }
 
   /// Expanding, collapsing and the settings the demo offers for the outline.
   @ViewBuilder private var optionsMenuContent: some View {
+    @Bindable var library = library
     Button("Expand All", systemImage: "arrow.down.right.and.arrow.up.left", action: expandAll)
     Button("Collapse All", systemImage: "arrow.up.left.and.arrow.down.right", action: collapseAll)
     Divider()
     Toggle("Folders Are Selectable", isOn: $foldersSelectable)
     Toggle("Show Badges", isOn: $showsBadges)
+    Toggle("Pin Leading Rows", isOn: $library.pinsLeadingRows)
     Divider()
     Picker("Style", selection: $style) {
       ForEach(DemoOutlineStyle.allCases) { Text($0.title).tag($0) }
@@ -233,8 +237,10 @@ struct SidebarView: View {
       selection: $selection,
       expansion: isSearching ? $searchExpansion : $expansion
     ) { item in
-      OutlineLabel(item.name, systemImage: item.systemImage)
-        .accessibilityIdentifier("sidebar-row-\(item.name)")
+      OutlineLabel(
+        item.name, systemImage: library.isPinned(item.id) ? "pin.fill" : item.systemImage
+      )
+      .accessibilityIdentifier("sidebar-row-\(item.name)")
     }
     .outlineBadge { showsBadges ? badge(for: $0, matches: matches) : nil }
     .outlineNavigation($pendingNavigation) { _, result in
@@ -261,6 +267,7 @@ struct SidebarView: View {
     .outlineIndentation(indentationStep.width)
     .outlineDraggable { _ in !isSearching }
     .outlineReorderable { _ in !isSearching }
+    .outlinePinned { library.isPinned($0.id) }
     .onOutlineDrop(validate: library.dropResult(for:), perform: drop)
     // Lets drops onto the root level and the empty-space menu through, unlike a plain overlay.
     .outlineEmptyContent { [isSearching, searchText] in

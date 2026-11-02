@@ -79,11 +79,16 @@ extension OutlineDropHandler {
   ///   accepted operation, or `nil` if the drop is not allowed.
   func resolve<Element: Identifiable>(
     draggedIDs: [ID], target: OutlineDropTarget<ID>, tree: OutlineTree<Element>,
-    expanded: Set<ID>, isCopyRequested: Bool = false
+    expanded: Set<ID>, isCopyRequested: Bool = false, isPinned: ((Element) -> Bool)? = nil
   ) -> (proposal: OutlineDropProposal<ID>, operation: OutlineDropOperation)?
   where Element.ID == ID {
     // A target proposed before the host's data changed may no longer exist.
     guard tree.isValidDropTarget(target) else { return nil }
+    let draggedIDs = draggedIDs.filter { id in
+      guard let element = tree.element(id) else { return false }
+      return isPinned?(element) != true
+    }
+    let target = tree.targetAfterPinnedRows(target, isPinned: isPinned)
     let proposal = OutlineDropProposal(
       draggedIDs: draggedIDs, target: target, tree: tree, expanded: expanded,
       isCopyRequested: isCopyRequested)
@@ -96,9 +101,20 @@ extension OutlineDropHandler {
       return (proposal, operation)
     case .redirect(let redirected, let operation):
       guard tree.isValidDropTarget(redirected) else { return nil }
+      let adjusted = tree.targetAfterPinnedRows(redirected, isPinned: isPinned)
       let proposal = OutlineDropProposal(
-        draggedIDs: draggedIDs, target: redirected, tree: tree, expanded: expanded,
+        draggedIDs: draggedIDs, target: adjusted, tree: tree, expanded: expanded,
         isCopyRequested: isCopyRequested)
+      if adjusted != redirected {
+        // A redirect is permission for its exact target. Ask again when pinning changes it;
+        // conflicting redirects must not silently bypass either the host or the pinned span.
+        switch validate(proposal) {
+        case .accept(let operation): return (proposal, operation)
+        case .redirect(let target, let operation) where target == adjusted:
+          return (proposal, operation)
+        default: return nil
+        }
+      }
       return (proposal, operation)
     }
   }

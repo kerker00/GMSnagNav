@@ -60,6 +60,7 @@ one SwiftUI API for arbitrarily deep trees with selection, expansion and real dr
 - Spring-loaded expansion while dragging
 - Keyboard navigation with the arrow keys on macOS and with a hardware keyboard on iPad
 - Reordering siblings without dragging: Command-Option-Up/Down and VoiceOver actions
+- Pinned rows that protect a fixed prefix at the root or inside containers
 - Row badges for counts, short text, status symbols, dots and progress
 - VoiceOver support and right-to-left layouts on both platforms
 - Context menus, swipe actions, primary action (double-click / Return / tap) and non-selectable
@@ -196,6 +197,15 @@ whose order differs from the model:
 See [Drag and drop](Sources/GMSnagNav/GMSnagNav.docc/DragAndDrop.md) for boundaries, redirects
 and host-owned execution.
 
+## Pinned rows
+
+Keep fixed entries first in your data and apply `.outlinePinned { $0.isFixed }`. Pinned rows
+cannot be dragged or reordered, and insertions before or between them land after the pinned
+span. The host validates the adjusted destination; selection and expansion work as usual.
+The demo's **Pin Leading Rows** option shows this at the root and inside Work. See
+[Drag and drop](Sources/GMSnagNav/GMSnagNav.docc/DragAndDrop.md#pinned-rows) for redirects,
+copies and host-owned move actions.
+
 ## Show an element in the sidebar
 
 Keep a request in state and bind it to the outline:
@@ -224,7 +234,6 @@ The host controls search filters and split-view visibility. See
 Ideas for versions after `0.4.1`, all planned to be backward compatible:
 
 - Reusable move/copy destination menus and navigation between hierarchy levels
-- Pinned rows with consistent drag-and-drop rules
 - Large-tree benchmarks, followed by update optimizations and lazy loading where measurements
   show a need; include mostly collapsed trees and large sibling lists
 - Custom drag previews

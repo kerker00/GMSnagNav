@@ -12,6 +12,7 @@
   @Suite struct RenderingTests {
     @Observable final class Host {
       var badgeText = "New"
+      var pinsRows = false
       var locale = Locale(identifier: "en_US")
       @ObservationIgnored var hostedLocales: Set<String> = []
       var selection: String?
@@ -127,6 +128,39 @@
           ])
         }
       ).close()
+    }
+
+    @Test func observesPinChangesWithoutReplacingTheHostsTree() throws {
+      let window = render(
+        outline(sampleRoots).outlineDraggable().outlineReorderable()
+          .outlinePinned { [host] in host.pinsRows && $0.id == "a" }
+          .onOutlineDrop { _, _ in true })
+      defer { window.close() }
+      let view = try #require(window.contentView?.firstDescendant(of: NSOutlineView.self))
+      let coordinator = try #require(view.dataSource as? OutlineCoordinator<TestItem, OutlineLabel>)
+      let item = try #require(view.item(atRow: 0))
+      let cell = try #require(view.view(atColumn: 0, row: 0, makeIfNecessary: true))
+      #expect(coordinator.outlineView(view, pasteboardWriterForItem: item) != nil)
+      #expect(cell.accessibilityCustomActions()?.count == 1)
+      #expect(
+        coordinator.resolveDrop(of: ["c"], onto: nil, childIndex: 0)?.proposal.target
+          == .insert(into: nil, at: 0))
+      host.pinsRows = true
+      RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+      window.contentView?.layoutSubtreeIfNeeded()
+      #expect(coordinator.outlineView(view, pasteboardWriterForItem: item) == nil)
+      #expect(cell.accessibilityCustomActions()?.isEmpty != false)
+      #expect(
+        coordinator.resolveDrop(of: ["c"], onto: nil, childIndex: 0)?.proposal.target
+          == .insert(into: nil, at: 1))
+      host.pinsRows = false
+      RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+      window.contentView?.layoutSubtreeIfNeeded()
+      #expect(coordinator.outlineView(view, pasteboardWriterForItem: item) != nil)
+      #expect(cell.accessibilityCustomActions()?.count == 1)
+      #expect(
+        coordinator.resolveDrop(of: ["c"], onto: nil, childIndex: 0)?.proposal.target
+          == .insert(into: nil, at: 0))
     }
 
     @Test func observesStatusChangesWithoutReplacingTheHostsTree() {

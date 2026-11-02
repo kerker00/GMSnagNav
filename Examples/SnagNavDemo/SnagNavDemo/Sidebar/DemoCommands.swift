@@ -9,6 +9,7 @@ struct SidebarActions {
   let deleteSelection: (() -> Void)?
   let expandAll: () -> Void
   let collapseAll: () -> Void
+  let pinsLeadingRows: Binding<Bool>
 }
 
 extension FocusedValues {
@@ -54,6 +55,8 @@ struct DemoCommands: Commands {
       Divider()
       Toggle("Folders Are Selectable", isOn: $foldersSelectable)
       Toggle("Show Badges", isOn: $showsBadges)
+      Toggle("Pin Leading Rows", isOn: actions?.pinsLeadingRows ?? .constant(false))
+        .disabled(actions == nil)
       Picker("Outline Style", selection: $style) {
         ForEach(DemoOutlineStyle.allCases) { Text($0.title).tag($0) }
       }

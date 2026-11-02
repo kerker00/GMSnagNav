@@ -134,7 +134,7 @@ where Data.Element: Identifiable, Data.Element.ID: Sendable {
   /// The content and behavior of the view.
   public var body: some View {
     let tree = OutlineTree(data, children: children)
-    let behavior = behavior.resolvingBadges(in: tree)
+    let behavior = behavior.resolvingBadges(in: tree).resolvingPinnedRows(in: tree)
     #if os(macOS)
       AppKitOutlineRenderer(
         tree: tree,
@@ -237,6 +237,7 @@ struct OutlineBehavior<Element: Identifiable> where Element.ID: Sendable {
   var contextMenuItems: (@MainActor (Set<Element.ID>) -> [OutlineMenuItem])?
   var canDrag: ((Element) -> Bool)?
   var canReorder: ((Element) -> Bool)?
+  var isPinned: ((Element) -> Bool)?
   var drop: OutlineDropHandler<Element.ID>?
   var duplicateIDs: ((Set<Element.ID>) -> Void)?
   var leadingSwipeActions: OutlineSwipeActions<Element.ID>?
@@ -250,6 +251,10 @@ struct OutlineBehavior<Element: Identifiable> where Element.ID: Sendable {
 
   func canSelect(_ element: Element) -> Bool {
     isSelectable?(element) ?? true
+  }
+
+  func isDraggable(_ element: Element) -> Bool {
+    canDrag?(element) == true && isPinned?(element) != true
   }
 }
 

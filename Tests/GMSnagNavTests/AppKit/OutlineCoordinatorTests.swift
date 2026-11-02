@@ -19,6 +19,7 @@
       var primaryAction: ((Set<String>) -> Void)?
       var appearance = OutlineAppearance()
       var canDrag: ((TestItem) -> Bool)?
+      var isPinned: ((TestItem) -> Bool)?
       var canReorder: ((TestItem) -> Bool)?
       var drop: OutlineDropHandler<String>?
       var springLoading = SpringLoadingBehavior.automatic
@@ -53,6 +54,7 @@
       behavior.isSelectable = host.isSelectable
       behavior.primaryAction = host.primaryAction
       behavior.canDrag = host.canDrag
+      behavior.isPinned = host.isPinned
       behavior.canReorder = host.canReorder
       behavior.drop = host.drop
       behavior.duplicateIDs = { host.reportedDuplicates.append($0) }
@@ -913,6 +915,34 @@
       update()
       #expect(writer(for: "a") != nil)
       #expect(writer(for: "b") == nil)
+    }
+
+    @Test func pinnedRowsProtectDragAndDropWithoutChangingSelectionOrExpansion() {
+      host.canDrag = { _ in true }
+      host.canReorder = { _ in true }
+      host.isPinned = { ["a", "a1"].contains($0.id) }
+      host.single = "a1"
+      host.expansion = ["a"]
+      var performed: OutlineDropProposal<String>?
+      host.drop = acceptAll { proposal, _ in performed = proposal }
+      update()
+      #expect(writer(for: "a") == nil)
+      #expect(writer(for: "a1") == nil)
+      #expect(writer(for: "c") != nil)
+      #expect(coordinator.performDrop(of: ["c"], onto: item("a"), childIndex: 0))
+      #expect(performed?.target == .insert(into: "a", at: 1))
+      #expect(host.single == "a1")
+      #expect(host.expansion == ["a"])
+      #expect(
+        coordinator.resolveDrop(of: ["c"], onto: nil, childIndex: 0)?.proposal.target
+          == .insert(into: nil, at: 1))
+      // A new host policy must invalidate the earlier cached destination.
+      host.isPinned = nil
+      update()
+      #expect(writer(for: "a") != nil)
+      #expect(
+        coordinator.resolveDrop(of: ["c"], onto: nil, childIndex: 0)?.proposal.target
+          == .insert(into: nil, at: 0))
     }
 
     @Test func resolvesDraggedElementsFromTokensOnThePasteboard() {

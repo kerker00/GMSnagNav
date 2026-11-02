@@ -7,6 +7,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `outlinePinned(_:)` protects fixed rows at the beginning of each sibling list. Pinned rows
+  cannot be dragged or reordered with the keyboard or VoiceOver; insertions before or between
+  them land after the pinned span. Copying and host redirects use the same rules, and the host
+  validates adjusted destinations before performing changes.
+- Demo: "Pin Leading Rows" pins the first root and its first child, with pin icons and matching
+  protection in the host's move menus.
+
 ## [0.4.1] - 2026-10-08
 
 Fixes for selection, section headers, context menus, badges and keyboard navigation, mostly on

@@ -865,6 +865,73 @@
       #expect(host.renaming == "a")
     }
 
+    @Test func cancelsAQueuedRenameRestartAfterDetach() async {
+      host.canRename = { _ in true }
+      host.single = "c"
+      host.renaming = "c"
+      update()
+      #expect(coordinator.handleReturn())
+      update()
+      coordinator.detach()
+      // Both queued bodies run on the main actor, without a timer or a UI runner.
+      await Task { @MainActor in }.value
+      #expect(host.renaming == nil)
+    }
+
+    private enum RenameRestartInvalidation: CaseIterable {
+      case removedTarget, withdrawnPermission, removedModifier, changedSelection
+    }
+
+    @Test func rechecksRenamePermissionWhenTheRestartExecutes() async {
+      var allowed = true
+      host.canRename = { _ in allowed }
+      host.single = "c"
+      host.renaming = "c"
+      update()
+      #expect(coordinator.handleReturn())
+      update()
+      allowed = false
+      await coordinator.renameRestartSettled()
+      #expect(host.renaming == nil)
+      allowed = true
+      update()
+      await coordinator.renameRestartSettled()
+      #expect(host.renaming == nil)
+    }
+
+    @Test func keepsANewRenameThatStartsAfterTheRestartWasQueued() async {
+      host.canRename = { _ in true }
+      host.single = "c"
+      host.renaming = "c"
+      update()
+      #expect(coordinator.handleReturn())
+      update()
+      host.renaming = "a"
+      await coordinator.renameRestartSettled()
+      #expect(host.renaming == "a")
+    }
+
+    @Test(arguments: RenameRestartInvalidation.allCases)
+    private func cancelsAnIneligibleQueuedRenameRestart(
+      _ reason: RenameRestartInvalidation
+    ) async {
+      host.canRename = { _ in true }
+      host.single = "c"
+      host.renaming = "c"
+      update()
+      #expect(coordinator.handleReturn())
+      update()
+      switch reason {
+      case .removedTarget: host.roots.removeAll { $0.id == "c" }
+      case .withdrawnPermission: host.canRename = { _ in false }
+      case .removedModifier: host.canRename = nil
+      case .changedSelection: host.single = "a"
+      }
+      update()
+      await Task { @MainActor in }.value
+      #expect(host.renaming == nil)
+    }
+
     @Test func runsThePrimaryActionOnReturnForSeveralSelectedRows() {
       var activated: Set<String>?
       host.primaryAction = { activated = $0 }

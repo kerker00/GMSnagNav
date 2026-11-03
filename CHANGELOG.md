@@ -9,6 +9,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Queued macOS rename restarts are cancelled when the outline disappears or the target,
+  selection, permission or rename configuration no longer matches.
 - An old rename editor may commit its draft without clearing a newer rename session or taking
   its focus, including repeated sessions for the same element.
 - Deep outline diffs use iterative traversal and reuse loaded-ancestry results instead of

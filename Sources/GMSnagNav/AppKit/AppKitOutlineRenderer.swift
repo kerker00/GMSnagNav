@@ -227,6 +227,7 @@
     func detach() {
       reveal.cancel()
       renameOwnership.invalidate()
+      cancelRenameRestart()
       hierarchyReveal.cancel()
       navigation.cancel()
       springLoadTask?.cancel()
@@ -761,6 +762,7 @@
         return
       }
       reveal.userSelected(Set(ids))
+      cancelRenameRestart()
       switch renderer.selection {
       case .none:
         break
@@ -980,7 +982,9 @@
     private func takeFocusBack() {
       // After SwiftUI has removed the text field, which would otherwise keep the focus.
       Task { @MainActor [weak self] in
-        guard let outlineView = self?.outlineView else { return }
+        guard let self, let outlineView = self.outlineView,
+          self.renderer?.behavior.renaming?.renaming.wrappedValue == nil
+        else { return }
         outlineView.window?.makeFirstResponder(outlineView)
       }
     }
@@ -989,6 +993,7 @@
     /// returns whether it handled the key press.
     func handleReturn() -> Bool {
       hierarchyReveal.cancel()
+      cancelRenameRestart()
       guard let renderer else { return false }
       let selected = selectedIDs(in: renderer.selection)
       if selected.count == 1, let id = selected.first {
@@ -996,7 +1001,7 @@
         case .started:
           return true
         case .restarting:
-          pendingRenameRestart = id
+          pendingRenameRestart = RenameRestart(id: id)
           return true
         case .refused:
           break
@@ -1006,24 +1011,59 @@
     }
 
     /// An element whose stuck rename starts over after the next update; see `handleReturn()`.
-    private var pendingRenameRestart: ID?
+    private struct RenameRestart {
+      let id: ID
+      let token = UUID()
+    }
+
+    private var pendingRenameRestart: RenameRestart?
+    private var renameRestartTask: Task<Void, Never>?
+
+    func renameRestartSettled() async { await renameRestartTask?.value }
+
+    private func cancelRenameRestart() {
+      pendingRenameRestart = nil
+      renameRestartTask?.cancel()
+      renameRestartTask = nil
+    }
+
+    private func canRestartRenaming(_ id: ID) -> Bool {
+      guard let renderer, let renaming = renderer.behavior.renaming,
+        renaming.renaming.wrappedValue == nil,
+        selectedIDs(in: renderer.selection) == [id], let element = tree.element(id)
+      else { return false }
+      return renaming.canRename(element)
+    }
 
     /// Names the element of a restarted rename again, once an update has shown its row without
     /// the text field.
     private func restartPendingRename() {
-      guard let id = pendingRenameRestart else { return }
-      pendingRenameRestart = nil
-      guard let binding = renderer?.behavior.renaming?.renaming, binding.wrappedValue == nil
-      else { return }
+      guard let request = pendingRenameRestart else { return }
+      guard canRestartRenaming(request.id) else {
+        cancelRenameRestart()
+        return
+      }
+      guard renameRestartTask == nil else { return }
       // Not during this update: SwiftUI would not notice a change made while it updates.
-      Task { @MainActor in
-        if binding.wrappedValue == nil { binding.wrappedValue = id }
+      renameRestartTask = Task { @MainActor [weak self] in
+        guard !Task.isCancelled, let self,
+          self.pendingRenameRestart?.token == request.token
+        else { return }
+        guard self.canRestartRenaming(request.id) else {
+          self.cancelRenameRestart()
+          return
+        }
+        self.pendingRenameRestart = nil
+        self.renameRestartTask = nil
+        self.renameOwnership.invalidate()
+        self.renderer?.behavior.renaming?.renaming.wrappedValue = request.id
       }
     }
 
     /// Runs the primary action independently of the Return-to-rename behavior.
     func handlePrimaryAction() -> Bool {
       hierarchyReveal.cancel()
+      cancelRenameRestart()
       guard let renderer else { return false }
       // Removed elements can stay selected; the action applies to the ones that remain.
       let selected = selectedIDs(in: renderer.selection).filter(tree.contains)

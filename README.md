@@ -88,7 +88,7 @@ Add the package with Swift Package Manager:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/kerker00/GMSnagNav.git", from: "0.4.1")
+    .package(url: "https://github.com/kerker00/GMSnagNav.git", from: "0.5.0")
 ]
 ```
 
@@ -249,13 +249,25 @@ The host controls search filters and split-view visibility. See
 
 ## Roadmap
 
-Ideas for versions after `0.4.1`, all planned to be backward compatible:
+The latest release is `0.5.0`. The following milestones are proposed scope, not release dates
+or guarantees. Features may move between milestones as integration and measurements reveal needs.
 
-- Large-tree benchmarks, followed by update optimizations and lazy loading where measurements
-  show a need; include mostly collapsed trees and large sibling lists
-- Custom drag previews
-- Drops from other apps, such as file URLs
-- Loading children asynchronously
+| Milestone | Proposed focus |
+| --- | --- |
+| **0.5.0** | Pinned rows, shared hierarchical Move-to/Copy-to menus, and keyboard/VoiceOver hierarchy movement. |
+| **0.6.0** | Host-defined drag previews and drag-session lifecycle callbacks, with native fallbacks. |
+| **0.7.0** | iOS editing mode: selection, deletion and reordering integrated with the host's `EditMode`. |
+| **0.8.0** | Transfers between views and apps, including incoming and outgoing host-defined payloads. |
+| **0.9.x** | Large-tree benchmarks and measured optimizations, integration hardening, documentation and API review. Evaluate host-owned asynchronous loading after the benchmarks. |
+| **1.0.0** | A stable public API, documented platform behavior and limits, verified accessibility and keyboard workflows, and a proven host integration. |
+
+Before 1.0, measure trees with 1,000, 10,000 and 50,000 elements, both mostly collapsed and
+fully expanded. Publish the tested limits rather than promising a tree size without evidence.
+Loading, persistence, undo and domain-specific actions remain owned by the host app.
+
+1.0 means committing to compatibility of the public API; it does not require every roadmap
+feature to ship. Deferred features can follow as additive releases. Any necessary incompatible
+changes before 1.0 will be documented with migration guidance.
 
 ## Contributing
 

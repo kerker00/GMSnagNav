@@ -9,6 +9,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- iPad forward-arrow navigation skips excluded leaf rows and uses the same focusability rules
+  as vertical navigation and native focus, including RTL hierarchy entry.
+- iPad sibling shortcut titles follow live host-locale changes without replacing registered
+  command objects.
 - Return on macOS starts inline renaming only for a visible selected row; collapsing a target
   also prevents an already queued rename restart.
 - Queued macOS rename restarts are cancelled when the outline disappears or the target,

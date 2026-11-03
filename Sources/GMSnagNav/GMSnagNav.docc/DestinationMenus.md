@@ -84,8 +84,10 @@ receive items if the host permits it.
 Destinations are `.root` or `.onto(id)`: the host decides where to put items inside that container.
 The current parent is not automatically disabled; the host can append, prepend or reject it.
 
-Sources are normalized to top-level selected roots when items are created, in model order.
-Every captured source must still exist and be unpinned when chosen. A missing or pinned source,
+All selected identifiers are retained, including descendants initially carried by selected roots.
+They are normalized in current model order again when chosen: a selected child moved out of its
+selected parent is still transferred. Every selected identifier must still exist; each current
+effective source must be unpinned. A missing or pinned source,
 or one captured root becoming a descendant of another, cancels the whole action. Mixed pinned
 and movable sources are not partially transferred. This is intentionally stricter than dragging,
 which filters out rows that cannot be dragged. A movable ancestor still carries its subtree,

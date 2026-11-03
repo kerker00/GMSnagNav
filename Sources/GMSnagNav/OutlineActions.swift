@@ -106,8 +106,18 @@ public struct OutlineActions<Element: Identifiable> where Element.ID: Sendable {
           onCompletion(.unavailable)
           return
         }
+        let current = currentTree()
+        guard sources.allSatisfy(current.contains),
+          current.normalizedSources(captured).count == captured.count
+        else {
+          onCompletion(.sourceUnavailable)
+          return
+        }
+        // A selected descendant may have left its captured ancestor since the menu opened.
+        // Retain every selected ID and normalize against the current relationships.
         let result = handler.resolveAction(
-          sources: captured, target: target, operation: operation, tree: currentTree(),
+          sources: current.normalizedSources(Array(sources)), target: target,
+          operation: operation, tree: current,
           expanded: expanded(), isPinned: isPinned)
         switch result {
         case .success(let proposal):

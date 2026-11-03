@@ -79,6 +79,27 @@ import Testing
     #expect(host.completions.last == .sourceUnavailable)
   }
 
+  @Test(arguments: [OutlineDropOperation.move, .copy])
+  func aSelectedDescendantMovedOutAfterOpeningIsStillTransferred(
+    operation: OutlineDropOperation
+  ) {
+    let items = host.items(["a", "a1"], operation: operation)
+    host.roots[0].children?.removeFirst()
+    host.roots.append(.leaf("a1"))
+    choose(items[3])
+    #expect(host.performed.count == 1)
+    #expect(host.performed.first?.0.draggedIDs == ["a", "a1"])
+    #expect(host.performed.first?.1 == operation)
+  }
+
+  @Test func aSelectedDescendantRemovedAfterOpeningCancelsTheWholeTransfer() {
+    let items = host.items(["a", "a1"])
+    host.roots[0].children?.removeFirst()
+    choose(items[3])
+    #expect(host.performed.isEmpty)
+    #expect(host.completions == [.sourceUnavailable])
+  }
+
   @Test func pinsDisableTheEntireSelectionButNotDescendantsCarriedByAnAncestor() {
     host.pins = ["a"]
     let items = host.items(["a", "c"])

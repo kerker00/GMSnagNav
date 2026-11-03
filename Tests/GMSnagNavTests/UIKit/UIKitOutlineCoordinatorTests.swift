@@ -574,6 +574,57 @@
       #expect(host.expansion.isEmpty)
     }
 
+    @Test(arguments: [false, true])
+    func forwardArrowSkipsExcludedLeaves(inRTL: Bool) {
+      host.roots = [.group("folder", [.leaf("excluded"), .leaf("allowed")])]
+      host.isSelectable = { $0.id != "excluded" }
+      host.expansion = ["folder"]
+      host.single = "folder"
+      update(layoutDirection: inRTL ? .rightToLeft : .leftToRight)
+      #expect(
+        !coordinator.collectionView(
+          collectionView, canFocusItemAt: IndexPath(item: 1, section: 0)))
+      let forward: UIKeyboardHIDUsage = inRTL ? .keyboardLeftArrow : .keyboardRightArrow
+      #expect(collectionView.handleDirectionalKey(forward))
+      #expect(coordinator.focusedItemID == "allowed")
+      #expect(host.single == "allowed")
+      coordinator.handleKeyboardAction(.previous)
+      #expect(coordinator.focusedItemID == "folder")
+      coordinator.handleKeyboardAction(.next)
+      #expect(coordinator.focusedItemID == "allowed")
+    }
+
+    @Test func forwardArrowKeepsParentWhenEveryChildIsExcluded() {
+      host.roots = [.group("folder", [.leaf("excluded")])]
+      host.isSelectable = { $0.id == "folder" }
+      host.expansion = ["folder"]
+      host.single = "folder"
+      update()
+      coordinator.handleKeyboardAction(.expand)
+      #expect(coordinator.focusedItemID == "folder")
+      #expect(host.single == "folder")
+      #expect(coordinator.selectedItemIDs == ["folder"])
+    }
+
+    @Test func forwardArrowCanEnterANonselectableContainer() {
+      host.roots = [
+        .group("folder", [.leaf("excluded"), .group("section", [.leaf("child")])])
+      ]
+      host.isSelectable = { !["excluded", "section"].contains($0.id) }
+      host.expansion = ["folder"]
+      host.single = "folder"
+      update()
+      #expect(
+        coordinator.collectionView(
+          collectionView, canFocusItemAt: IndexPath(item: 2, section: 0)))
+      coordinator.handleKeyboardAction(.expand)
+      #expect(coordinator.focusedItemID == "section")
+      #expect(host.single == "folder")
+      #expect(host.expansion == ["folder"])
+      coordinator.handleKeyboardAction(.activate)
+      #expect(host.expansion == ["folder", "section"])
+    }
+
     @Test func verticalArrowsMoveFromATouchedRowWithoutActivatingIt() {
       var activated = false
       host.primaryAction = { _ in activated = true }

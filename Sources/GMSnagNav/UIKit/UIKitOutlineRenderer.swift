@@ -537,6 +537,11 @@
       return renderer.behavior.canSelect(id, in: tree)
     }
 
+    /// Keyboard movement and UIKit focus must agree on which rows can be entered.
+    private func canFocus(_ id: ID) -> Bool {
+      canSelect(id) || !tree.children(of: id).isEmpty
+    }
+
     private var keyboardItemID: ID? {
       if let focusedItemID, tree.contains(focusedItemID), displayedRowsContain(focusedItemID) {
         return focusedItemID
@@ -547,7 +552,7 @@
     func canHandleKeyboardAction(_ action: OutlineKeyboardAction) -> Bool {
       if action == .previous || action == .next {
         return tree.visibleRows(expanded: displayedExpansion).contains {
-          canSelect($0.id) || !tree.children(of: $0.id).isEmpty
+          canFocus($0.id)
         }
       }
       guard let id = keyboardItemID else { return false }
@@ -580,7 +585,7 @@
       if action != .indent && action != .outdent { hierarchyReveal.cancel() }
       if keyboardItemID == nil, action == .previous || action == .next {
         let candidates = tree.visibleRows(expanded: displayedExpansion).filter {
-          canSelect($0.id) || !tree.children(of: $0.id).isEmpty
+          canFocus($0.id)
         }
         if let row = action == .next ? candidates.first : candidates.last { focus(row.id) }
         return
@@ -599,7 +604,7 @@
         var next = index + step
         while rows.indices.contains(next) {
           let candidate = rows[next].id
-          if canSelect(candidate) || !tree.children(of: candidate).isEmpty {
+          if canFocus(candidate) {
             focus(candidate)
             return
           }
@@ -607,7 +612,7 @@
         }
       case .expand:
         if displayedExpansion.contains(id) {
-          if let child = children.first { focus(child) }
+          if let child = children.first(where: canFocus) { focus(child) }
         } else {
           userChangedExpansion(of: id, expanded: true)
         }
@@ -661,7 +666,8 @@
 
     private func focus(_ id: ID) {
       hierarchyReveal.cancel()
-      guard let collectionView, let indexPath = dataSource?.indexPath(for: id) else { return }
+      guard canFocus(id), let collectionView, let indexPath = dataSource?.indexPath(for: id)
+      else { return }
       focusedItemID = id
       if canSelect(id) {
         applySelection([id])
@@ -696,7 +702,7 @@
       _ collectionView: UICollectionView, canFocusItemAt indexPath: IndexPath
     ) -> Bool {
       guard let id = dataSource?.itemIdentifier(for: indexPath) else { return false }
-      return canSelect(id) || !tree.children(of: id).isEmpty
+      return canFocus(id)
     }
 
     func collectionView(

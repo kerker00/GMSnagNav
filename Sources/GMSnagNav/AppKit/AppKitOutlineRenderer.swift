@@ -996,7 +996,9 @@
       cancelRenameRestart()
       guard let renderer else { return false }
       let selected = selectedIDs(in: renderer.selection)
-      if selected.count == 1, let id = selected.first {
+      if selected.count == 1, let id = selected.first, let outlineView,
+        outlineView.row(forItem: box(for: id)) >= 0
+      {
         switch renderer.behavior.startRenaming(id, in: tree) {
         case .started:
           return true
@@ -1030,7 +1032,8 @@
     private func canRestartRenaming(_ id: ID) -> Bool {
       guard let renderer, let renaming = renderer.behavior.renaming,
         renaming.renaming.wrappedValue == nil,
-        selectedIDs(in: renderer.selection) == [id], let element = tree.element(id)
+        selectedIDs(in: renderer.selection) == [id], let element = tree.element(id),
+        let outlineView, outlineView.row(forItem: box(for: id)) >= 0
       else { return false }
       return renaming.canRename(element)
     }

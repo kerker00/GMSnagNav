@@ -9,6 +9,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Return on macOS starts inline renaming only for a visible selected row; collapsing a target
+  also prevents an already queued rename restart.
 - Queued macOS rename restarts are cancelled when the outline disappears or the target,
   selection, permission or rename configuration no longer matches.
 - An old rename editor may commit its draft without clearing a newer rename session or taking

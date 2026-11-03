@@ -911,6 +911,34 @@
       #expect(host.renaming == "a")
     }
 
+    @Test func returnDoesNotStartAnEditorForAHiddenSelectedRow() {
+      host.canRename = { _ in true }
+      host.revealsSelection = false
+      host.single = "a1"
+      update()
+      #expect(!visibleIDs.contains("a1"))
+      #expect(!coordinator.handleReturn())
+      #expect(host.renaming == nil)
+      #expect(host.single == "a1")
+    }
+
+    @Test func collapsingTheTargetCancelsAQueuedRenameRestart() async {
+      host.canRename = { _ in true }
+      host.revealsSelection = false
+      host.expansion = ["a"]
+      host.single = "a1"
+      host.renaming = "a1"
+      update()
+      #expect(coordinator.handleReturn())
+      update()
+      host.expansion = []
+      update()
+      await coordinator.renameRestartSettled()
+      #expect(!visibleIDs.contains("a1"))
+      #expect(host.renaming == nil)
+      #expect(host.single == "a1")
+    }
+
     @Test(arguments: RenameRestartInvalidation.allCases)
     private func cancelsAnIneligibleQueuedRenameRestart(
       _ reason: RenameRestartInvalidation

@@ -5,7 +5,8 @@ extension SnagOutline {
   ///
   /// Renaming starts when `renaming` is set to an element's identifier — for example from a
   /// "Rename" context menu item — and, on macOS, when the user presses Return while exactly one
-  /// renamable row is selected, as in the Finder. Double-click then remains the way to run the
+  /// visible, renamable row is selected, as in the Finder. Hidden selections do not start an
+  /// inaccessible editor. Double-click then remains the way to run the
   /// primary action. The outline sets `renaming` back to `nil` when renaming ends.
   ///
   /// The row shows a text field with its current name selected. Return commits the new name,

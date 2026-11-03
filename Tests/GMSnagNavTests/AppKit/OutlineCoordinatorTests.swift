@@ -22,6 +22,7 @@
       var isPinned: ((TestItem) -> Bool)?
       var canReorder: ((TestItem) -> Bool)?
       var canMoveHierarchy: ((TestItem) -> Bool)?
+      var actionTree: (@MainActor () -> OutlineTree<TestItem>)?
       var hierarchyKeyboardShortcuts = true
       var layoutDirection: LayoutDirection?
       var drop: OutlineDropHandler<String>?
@@ -60,6 +61,7 @@
       behavior.isPinned = host.isPinned
       behavior.canReorder = host.canReorder
       behavior.canMoveHierarchy = host.canMoveHierarchy
+      behavior.actionTree = host.actionTree
       behavior.hierarchyKeyboardShortcuts = host.hierarchyKeyboardShortcuts
       behavior.drop = host.drop
       behavior.duplicateIDs = { host.reportedDuplicates.append($0) }
@@ -270,6 +272,31 @@
       }
       #expect(!outlineView.performKeyEquivalent(with: down))
       #expect(!called)
+    }
+
+    @Test func hierarchyEligibilityUsesTheSnapshotButExecutionReadsTheLiveTree() {
+      host.canMoveHierarchy = { _ in true }
+      host.single = "c"
+      var reads = 0
+      var performed = false
+      host.actionTree = { [host] in
+        reads += 1
+        return OutlineTree(host.roots, children: \.children)
+      }
+      host.drop = OutlineDropHandler(
+        validate: { _ in .accept(.move) },
+        perform: { _, _ in
+          performed = true
+          return true
+        })
+      update()
+      #expect(coordinator.canMoveHierarchy("c", direction: .indent))
+      #expect(reads == 0)
+      // The renderer still shows an empty container; the current host model no longer has one.
+      host.roots[1] = .leaf("b")
+      #expect(!coordinator.moveHierarchy("c", direction: .indent))
+      #expect(reads == 1)
+      #expect(!performed)
     }
 
     @Test func hierarchyKeysMoveRevealAndKeepFocusWithTheSameSelection() async throws {

@@ -96,6 +96,50 @@ import Testing
       }).hierarchyProposal(for: "c", direction: .indent, tree: tree, expanded: []) != nil)
   }
 
+  @Test func disabledHierarchyDoesNotReadTheLiveModel() {
+    var reads = 0
+    let actions = OutlineActions(
+      data: {
+        reads += 1
+        return sampleRoots
+      }, children: \.children, perform: { _, _ in true })
+    let behavior = SnagOutline(sampleRoots, children: \.children) { Text($0.id) }
+      .onOutlineDrop(actions).behavior
+    let tree = OutlineTree(sampleRoots, children: \.children)
+    for direction in OutlineHierarchyDirection.allCases {
+      #expect(
+        behavior.hierarchyProposal(for: "c", direction: direction, tree: tree, expanded: []) == nil)
+    }
+    #expect(reads == 0)
+  }
+
+  @Test(arguments: [false, true])
+  func subsequentUpdatesCancelScheduledRevealOnlyWhenStructureChanges(structuralChange: Bool) async
+  {
+    let driver = OutlineHierarchyReveal<String>()
+    let before = OutlineTree<TestItem>(
+      [.group("a", [.leaf("x")]), .group("b"), .leaf("c")], children: \.children)
+    let moved = OutlineTree<TestItem>(
+      [.group("a", [.leaf("x")]), .group("b", [.leaf("c")])], children: \.children)
+    let anotherMove = OutlineTree<TestItem>(
+      [.group("a"), .group("b", [.leaf("c"), .leaf("x")])], children: \.children)
+    driver.record(
+      OutlineDropProposal(draggedIDs: ["c"], target: .insert(into: "b", at: 0)),
+      selection: ["c"], focused: true)
+    var reveals = 0
+    driver.update(tree: moved, previous: before, selection: ["c"], navigationPending: false) { _ in
+      reveals += 1
+    }
+    driver.update(
+      tree: structuralChange ? anotherMove : moved, previous: moved, selection: ["c"],
+      navigationPending: false
+    ) {
+      _ in reveals += 1
+    }
+    await driver.settled()
+    #expect(reveals == (structuralChange ? 0 : 1))
+  }
+
   @Test func requiresItsOwnOptInButNotDraggingReorderingOrSelectionEligibility() {
     var behavior = behavior()
     #expect(behavior.canDrag == nil)

@@ -27,6 +27,7 @@
       var canDrag: ((TestItem) -> Bool)?
       var isPinned: ((TestItem) -> Bool)?
       var canMoveHierarchy: ((TestItem) -> Bool)?
+      var actionTree: (@MainActor () -> OutlineTree<TestItem>)?
       var hierarchyKeyboardShortcuts = true
     }
 
@@ -59,6 +60,7 @@
       behavior.canDrag = host.canDrag
       behavior.isPinned = host.isPinned
       behavior.canMoveHierarchy = host.canMoveHierarchy
+      behavior.actionTree = host.actionTree
       behavior.hierarchyKeyboardShortcuts = host.hierarchyKeyboardShortcuts
       let selection: OutlineSelection<String> =
         multipleSelection
@@ -295,6 +297,30 @@
       host.single = nil
       update()
       #expect(coordinator.selectedItemIDs.isEmpty)
+    }
+
+    @Test func hierarchyEligibilityUsesTheSnapshotButExecutionReadsTheLiveTree() {
+      host.canMoveHierarchy = { _ in true }
+      host.single = "c"
+      var reads = 0
+      var performed = false
+      host.actionTree = { [host] in
+        reads += 1
+        return OutlineTree(host.roots, children: \.children)
+      }
+      host.drop = OutlineDropHandler(
+        validate: { _ in .accept(.move) },
+        perform: { _, _ in
+          performed = true
+          return true
+        })
+      update()
+      #expect(coordinator.canMoveHierarchy("c", direction: .indent))
+      #expect(reads == 0)
+      host.roots[1] = .leaf("b")
+      #expect(!coordinator.moveHierarchy("c", direction: .indent))
+      #expect(reads == 1)
+      #expect(!performed)
     }
 
     @Test func hierarchyArrowsMoveAndRevealWithoutReplacingSelection() async throws {

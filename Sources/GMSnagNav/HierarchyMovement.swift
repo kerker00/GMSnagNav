@@ -39,11 +39,12 @@ extension OutlineBehavior {
 
   @MainActor func hierarchyProposal(
     for id: Element.ID, direction: OutlineHierarchyDirection,
-    tree fallback: OutlineTree<Element>, expanded: Set<Element.ID>
+    tree fallback: OutlineTree<Element>, expanded: Set<Element.ID>, readsLiveData: Bool = true
   ) -> OutlineDropProposal<Element.ID>? {
-    let tree = actionTree?() ?? fallback
-    guard let canMoveHierarchy, let drop, let element = tree.element(id),
-      canMoveHierarchy(element), renaming?.renaming.wrappedValue == nil,
+    guard let canMoveHierarchy, let drop, renaming?.renaming.wrappedValue == nil else { return nil }
+    // Display eligibility shares the renderer snapshot; execution rechecks the live model.
+    let tree = readsLiveData ? (actionTree?() ?? fallback) : fallback
+    guard let element = tree.element(id), canMoveHierarchy(element),
       let target = tree.hierarchyTarget(
         for: id, direction: direction, isSection: { sectionTitle(of: $0, in: tree) != nil })
     else { return nil }
@@ -92,6 +93,12 @@ final class OutlineHierarchyReveal<ID: Hashable & Sendable> {
   ) where Element.ID == ID {
     guard let request = pending else { return }
     guard !navigationPending, selection == request.selection, tree.contains(request.source) else {
+      cancel()
+      return
+    }
+    // The expected host update may schedule a reveal. A later structural update supersedes it,
+    // even if the source still has the expected parent when the deferred task eventually runs.
+    if task != nil, !tree.hasSameStructure(as: previous) {
       cancel()
       return
     }

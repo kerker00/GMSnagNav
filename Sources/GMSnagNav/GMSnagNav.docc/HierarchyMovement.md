@@ -46,8 +46,10 @@ Multiple selection blocks these commands, including other selected IDs currently
 view. VoiceOver actions apply to their own row independently of the current selection; a normal
 unselectable container may have actions when the host allows it. Renaming blocks movement.
 
-Availability is checked again when an action executes. The original live eligibility and pin
-predicates are retained even as SwiftUI observes them to update accessibility actions.
+Displayed availability uses the renderer's existing tree, with current eligibility and pin
+predicates. It does not rebuild the host tree for every visible row. Availability is checked
+again when an action executes. The original live eligibility and pin predicates are retained
+even as SwiftUI observes them to update accessibility actions.
 With ``OutlineActions`` installed, commands build a fresh tree from the host getter before
 execution. The original closure-only drop API can use only the latest renderer snapshot, so the
 host validator and performer must still enforce the current model's rules. Use matching children
@@ -62,7 +64,9 @@ This is a separate one-time reveal because automatic selection reveal does not r
 unchanged selection ID. Expansion of the moved subtree is retained.
 
 New selection, explicit host navigation, a different structural move or detachment cancels an
-outdated reveal. A newly active text editor is never overridden to reclaim keyboard focus.
+outdated reveal, including a structural update after the reveal was already scheduled. Updates
+with unchanged structure retain the pending reveal. A newly active text editor is never
+overridden to reclaim keyboard focus.
 Rejected and failed actions do not change package-owned expansion, scrolling or focus. The host
 must perform mutations atomically; the package cannot undo a partial host operation.
 

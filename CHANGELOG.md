@@ -28,6 +28,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A further structural update cancels a scheduled hierarchy reveal even when the moved row
+  still has the expected parent. Ordinary updates with unchanged structure retain the reveal.
+- Hierarchy action availability reuses the displayed tree instead of rebuilding live host trees
+  per row. Disabled hierarchy behavior does not query the action source; execution still
+  validates against the current host model.
 - On macOS, the sidebar's accessibility name and sibling-movement action names follow an
   explicit host locale override, consistently with destination menus and hierarchy actions.
 - Submenus without any enabled actions are disabled instead of opening an unusable branch.

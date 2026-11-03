@@ -636,7 +636,8 @@
     func canMoveHierarchy(_ id: ID, direction: OutlineHierarchyDirection) -> Bool {
       guard let renderer else { return false }
       return renderer.behavior.hierarchyProposal(
-        for: id, direction: direction, tree: tree, expanded: displayedExpansion) != nil
+        for: id, direction: direction, tree: tree, expanded: displayedExpansion,
+        readsLiveData: false) != nil
     }
 
     @discardableResult func moveHierarchy(_ id: ID, direction: OutlineHierarchyDirection) -> Bool {

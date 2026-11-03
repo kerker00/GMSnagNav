@@ -56,6 +56,21 @@
       }
     }
 
+    @Test(arguments: [false, true])
+    func hierarchyEligibilityDoesNotRebuildLiveTreesPerVisibleRow(enabled: Bool) {
+      var reads = 0
+      let actions = OutlineActions(
+        data: {
+          reads += 1
+          return sampleRoots
+        }, children: \.children, perform: { _, _ in true })
+      var content = outline(sampleRoots).onOutlineDrop(actions)
+      if enabled { content = content.outlineHierarchyMovable() }
+      let window = render(content)
+      defer { window.close() }
+      #expect(reads == 0)
+    }
+
     @Test func rendersAnOutlineWithEveryModifier() {
       host.renaming = "a1"
       let window = render(

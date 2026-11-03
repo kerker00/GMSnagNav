@@ -1,3 +1,4 @@
+import GMSnagNav
 import SwiftUI
 
 /// Actions for one item in the detail view.
@@ -7,23 +8,29 @@ import SwiftUI
 struct ItemActions: View {
   @Environment(Library.self) private var library
   let itemID: LibraryItem.ID
+  let outlineActions: OutlineActions<LibraryItem>
+  let expanded: () -> Set<LibraryItem.ID>
+  let isAvailable: () -> Bool
+  let onActionResult: (OutlineActionResult<LibraryItem.ID>) -> Void
   let onError: (Error) -> Void
+  @Environment(\.locale) private var locale
   @State private var pendingDeletion: [LibraryItem.ID] = []
 
   var body: some View {
+    let moves = destinations(.move)
+    let copies = destinations(.copy)
     Menu {
-      Button("Top Level") { move(into: nil) }
-        .disabled(!library.canMove(itemID, into: nil))
-      Divider()
-      ForEach(library.allFolders, id: \.item.id) { folder in
-        Button(indentedName(folder.item.name, depth: folder.depth)) {
-          move(into: folder.item.id)
-        }
-        .disabled(!library.canMove(itemID, into: folder.item.id))
-      }
+      OutlineMenuItems(moves)
     } label: {
       Label("Move to", systemImage: "folder")
     }
+    .accessibilityIdentifier("detail-move-menu")
+    Menu {
+      OutlineMenuItems(copies)
+    } label: {
+      Label("Copy to", systemImage: "doc.on.doc")
+    }
+    .accessibilityIdentifier("detail-copy-menu")
     Button(role: .destructive) {
       if library.needsDeleteConfirmation([itemID]) {
         pendingDeletion = [itemID]
@@ -46,15 +53,10 @@ struct ItemActions: View {
     #endif
   }
 
-  private func move(into folder: LibraryItem.ID?) {
-    do {
-      try library.move(itemID, into: folder)
-    } catch {
-      onError(error)
-    }
-  }
-
-  private func indentedName(_ name: String, depth: Int) -> String {
-    String(repeating: "    ", count: depth) + name
+  private func destinations(_ operation: OutlineDropOperation) -> [OutlineMenuItem] {
+    outlineActions.destinationItems(
+      for: [itemID], operation: operation, expanded: expanded, isAvailable: isAvailable,
+      locale: locale, onCompletion: onActionResult
+    ) { $0.name }
   }
 }

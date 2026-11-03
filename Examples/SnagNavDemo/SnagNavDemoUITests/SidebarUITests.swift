@@ -193,6 +193,47 @@ final class SidebarUITests: XCTestCase {
     assertDetailLocation("Inbox")
   }
 
+  private func chooseDetailDestination(_ operation: String, destination: String) {
+    let identifier = operation == "Move to" ? "detail-move-menu" : "detail-copy-menu"
+    let button = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+    XCTAssertTrue(button.waitForExistence(timeout: 5), app.debugDescription)
+    #if os(macOS)
+      button.click()
+      let target = app.menuItems[destination].firstMatch
+      XCTAssertTrue(target.waitForExistence(timeout: 5))
+      target.click()
+    #else
+      // Form exposes a full-width accessibility wrapper around the menu's actual button.
+      let menuButton = button.buttons.firstMatch
+      (menuButton.exists ? menuButton : button).tap()
+      let target = app.buttons[destination].firstMatch
+      XCTAssertTrue(target.waitForExistence(timeout: 5))
+      target.tap()
+    #endif
+  }
+
+  func testDetailMoveMenuUsesTheSharedDestinationRules() {
+    select("Inbox")
+    chooseDetailDestination("Move to", destination: "Archive")
+    assertDetailLocation("Archive › Inbox")
+  }
+
+  func testDetailCopyMenuPreservesTheOriginalIncludingOnIPhone() {
+    select("Inbox")
+    chooseDetailDestination("Copy to", destination: "Archive")
+    assertDetailLocation("Inbox")
+    #if os(macOS)
+      app.buttons["detail-show-in-sidebar"].click()
+      let copies = app.outlineRows.containing(.any, identifier: "sidebar-row-Inbox")
+    #else
+      app.buttons["detail-show-in-sidebar"].tap()
+      let copies = app.cells.containing(.any, identifier: "sidebar-row-Inbox")
+    #endif
+    let twoCopies = XCTNSPredicateExpectation(
+      predicate: NSPredicate { _, _ in copies.count == 2 }, object: nil)
+    XCTAssertEqual(XCTWaiter.wait(for: [twoCopies], timeout: 5), .completed)
+  }
+
   func testModifiedArrowsReorderSiblingsAndKeepSelection() throws {
     try requireSidebarBesideDetail()
     select("Inbox")

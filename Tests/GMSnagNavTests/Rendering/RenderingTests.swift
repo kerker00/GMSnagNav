@@ -13,6 +13,7 @@
     @Observable final class Host {
       var badgeText = "New"
       var pinsRows = false
+      var movesAllowed = true
       var locale = Locale(identifier: "en_US")
       @ObservationIgnored var hostedLocales: Set<String> = []
       var selection: String?
@@ -154,6 +155,33 @@
       RunLoop.main.run(until: Date().addingTimeInterval(0.1))
       window.contentView?.layoutSubtreeIfNeeded()
       #expect(evaluated.contains("Renamed"))
+    }
+
+    @Test func hierarchyAccessibilityObservesLiveEligibilityAndProtectsStaleActions() throws {
+      var performed = false
+      let window = render(
+        outline(sampleRoots)
+          .outlineHierarchyMovable { [host] _ in host.movesAllowed }
+          .onOutlineDrop { _, _ in
+            performed = true
+            return true
+          })
+      defer { window.close() }
+      let view = try #require(window.contentView?.firstDescendant(of: NSOutlineView.self))
+      let cell = try #require(view.view(atColumn: 0, row: 4, makeIfNecessary: true))
+      let action = try #require(cell.accessibilityCustomActions()?.first)
+      host.movesAllowed = false
+      #expect(action.handler?() == false)
+      #expect(!performed)
+      RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+      window.contentView?.layoutSubtreeIfNeeded()
+      #expect(cell.accessibilityCustomActions()?.isEmpty != false)
+      host.movesAllowed = true
+      RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+      window.contentView?.layoutSubtreeIfNeeded()
+      #expect(cell.accessibilityCustomActions()?.first?.handler?() == true)
+      #expect(performed)
+      #expect(host.selection == nil)
     }
 
     @Test func generatedDestinationItemsExecuteThroughNativeMenusWithoutAnOutline() throws {

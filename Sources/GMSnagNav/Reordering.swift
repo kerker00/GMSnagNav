@@ -72,6 +72,10 @@ struct ReorderingAccessibility: ViewModifier {
   let canMoveUp: Bool
   let canMoveDown: Bool
   let move: (OutlineReorderDirection) -> Void
+  var canIndent = false
+  var canOutdent = false
+  var moveHierarchy: (OutlineHierarchyDirection) -> Void = { _ in }
+  @Environment(\.locale) private var locale
 
   func body(content: Content) -> some View {
     content.accessibilityActions {
@@ -88,6 +92,12 @@ struct ReorderingAccessibility: ViewModifier {
         } label: {
           Text("Move Down", bundle: .module)
         }
+      }
+      if canIndent {
+        Button(outlineLocalized("Move One Level Deeper", locale: locale)) { moveHierarchy(.indent) }
+      }
+      if canOutdent {
+        Button(outlineLocalized("Move One Level Up", locale: locale)) { moveHierarchy(.outdent) }
       }
     }
   }

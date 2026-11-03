@@ -78,6 +78,8 @@ rows to their new place.
 - <doc:DragAndDrop>
 - ``SnagOutline/outlineDraggable(_:)``
 - ``SnagOutline/outlineReorderable(_:)``
+- ``SnagOutline/outlineHierarchyMovable(keyboardShortcuts:_:)``
+- <doc:HierarchyMovement>
 - ``SnagOutline/outlinePinned(_:)``
 - ``SnagOutline/onOutlineDrop(validate:perform:)``
 - ``SnagOutline/onOutlineDrop(_:)``

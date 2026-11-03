@@ -184,14 +184,15 @@ extension OutlineActionFailure {
 }
 
 extension SnagOutline {
-  /// Shares an action source's drop callbacks with this outline.
+  /// Shares an action source's drop callbacks and live data with this outline.
   ///
-  /// Use the same children and pin rules for the outline and the action source. Pointer drags
-  /// use the renderer snapshot; explicit menu actions read live host data before execution.
-  /// Apply directly to `SnagOutline`.
+  /// Use the same children and pin rules for the outline and the action source. Explicit
+  /// hierarchy commands can read live data before execution; pointer drags keep their existing
+  /// renderer-snapshot behavior. Apply directly to `SnagOutline`.
   @MainActor public func onOutlineDrop(_ actions: OutlineActions<Element>) -> Self {
     var copy = self
     copy.behavior.drop = actions.handler
+    copy.behavior.actionTree = { actions.currentTree() }
     return copy
   }
 }

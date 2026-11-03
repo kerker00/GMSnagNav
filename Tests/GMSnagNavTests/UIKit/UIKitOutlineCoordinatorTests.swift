@@ -26,6 +26,8 @@
       var canReorder: ((TestItem) -> Bool)?
       var canDrag: ((TestItem) -> Bool)?
       var isPinned: ((TestItem) -> Bool)?
+      var canMoveHierarchy: ((TestItem) -> Bool)?
+      var hierarchyKeyboardShortcuts = true
     }
 
     let host = Host()
@@ -56,6 +58,8 @@
       behavior.canReorder = host.canReorder
       behavior.canDrag = host.canDrag
       behavior.isPinned = host.isPinned
+      behavior.canMoveHierarchy = host.canMoveHierarchy
+      behavior.hierarchyKeyboardShortcuts = host.hierarchyKeyboardShortcuts
       let selection: OutlineSelection<String> =
         multipleSelection
         ? .multiple(Binding(get: { host.multiple }, set: { host.multiple = $0 }))
@@ -291,6 +295,115 @@
       host.single = nil
       update()
       #expect(coordinator.selectedItemIDs.isEmpty)
+    }
+
+    @Test func hierarchyArrowsMoveAndRevealWithoutReplacingSelection() async throws {
+      host.canMoveHierarchy = { _ in true }
+      host.single = "c"
+      host.expansion = ["a", "a2"]
+      host.drop = OutlineDropHandler(
+        validate: { _ in .accept(.move) },
+        perform: { [host] proposal, _ in
+          if proposal.target.parent == "b" {
+            host.roots.removeLast()
+            host.roots[1].children = [.leaf("c")]
+          } else {
+            host.roots[1].children = []
+            host.roots.append(.leaf("c"))
+          }
+          return true
+        })
+      update()
+      #expect(
+        collectionView.handleDirectionalKey(.keyboardRightArrow, modifiers: [.command, .alternate]))
+      update()
+      await coordinator.hierarchySettled()
+      #expect(host.single == "c")
+      #expect(host.expansion == ["a", "a2", "b"])
+      #expect(try appliedSnapshot().parent(of: "c") == "b")
+      #expect(try appliedSnapshot().visibleItems.contains("c"))
+      #expect(
+        collectionView.handleDirectionalKey(.keyboardLeftArrow, modifiers: [.command, .alternate]))
+      update(layoutDirection: .rightToLeft)
+      await coordinator.hierarchySettled()
+      #expect(try appliedSnapshot().parent(of: "c") == nil)
+      // RTL Left is the forward/indent command.
+      #expect(
+        collectionView.handleDirectionalKey(.keyboardLeftArrow, modifiers: [.command, .alternate]))
+      #expect(host.roots[1].children?.map(\.id) == ["c"])
+      coordinator.detach()
+      #expect(!coordinator.moveHierarchy("c", direction: .outdent))
+    }
+
+    @Test func hierarchyRegistrationAndDispatchRespectOptInAndAllFourDirections() throws {
+      update()
+      #expect(
+        !collectionView.handleDirectionalKey(
+          .keyboardRightArrow, modifiers: [.command, .alternate]))
+      host.canMoveHierarchy = { _ in true }
+      host.single = "c"
+      var allowed = true
+      var performed = 0
+      host.drop = OutlineDropHandler(
+        validate: { _ in allowed ? .accept(.move) : .reject },
+        perform: { _, _ in
+          performed += 1
+          return true
+        })
+      update()
+      let command = try #require(
+        collectionView.keyCommands?.first {
+          $0.input == UIKeyCommand.inputRightArrow && $0.modifierFlags == [.command, .alternate]
+        })
+      let selector = try #require(command.action)
+      #expect(collectionView.canPerformAction(selector, withSender: command))
+      collectionView.perform(selector, with: command)
+      #expect(performed == 1)
+      allowed = false
+      #expect(!collectionView.canPerformAction(selector, withSender: command))
+      collectionView.perform(selector, with: command)
+      #expect(performed == 1)
+      #expect(
+        collectionView.handleDirectionalKey(.keyboardRightArrow, modifiers: [.command, .alternate]))
+      #expect(performed == 1)
+      #expect(collectionView.action(for: "invalid", modifiers: [.command, .alternate]) == nil)
+      #expect(
+        collectionView.action(for: UIKeyCommand.inputDownArrow, modifiers: [.command, .alternate])
+          == .moveDown)
+      #expect(
+        collectionView.action(for: UIKeyCommand.inputRightArrow, modifiers: [.command, .alternate])
+          == .indent)
+      #expect(
+        !collectionView.handleDirectionalKey(
+          .keyboardRightArrow, modifiers: [.command, .alternate, .control]))
+      host.hierarchyKeyboardShortcuts = false
+      update()
+      #expect(
+        !collectionView.handleDirectionalKey(
+          .keyboardRightArrow, modifiers: [.command, .alternate]))
+      #expect(
+        collectionView.keyCommands?.contains {
+          $0.input == UIKeyCommand.inputRightArrow && $0.modifierFlags == [.command, .alternate]
+        } != true)
+    }
+
+    @Test func hierarchyCommandsRejectHiddenMultipleSelectionButAXUsesItsOwnRow() {
+      host.canMoveHierarchy = { _ in true }
+      host.multiple = ["c", "a1"]
+      var count = 0
+      host.drop = OutlineDropHandler(
+        validate: { _ in .accept(.move) },
+        perform: { _, _ in
+          count += 1
+          return true
+        })
+      update(multipleSelection: true)
+      #expect(!coordinator.canHandleKeyboardAction(.indent))
+      coordinator.handleKeyboardAction(.indent)
+      #expect(count == 0)
+      #expect(coordinator.moveHierarchy("c", direction: .indent))
+      #expect(count == 1)
+      #expect(host.multiple == ["c", "a1"])
     }
 
     @Test func physicalModifiedArrowsReorderWithoutChangingSelection() throws {

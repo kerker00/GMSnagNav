@@ -30,3 +30,9 @@
 
 /* Copy selected elements into this submenu's container. */
 "Copy Here" = "Hierher kopieren";
+
+/* Move one row into the immediately preceding sibling container. */
+"Move One Level Deeper" = "Eine Ebene tiefer verschieben";
+
+/* Move one row out, directly after its current parent. */
+"Move One Level Up" = "Eine Ebene höher verschieben";

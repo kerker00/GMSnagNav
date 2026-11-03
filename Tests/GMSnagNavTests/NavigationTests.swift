@@ -93,6 +93,25 @@ import Testing
     #expect(request == nil)
   }
 
+  @Test func cancellingOnDetachPreservesTheHostRequest() async {
+    var request: OutlineNavigationRequest<String>? = .reveal("c")
+    var completed = false
+    let driver = OutlineNavigationDriver<String>()
+    driver.update(
+      OutlineNavigationHandler(
+        request: Binding(get: { request }, set: { request = $0 }),
+        onCompletion: { _, _ in completed = true }
+      )
+    ) { _ in
+      Issue.record("Detached navigation must not execute")
+      return .completed
+    }
+    driver.cancel()
+    await Task.yield()
+    #expect(request?.target == "c")
+    #expect(!completed)
+  }
+
   @Test func storesNavigationAlongsideAutomaticRevealSetting() {
     let outline = SnagOutline(sampleRoots, children: \.children) { Text($0.id) }
       .outlineRevealsSelection(false)

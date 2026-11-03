@@ -354,7 +354,14 @@ import Testing
   @Test func theDropOverloadSharesCallbacksAndCanBeOverridden() {
     let configured = SnagOutline(sampleRoots, children: \.children) { Text($0.id) }
       .onOutlineDrop(host.actions)
-    #expect(configured.behavior.actionTree?().count == 6)
-    #expect(configured.onOutlineDrop { _, _ in true }.behavior.actionTree == nil)
+    let proposal = OutlineDropProposal<String>(draggedIDs: ["c"], target: .root)
+    #expect(configured.behavior.drop?.validate(proposal) == .accept(.move))
+    #expect(configured.behavior.drop?.perform(proposal, .move) == true)
+    #expect(host.performed.count == 1)
+    let overridden = configured.onOutlineDrop(
+      validate: { _ in .reject }, perform: { _, _ in false })
+    #expect(overridden.behavior.drop?.validate(proposal) == .reject)
+    #expect(overridden.behavior.drop?.perform(proposal, .move) == false)
+    #expect(host.performed.count == 1)
   }
 }

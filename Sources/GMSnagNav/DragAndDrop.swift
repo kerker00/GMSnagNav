@@ -60,7 +60,6 @@ extension SnagOutline {
   ) -> Self {
     var copy = self
     copy.behavior.drop = OutlineDropHandler(validate: validate, perform: perform)
-    copy.behavior.actionTree = nil
     return copy
   }
 }

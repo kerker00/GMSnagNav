@@ -875,7 +875,8 @@
       let elements = Coordinator.menuElements(for: [
         .action("Rename", systemImage: "pencil") {},
         .menu(
-          "Move to", children: [
+          "Move to",
+          children: [
             .action("Top Level", isDisabled: true) {}, .action("Archive") {},
           ]),
         .divider,

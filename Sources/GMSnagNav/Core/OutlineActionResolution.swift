@@ -8,7 +8,7 @@ extension OutlineDropHandler {
   func resolveAction<Element: Identifiable>(
     sources: [ID], target: OutlineDropTarget<ID>, operation: OutlineDropOperation,
     tree: OutlineTree<Element>, expanded: Set<ID>, isPinned: ((Element) -> Bool)?,
-    exactTarget: Bool = false, preparation: OutlineActionPreparation<Element>? = nil
+    preparation: OutlineActionPreparation<Element>? = nil
   ) -> Result<OutlineDropProposal<ID>, OutlineActionFailure> where Element.ID == ID {
     let sourcesAvailable =
       preparation?.sourcesAvailable
@@ -35,7 +35,6 @@ extension OutlineDropHandler {
       resolved.operation == operation,
       preparation != nil || Set(resolved.proposal.draggedIDs) == Set(sources),
       resolved.proposal.target.parent == target.parent,
-      !exactTarget || resolved.proposal.target == target,
       operation == .copy || !resolved.proposal.isDroppingIntoOwnSubtree
     else { return .failure(.rejected) }
     return .success(resolved.proposal)

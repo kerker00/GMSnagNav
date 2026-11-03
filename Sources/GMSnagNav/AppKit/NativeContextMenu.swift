@@ -40,6 +40,7 @@
           submenu.autoenablesItems = false
           submenu.items = nativeItems(for: children)
           menuItem.submenu = submenu
+          menuItem.isEnabled = !item.isDisabled
           menuItem.image = item.nativeImage
           return menuItem
         }

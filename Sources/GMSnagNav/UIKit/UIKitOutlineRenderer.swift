@@ -1045,6 +1045,11 @@
         case .divider:
           sections.append([])
         case .menu(let children):
+          if item.isDisabled {
+            sections[sections.count - 1].append(
+              UIAction(title: item.title, image: image, attributes: .disabled) { _ in })
+            continue
+          }
           sections[sections.count - 1].append(
             UIMenu(title: item.title, image: image, children: menuElements(for: children)))
         case .action(let perform):

@@ -130,6 +130,53 @@
       ).close()
     }
 
+    private struct ObservableDestinationContent: View {
+      let host: Host
+      let evaluated: (String) -> Void
+
+      var body: some View {
+        let actions = OutlineActions(
+          data: { sampleRoots }, children: \.children, perform: { _, _ in true })
+        let items = actions.destinationItems(for: ["c"], operation: .move) { element in
+          evaluated(host.badgeText)
+          return host.badgeText + element.id
+        }
+        OutlineMenuItems(items)
+      }
+    }
+
+    @Test func destinationContentTracksHostTitleChangesWithoutAnOutline() {
+      var evaluated: [String] = []
+      let window = render(ObservableDestinationContent(host: host) { evaluated.append($0) })
+      defer { window.close() }
+      #expect(evaluated.contains("New"))
+      host.badgeText = "Renamed"
+      RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+      window.contentView?.layoutSubtreeIfNeeded()
+      #expect(evaluated.contains("Renamed"))
+    }
+
+    @Test func generatedDestinationItemsExecuteThroughNativeMenusWithoutAnOutline() throws {
+      var roots = sampleRoots
+      var calls = 0
+      let actions = OutlineActions(
+        data: { roots }, children: \.children,
+        perform: { _, _ in
+          calls += 1
+          return true
+        })
+      let items = actions.destinationItems(for: ["c"], operation: .move) { $0.id }
+      let native = OutlineMenuItem.nativeItems(for: items)
+      let target = try #require(native[0].target as? OutlineMenuActionTarget)
+      target.performAction(native[0])
+      #expect(calls == 1)
+      roots.removeLast()
+      target.performAction(native[0])
+      #expect(calls == 1)
+      // The normal SwiftUI output uses those same menu descriptors, with no native coordinator.
+      render(OutlineMenuItems(items)).close()
+    }
+
     @Test func observesPinChangesWithoutReplacingTheHostsTree() throws {
       let window = render(
         outline(sampleRoots).outlineDraggable().outlineReorderable()
@@ -270,6 +317,18 @@
       RunLoop.main.run(until: Date().addingTimeInterval(0.1))
       window.contentView?.layoutSubtreeIfNeeded()
       #expect(host.hostedLocales == ["de_DE"])
+    }
+
+    @Test func accessibilityNamesFollowTheHostLocaleOverride() throws {
+      let window = render(
+        outline(sampleRoots).outlineReorderable()
+          .onOutlineDrop { _, _ in true }
+          .environment(\.locale, Locale(identifier: "de_DE")))
+      defer { window.close() }
+      let view = try #require(window.contentView?.firstDescendant(of: NSOutlineView.self))
+      #expect(view.accessibilityLabel() == "Seitenleiste")
+      let cell = try #require(view.view(atColumn: 0, row: 4, makeIfNecessary: true))
+      #expect(cell.accessibilityCustomActions()?.map(\.name) == ["Nach oben verschieben"])
     }
 
     @Test(arguments: [

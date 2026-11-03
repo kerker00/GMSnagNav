@@ -17,10 +17,15 @@ struct SidebarView: View {
   @Binding var selection: LibraryItem.ID?
   @Binding var navigationRequest: OutlineNavigationRequest<LibraryItem.ID>?
   @State private var pendingNavigation: OutlineNavigationRequest<LibraryItem.ID>?
+  @Binding var expansion: Set<LibraryItem.ID>
+  @Binding var searchText: String
+  @Binding var renamingID: LibraryItem.ID?
+  let outlineActions: OutlineActions<LibraryItem>
+  let menuAvailability: () -> Bool
+  let onActionResult: (OutlineActionResult<LibraryItem.ID>) -> Void
   let onError: (Error) -> Void
+  @Environment(\.locale) private var locale
 
-  @State private var expansion: Set<LibraryItem.ID> = []
-  @State private var searchText = ""
   /// The expansion while searching, so the user's own expansion survives the search.
   @State private var searchExpansion: Set<LibraryItem.ID> = []
   @State private var didSetInitialExpansion = false
@@ -28,7 +33,6 @@ struct SidebarView: View {
   /// Items waiting for the user to confirm their deletion, because they contain other items.
   @State private var pendingDeletion: [LibraryItem.ID] = []
   /// The item being renamed in its row.
-  @State private var renamingID: LibraryItem.ID?
   @AppStorage("foldersSelectable") private var foldersSelectable = true
   @AppStorage("outlineStyle") private var style = DemoOutlineStyle.automatic
   @AppStorage("indentationStep") private var indentationStep = IndentationStep.regular
@@ -207,12 +211,12 @@ struct SidebarView: View {
   #endif
 
   private var isSearching: Bool {
-    !searchText.trimmingCharacters(in: .whitespaces).isEmpty
+    !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
   }
 
   /// The items whose names match the search, and the folders that lead to them.
   private var matchingIDs: Set<LibraryItem.ID> {
-    let query = searchText.trimmingCharacters(in: .whitespaces)
+    let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
     var result: Set<LibraryItem.ID> = []
     func visit(_ items: [LibraryItem]) -> Bool {
       var found = false
@@ -268,7 +272,7 @@ struct SidebarView: View {
     .outlineDraggable { _ in !isSearching }
     .outlineReorderable { _ in !isSearching }
     .outlinePinned { library.isPinned($0.id) }
-    .onOutlineDrop(validate: library.dropResult(for:), perform: drop)
+    .onOutlineDrop(outlineActions)
     // Lets drops onto the root level and the empty-space menu through, unlike a plain overlay.
     .outlineEmptyContent { [isSearching, searchText] in
       if isSearching {
@@ -329,32 +333,32 @@ struct SidebarView: View {
       return addMenuItems(near: nil)
     case 1:
       guard let id = ids.first else { return [] }
-      let destinations: [OutlineMenuItem] =
-        [
-          .action("Top Level", isDisabled: !library.canMove(id, into: nil)) {
-            move(id, into: nil)
-          },
-          .divider,
-        ]
-        + library.allFolders.map { folder in
-          .action(
-            String(repeating: "    ", count: folder.depth) + folder.item.name,
-            isDisabled: !library.canMove(id, into: folder.item.id)
-          ) { move(id, into: folder.item.id) }
-        }
       return addMenuItems(near: id) + [
         .divider,
         .action("Rename", systemImage: "pencil") { renamingID = id },
-        .menu("Move to", systemImage: "folder", children: destinations),
+      ] + transferMenus(for: ids) + [
         .divider,
         .action("Delete", systemImage: "trash", role: .destructive) { requestDelete([id]) },
       ]
     default:
-      return [
+      return transferMenus(for: ids) + [
         .action("Delete \(ids.count) Items", systemImage: "trash", role: .destructive) {
           requestDelete(Array(ids))
         }
       ]
+    }
+  }
+
+  private func transferMenus(for ids: Set<LibraryItem.ID>) -> [OutlineMenuItem] {
+    [OutlineDropOperation.move, .copy].map { operation in
+      .menu(
+        operation == .move ? "Move to" : "Copy to",
+        systemImage: operation == .move ? "folder" : "doc.on.doc",
+        children: outlineActions.destinationItems(
+          for: ids, operation: operation, expanded: { expansion },
+          isAvailable: { menuAvailability() && !isSearching && renamingID == nil },
+          locale: locale, onCompletion: onActionResult
+        ) { $0.name })
     }
   }
 
@@ -369,30 +373,6 @@ struct SidebarView: View {
         add(.document("New Document"), near: id)
       },
     ]
-  }
-
-  private func move(_ id: LibraryItem.ID, into folder: LibraryItem.ID?) {
-    do {
-      try library.move(id, into: folder)
-    } catch {
-      onError(error)
-    }
-  }
-
-  /// Moves the dropped items and opens the folder they were dropped into, so they stay visible.
-  private func drop(
-    _ proposal: OutlineDropProposal<LibraryItem.ID>, operation: OutlineDropOperation
-  ) -> Bool {
-    do {
-      try library.performDrop(proposal, operation: operation)
-      if let folder = proposal.target.parent {
-        expansion.insert(folder)
-      }
-      return true
-    } catch {
-      onError(error)
-      return false
-    }
   }
 
   /// Double-click: folders toggle their expansion, documents are "opened".

@@ -9,12 +9,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `OutlineActions` generates reusable hierarchical Move-to and Copy-to menus from live host
+  data. `OutlineMenuItems` displays the same entries in a SwiftUI menu outside the outline,
+  including an iPhone detail without a mounted sidebar. Explicit actions revalidate all sources,
+  pins, destinations and requested operations and report their result without partial transfers.
+- Demo: shared Move-to/Copy-to menus in sidebar and detail, with the same host mutation adapter.
 - `outlinePinned(_:)` protects fixed rows at the beginning of each sibling list. Pinned rows
   cannot be dragged or reordered with the keyboard or VoiceOver; insertions before or between
   them land after the pinned span. Copying and host redirects use the same rules, and the host
   validates adjusted destinations before performing changes.
 - Demo: "Pin Leading Rows" pins the first root and its first child, with pin icons and matching
   protection in the host's move menus.
+
+### Fixed
+
+- On macOS, the sidebar's accessibility name and sibling-movement action names follow an
+  explicit host locale override, consistently with destination menus and hierarchy actions.
+- Submenus without any enabled actions are disabled instead of opening an unusable branch.
 
 ## [0.4.1] - 2026-10-08
 

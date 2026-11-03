@@ -98,11 +98,6 @@ final class Library {
     return result
   }
 
-  /// Returns whether `id` may be moved into `folder` (`nil` meaning the root level).
-  func canMove(_ id: LibraryItem.ID, into folder: LibraryItem.ID?) -> Bool {
-    (try? validateMove(id, into: folder)) != nil
-  }
-
   // MARK: Mutations
 
   /// Moves an item into a folder (or the root level for `nil`) at `index`, appending when `nil`.

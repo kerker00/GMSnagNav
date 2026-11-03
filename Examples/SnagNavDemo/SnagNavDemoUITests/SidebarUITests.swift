@@ -157,11 +157,14 @@ final class SidebarUITests: XCTestCase {
       predicate: NSPredicate { [self] _, _ in
         let a = row(first)
         let b = row(second)
-        return a.exists && b.exists && a.frame.minY.isFinite && b.frame.minY.isFinite
-          && a.frame.minY < b.frame.minY
+        guard a.exists && b.exists else { return false }
+        // Each frame access queries accessibility; reuse the result on a busy test host.
+        let firstY = a.frame.minY
+        let secondY = b.frame.minY
+        return firstY.isFinite && secondY.isFinite && firstY < secondY
       }, object: nil)
     XCTAssertEqual(
-      XCTWaiter.wait(for: [expected], timeout: 5), .completed,
+      XCTWaiter.wait(for: [expected], timeout: 10), .completed,
       "Expected \(first) before \(second)", file: file, line: line)
   }
 

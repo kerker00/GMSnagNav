@@ -96,6 +96,23 @@ import Testing
       }).hierarchyProposal(for: "c", direction: .indent, tree: tree, expanded: []) != nil)
   }
 
+  @Test func disabledHierarchyDoesNotReadTheLiveModel() {
+    var reads = 0
+    let actions = OutlineActions(
+      data: {
+        reads += 1
+        return sampleRoots
+      }, children: \.children, perform: { _, _ in true })
+    let behavior = SnagOutline(sampleRoots, children: \.children) { Text($0.id) }
+      .onOutlineDrop(actions).behavior
+    let tree = OutlineTree(sampleRoots, children: \.children)
+    for direction in OutlineHierarchyDirection.allCases {
+      #expect(
+        behavior.hierarchyProposal(for: "c", direction: direction, tree: tree, expanded: []) == nil)
+    }
+    #expect(reads == 0)
+  }
+
   @Test func requiresItsOwnOptInButNotDraggingReorderingOrSelectionEligibility() {
     var behavior = behavior()
     #expect(behavior.canDrag == nil)

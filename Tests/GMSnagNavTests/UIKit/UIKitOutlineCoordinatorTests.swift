@@ -24,6 +24,11 @@
       var navigationResults: [OutlineNavigationResult] = []
       var badge: OutlineBadge?
       var canReorder: ((TestItem) -> Bool)?
+      var canDrag: ((TestItem) -> Bool)?
+      var isPinned: ((TestItem) -> Bool)?
+      var canMoveHierarchy: ((TestItem) -> Bool)?
+      var actionTree: (@MainActor () -> OutlineTree<TestItem>)?
+      var hierarchyKeyboardShortcuts = true
     }
 
     let host = Host()
@@ -52,6 +57,11 @@
         onCompletion: { _, result in host.navigationResults.append(result) })
       behavior.badge = { _ in host.badge }
       behavior.canReorder = host.canReorder
+      behavior.canDrag = host.canDrag
+      behavior.isPinned = host.isPinned
+      behavior.canMoveHierarchy = host.canMoveHierarchy
+      behavior.actionTree = host.actionTree
+      behavior.hierarchyKeyboardShortcuts = host.hierarchyKeyboardShortcuts
       let selection: OutlineSelection<String> =
         multipleSelection
         ? .multiple(Binding(get: { host.multiple }, set: { host.multiple = $0 }))
@@ -66,6 +76,37 @@
           springLoading: host.springLoading,
           rowContent: { Text($0.id) }),
         layoutDirection: layoutDirection)
+    }
+
+    @Test func pinnedRowsProtectDragsAndDropsAndRefreshWithHostPolicy() {
+      host.canDrag = { _ in true }
+      host.isPinned = { ["a", "a1"].contains($0.id) }
+      host.multiple = ["a", "a1", "a2", "c"]
+      host.expansion = ["a"]
+      var performed: OutlineDropProposal<String>?
+      host.drop = OutlineDropHandler(
+        validate: { _ in .accept(.move) },
+        perform: { proposal, _ in
+          performed = proposal
+          return true
+        })
+      update(multipleSelection: true)
+      _ = coordinator.beginDrag(from: "c")
+      #expect(coordinator.currentDragIDs == ["a2", "c"])
+      _ = coordinator.beginDrag(from: "a")
+      #expect(coordinator.currentDragIDs.isEmpty)
+      #expect(coordinator.performDrop(of: ["c"], at: .insert(into: "a", at: 0)))
+      #expect(performed?.target == .insert(into: "a", at: 1))
+      #expect(host.multiple == ["a", "a1", "a2", "c"])
+      #expect(host.expansion == ["a"])
+      #expect(
+        coordinator.resolveDrop(of: ["c"], at: .insert(into: nil, at: 0))?.proposal.target
+          == .insert(into: nil, at: 1))
+      host.isPinned = nil
+      update(multipleSelection: true)
+      #expect(
+        coordinator.resolveDrop(of: ["c"], at: .insert(into: nil, at: 0))?.proposal.target
+          == .insert(into: nil, at: 0))
     }
 
     @Test func explicitRevealOpensAncestorsAndRepeatsWithoutChangingSelection() async throws {
@@ -256,6 +297,139 @@
       host.single = nil
       update()
       #expect(coordinator.selectedItemIDs.isEmpty)
+    }
+
+    @Test func hierarchyEligibilityUsesTheSnapshotButExecutionReadsTheLiveTree() {
+      host.canMoveHierarchy = { _ in true }
+      host.single = "c"
+      var reads = 0
+      var performed = false
+      host.actionTree = { [host] in
+        reads += 1
+        return OutlineTree(host.roots, children: \.children)
+      }
+      host.drop = OutlineDropHandler(
+        validate: { _ in .accept(.move) },
+        perform: { _, _ in
+          performed = true
+          return true
+        })
+      update()
+      #expect(coordinator.canMoveHierarchy("c", direction: .indent))
+      #expect(reads == 0)
+      host.roots[1] = .leaf("b")
+      #expect(!coordinator.moveHierarchy("c", direction: .indent))
+      #expect(reads == 1)
+      #expect(!performed)
+    }
+
+    @Test func hierarchyArrowsMoveAndRevealWithoutReplacingSelection() async throws {
+      host.canMoveHierarchy = { _ in true }
+      host.single = "c"
+      host.expansion = ["a", "a2"]
+      host.drop = OutlineDropHandler(
+        validate: { _ in .accept(.move) },
+        perform: { [host] proposal, _ in
+          if proposal.target.parent == "b" {
+            host.roots.removeLast()
+            host.roots[1].children = [.leaf("c")]
+          } else {
+            host.roots[1].children = []
+            host.roots.append(.leaf("c"))
+          }
+          return true
+        })
+      update()
+      #expect(
+        collectionView.handleDirectionalKey(.keyboardRightArrow, modifiers: [.command, .alternate]))
+      update()
+      await coordinator.hierarchySettled()
+      #expect(host.single == "c")
+      #expect(host.expansion == ["a", "a2", "b"])
+      #expect(try appliedSnapshot().parent(of: "c") == "b")
+      #expect(try appliedSnapshot().visibleItems.contains("c"))
+      #expect(
+        collectionView.handleDirectionalKey(.keyboardLeftArrow, modifiers: [.command, .alternate]))
+      update(layoutDirection: .rightToLeft)
+      await coordinator.hierarchySettled()
+      #expect(try appliedSnapshot().parent(of: "c") == nil)
+      // RTL Left is the forward/indent command.
+      #expect(
+        collectionView.handleDirectionalKey(.keyboardLeftArrow, modifiers: [.command, .alternate]))
+      #expect(host.roots[1].children?.map(\.id) == ["c"])
+      coordinator.detach()
+      #expect(!coordinator.moveHierarchy("c", direction: .outdent))
+    }
+
+    @Test func hierarchyRegistrationAndDispatchRespectOptInAndAllFourDirections() throws {
+      update()
+      #expect(
+        !collectionView.handleDirectionalKey(
+          .keyboardRightArrow, modifiers: [.command, .alternate]))
+      host.canMoveHierarchy = { _ in true }
+      host.single = "c"
+      var allowed = true
+      var performed = 0
+      host.drop = OutlineDropHandler(
+        validate: { _ in allowed ? .accept(.move) : .reject },
+        perform: { _, _ in
+          performed += 1
+          return true
+        })
+      update()
+      let command = try #require(
+        collectionView.keyCommands?.first {
+          $0.input == UIKeyCommand.inputRightArrow && $0.modifierFlags == [.command, .alternate]
+        })
+      let selector = try #require(command.action)
+      #expect(collectionView.canPerformAction(selector, withSender: command))
+      collectionView.perform(selector, with: command)
+      #expect(performed == 1)
+      allowed = false
+      #expect(!collectionView.canPerformAction(selector, withSender: command))
+      collectionView.perform(selector, with: command)
+      #expect(performed == 1)
+      #expect(
+        collectionView.handleDirectionalKey(.keyboardRightArrow, modifiers: [.command, .alternate]))
+      #expect(performed == 1)
+      #expect(collectionView.action(for: "invalid", modifiers: [.command, .alternate]) == nil)
+      #expect(
+        collectionView.action(for: UIKeyCommand.inputDownArrow, modifiers: [.command, .alternate])
+          == .moveDown)
+      #expect(
+        collectionView.action(for: UIKeyCommand.inputRightArrow, modifiers: [.command, .alternate])
+          == .indent)
+      #expect(
+        !collectionView.handleDirectionalKey(
+          .keyboardRightArrow, modifiers: [.command, .alternate, .control]))
+      host.hierarchyKeyboardShortcuts = false
+      update()
+      #expect(
+        !collectionView.handleDirectionalKey(
+          .keyboardRightArrow, modifiers: [.command, .alternate]))
+      #expect(
+        collectionView.keyCommands?.contains {
+          $0.input == UIKeyCommand.inputRightArrow && $0.modifierFlags == [.command, .alternate]
+        } != true)
+    }
+
+    @Test func hierarchyCommandsRejectHiddenMultipleSelectionButAXUsesItsOwnRow() {
+      host.canMoveHierarchy = { _ in true }
+      host.multiple = ["c", "a1"]
+      var count = 0
+      host.drop = OutlineDropHandler(
+        validate: { _ in .accept(.move) },
+        perform: { _, _ in
+          count += 1
+          return true
+        })
+      update(multipleSelection: true)
+      #expect(!coordinator.canHandleKeyboardAction(.indent))
+      coordinator.handleKeyboardAction(.indent)
+      #expect(count == 0)
+      #expect(coordinator.moveHierarchy("c", direction: .indent))
+      #expect(count == 1)
+      #expect(host.multiple == ["c", "a1"])
     }
 
     @Test func physicalModifiedArrowsReorderWithoutChangingSelection() throws {
@@ -839,7 +1013,11 @@
       typealias Coordinator = UIKitOutlineCoordinator<TestItem, Text>
       let elements = Coordinator.menuElements(for: [
         .action("Rename", systemImage: "pencil") {},
-        .menu("Move to", children: [.action("Top Level", isDisabled: true) {}]),
+        .menu(
+          "Move to",
+          children: [
+            .action("Top Level", isDisabled: true) {}, .action("Archive") {},
+          ]),
         .divider,
         .action("Delete", role: .destructive) {},
       ])
@@ -853,7 +1031,30 @@
       let submenu = first[1] as? UIMenu
       #expect(submenu?.title == "Move to")
       #expect((submenu?.children.first as? UIAction)?.attributes.contains(.disabled) == true)
+      #expect((submenu?.children.last as? UIAction)?.attributes.contains(.disabled) == false)
       #expect((sections[1].children.first as? UIAction)?.attributes.contains(.destructive) == true)
+    }
+
+    @Test func generatedDestinationsRevalidateThroughARealUIKitAction() throws {
+      var roots = sampleRoots
+      var count = 0
+      let actions = OutlineActions(
+        data: { roots }, children: \.children,
+        perform: { _, _ in
+          count += 1
+          return true
+        })
+      let items = actions.destinationItems(for: ["c"], operation: .move) { $0.id }
+      let elements = UIKitOutlineCoordinator<TestItem, Text>.menuElements(for: items)
+      let section = try #require(elements.first as? UIMenu)
+      let action = try #require(section.children.first as? UIAction)
+      let control = UIButton(type: .system)
+      control.addAction(action, for: .primaryActionTriggered)
+      control.sendActions(for: .primaryActionTriggered)
+      #expect(count == 1)
+      roots.removeLast()
+      control.sendActions(for: .primaryActionTriggered)
+      #expect(count == 1)
     }
 
     @Test func keepsMenusWithoutDividersFlat() {
@@ -861,6 +1062,16 @@
       let elements = Coordinator.menuElements(for: [.action("A") {}, .action("B") {}])
       #expect(elements.count == 2)
       #expect(elements.allSatisfy { $0 is UIAction })
+    }
+
+    @Test func aDisabledSubmenuCannotOpenAnEmptyBranch() throws {
+      let items = [
+        OutlineMenuItem.menu("Unavailable", children: [.action("No", isDisabled: true) {}])
+      ]
+      let elements = UIKitOutlineCoordinator<TestItem, Text>.menuElements(for: items)
+      let disabled = try #require(elements.first as? UIAction)
+      #expect(disabled.title == "Unavailable")
+      #expect(disabled.attributes.contains(.disabled))
     }
   }
 #endif

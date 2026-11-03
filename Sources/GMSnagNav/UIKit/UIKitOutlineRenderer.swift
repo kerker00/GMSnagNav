@@ -42,6 +42,12 @@
         with: self, layoutDirection: context.environment.layoutDirection,
         dynamicTypeSize: context.environment.dynamicTypeSize, locale: context.environment.locale)
     }
+
+    static func dismantleUIView(
+      _ view: UICollectionView, coordinator: UIKitOutlineCoordinator<Element, RowContent>
+    ) {
+      coordinator.detach()
+    }
   }
 
   /// Data source owner and delegate of the collection view; translates between UIKit and the
@@ -137,6 +143,9 @@
       self.locale = locale
       (collectionView as? SnagCollectionView)?.handlesReorderShortcuts =
         renderer.behavior.canReorder != nil
+      (collectionView as? SnagCollectionView)?.handlesHierarchyShortcuts =
+        renderer.behavior.canMoveHierarchy != nil && renderer.behavior.hierarchyKeyboardShortcuts
+      (collectionView as? SnagCollectionView)?.outlineLocale = locale
       // Keep UIKit's live trait environment when the host uses the system size. Only forward
       // an explicit SwiftUI override; fixing every row to the initial size blocks trait changes.
       // An unattached collection view still reports an unspecified size, so compare with the
@@ -199,13 +208,53 @@
       navigation.update(renderer.behavior.navigation) { [weak self] request in
         self?.navigate(request) ?? .outlineUnavailable
       }
+      hierarchyReveal.update(
+        tree: tree, previous: oldTree, selection: selected,
+        navigationPending: renderer.behavior.navigation?.request.wrappedValue != nil
+      ) { [weak self] request in self?.revealHierarchy(request) }
     }
 
     /// Reveals elements the host selects; see `outlineRevealsSelection(_:)`.
     private var reveal = SelectionReveal<ID>()
     private let navigation = OutlineNavigationDriver<ID>()
+    private let hierarchyReveal = OutlineHierarchyReveal<ID>()
 
     func navigationSettled() async { await navigation.settled() }
+    func hierarchySettled() async { await hierarchyReveal.settled() }
+
+    func detach() {
+      hierarchyReveal.cancel()
+      navigation.cancel()
+      springLoadTask?.cancel()
+      renderer = nil
+      collectionView = nil
+    }
+
+    private func revealHierarchy(_ request: OutlineHierarchyReveal<ID>.Request) {
+      guard let renderer, let collectionView, let dataSource,
+        renderer.behavior.navigation?.request.wrappedValue == nil,
+        renderer.behavior.renaming?.renaming.wrappedValue == nil,
+        selectedIDs(in: renderer.selection) == request.selection,
+        tree.contains(request.source), tree.parent(of: request.source) == request.parent
+      else { return }
+      let keepsFocus = request.preservesKeyboardFocus && collectionView.isFirstResponder
+      isApplyingUpdate = true
+      defer { isApplyingUpdate = false }
+      renderer.expansion.formUnion(tree.ancestors(of: request.source))
+      dataSource.apply(
+        sectionSnapshot(expanded: displayedExpansion), to: 0, animatingDifferences: false)
+      applySelection(request.selection)
+      collectionView.layoutIfNeeded()
+      guard let indexPath = dataSource.indexPath(for: request.source) else { return }
+      collectionView.scrollToItem(at: indexPath, at: .centeredVertically, animated: false)
+      if keepsFocus {
+        focusedItemID = request.source
+        let followsFocus = collectionView.selectionFollowsFocus
+        collectionView.selectionFollowsFocus = false
+        updateNativeFocus(at: indexPath)
+        collectionView.selectionFollowsFocus = followsFocus
+      }
+    }
 
     private func navigate(_ request: OutlineNavigationRequest<ID>) -> OutlineNavigationResult {
       guard let renderer, let collectionView, let dataSource else { return .outlineUnavailable }
@@ -316,7 +365,7 @@
       let badge = renderer.behavior.badge?(element)
       // The row draws its own leading chevron and indentation: UIKit places its outline
       // disclosure on the trailing edge of sidebar lists and does not indent hosted content.
-      let canDrag = rowsDragThemselves && renderer.behavior.canDrag?(element) == true
+      let canDrag = rowsDragThemselves && renderer.behavior.isDraggable(element)
       // A native menu is shown by the collection view; only a SwiftUI menu lives in the row.
       let menu = renderer.behavior.contextMenuItems == nil ? renderer.behavior.contextMenu : nil
       let menuIDs = activatedIDs(for: id)
@@ -328,6 +377,8 @@
       let locale = self.locale
       let canMoveUp = canReorder(id, direction: .up)
       let canMoveDown = canReorder(id, direction: .down)
+      let canIndent = canMoveHierarchy(id, direction: .indent)
+      let canOutdent = canMoveHierarchy(id, direction: .outdent)
       cell.contentConfiguration = UIHostingConfiguration {
         let content = OutlineRowView(
           row: row, indentation: renderer.appearance.indentation, isExpanded: row.isExpanded,
@@ -341,7 +392,11 @@
           ReorderingAccessibility(
             canMoveUp: canMoveUp,
             canMoveDown: canMoveDown,
-            move: { [weak self] direction in _ = self?.reorder(id, direction: direction) })
+            move: { [weak self] direction in _ = self?.reorder(id, direction: direction) },
+            canIndent: canIndent, canOutdent: canOutdent,
+            moveHierarchy: { [weak self] direction in
+              _ = self?.moveHierarchy(id, direction: direction)
+            })
         )
         .environment(
           \.outlineRenameSession,
@@ -404,6 +459,7 @@
 
     private func userChangedExpansion(of id: ID, expanded: Bool) {
       guard !isApplyingUpdate, let renderer else { return }
+      hierarchyReveal.cancel()
       if expanded, !renderer.expansion.contains(id) {
         renderer.expansion.insert(id)
       } else if !expanded, renderer.expansion.contains(id) {
@@ -489,6 +545,11 @@
       }
       guard let id = keyboardItemID else { return false }
       switch action {
+      case .indent, .outdent:
+        guard let renderer, renderer.behavior.hierarchyKeyboardShortcuts,
+          selectedIDs(in: renderer.selection).count <= 1
+        else { return false }
+        return canMoveHierarchy(id, direction: action == .indent ? .indent : .outdent)
       case .moveUp, .moveDown:
         guard let renderer, selectedIDs(in: renderer.selection).count <= 1 else { return false }
         return canReorder(id, direction: action == .moveUp ? .up : .down)
@@ -509,6 +570,7 @@
     /// Horizontal arrows navigate the hierarchy; Return activates and Space toggles containers.
     func handleKeyboardAction(_ action: OutlineKeyboardAction) {
       guard canHandleKeyboardAction(action) else { return }
+      if action != .indent && action != .outdent { hierarchyReveal.cancel() }
       if keyboardItemID == nil, action == .previous || action == .next {
         let candidates = tree.visibleRows(expanded: displayedExpansion).filter {
           canSelect($0.id) || !tree.children(of: $0.id).isEmpty
@@ -519,6 +581,8 @@
       guard let id = keyboardItemID else { return }
       let children = tree.children(of: id)
       switch action {
+      case .indent, .outdent:
+        _ = moveHierarchy(id, direction: action == .indent ? .indent : .outdent)
       case .moveUp, .moveDown:
         _ = reorder(id, direction: action == .moveUp ? .up : .down)
       case .previous, .next:
@@ -569,7 +633,27 @@
         id, direction: direction, tree: tree, expanded: displayedExpansion)
     }
 
+    func canMoveHierarchy(_ id: ID, direction: OutlineHierarchyDirection) -> Bool {
+      guard let renderer else { return false }
+      return renderer.behavior.hierarchyProposal(
+        for: id, direction: direction, tree: tree, expanded: displayedExpansion,
+        readsLiveData: false) != nil
+    }
+
+    @discardableResult func moveHierarchy(_ id: ID, direction: OutlineHierarchyDirection) -> Bool {
+      guard let renderer, let collectionView, let drop = renderer.behavior.drop,
+        let proposal = renderer.behavior.hierarchyProposal(
+          for: id, direction: direction, tree: tree, expanded: displayedExpansion)
+      else { return false }
+      let selected = selectedIDs(in: renderer.selection)
+      let focused = collectionView.isFirstResponder
+      guard drop.perform(proposal, .move) else { return false }
+      hierarchyReveal.record(proposal, selection: selected, focused: focused)
+      return true
+    }
+
     private func focus(_ id: ID) {
+      hierarchyReveal.cancel()
       guard let collectionView, let indexPath = dataSource?.indexPath(for: id) else { return }
       focusedItemID = id
       if canSelect(id) {
@@ -645,7 +729,7 @@
     private let draggedRowType = "io.github.kerker00.gmsnagnav.outline-row.\(UUID().uuidString)"
 
     /// The elements of the drag that is in progress, recorded when it begins.
-    private var currentDragIDs: [ID] = []
+    private(set) var currentDragIDs: [ID] = []
 
     /// The frames of the visible rows when the drag entered the list, in display order.
     ///
@@ -676,12 +760,15 @@
     /// the menu and moving the finger lifts the row out of it — like the Files app. A row that
     /// belongs to a multiple selection drags the whole selection.
     func beginDrag(from id: ID) -> NSItemProvider {
-      var ids = [id]
+      var ids =
+        tree.element(id).map { renderer?.behavior.isDraggable($0) == true } == true
+        ? [id] : []
       if let renderer, case .multiple(let binding) = renderer.selection,
-        binding.wrappedValue.contains(id), let canDrag = renderer.behavior.canDrag
+        !ids.isEmpty, binding.wrappedValue.contains(id)
       {
         ids = tree.visibleRows(expanded: displayedExpansion).map(\.id).filter { row in
-          binding.wrappedValue.contains(row) && tree.element(row).map(canDrag) == true
+          binding.wrappedValue.contains(row)
+            && tree.element(row).map(renderer.behavior.isDraggable) == true
         }
       }
       currentDragIDs = ids
@@ -719,9 +806,9 @@
     }
 
     private func draggableID(at indexPath: IndexPath) -> ID? {
-      guard let canDrag = renderer?.behavior.canDrag,
+      guard let behavior = renderer?.behavior,
         let id = dataSource?.itemIdentifier(for: indexPath),
-        let element = tree.element(id), canDrag(element)
+        let element = tree.element(id), behavior.isDraggable(element)
       else { return nil }
       return id
     }
@@ -805,7 +892,9 @@
     ) -> (proposal: OutlineDropProposal<ID>, operation: OutlineDropOperation)? {
       guard let renderer, let drop = renderer.behavior.drop, !ids.isEmpty else { return nil }
       return dropCache.resolution(for: ids, target: target) {
-        drop.resolve(draggedIDs: ids, target: target, tree: tree, expanded: renderer.expansion)
+        drop.resolve(
+          draggedIDs: ids, target: target, tree: tree, expanded: renderer.expansion,
+          isPinned: renderer.behavior.isPinned)
       }
     }
 
@@ -1040,6 +1129,11 @@
         case .divider:
           sections.append([])
         case .menu(let children):
+          if item.isDisabled {
+            sections[sections.count - 1].append(
+              UIAction(title: item.title, image: image, attributes: .disabled) { _ in })
+            continue
+          }
           sections[sections.count - 1].append(
             UIMenu(title: item.title, image: image, children: menuElements(for: children)))
         case .action(let perform):
@@ -1076,6 +1170,7 @@
     }
 
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+      if !isApplyingUpdate { hierarchyReveal.cancel() }
       focusedItemID = dataSource?.itemIdentifier(for: indexPath)
       writeSelection()
       updateNativeFocus(at: indexPath, takingKeyboardFocus: true)
@@ -1084,6 +1179,7 @@
     func collectionView(
       _ collectionView: UICollectionView, didDeselectItemAt indexPath: IndexPath
     ) {
+      if !isApplyingUpdate { hierarchyReveal.cancel() }
       writeSelection()
     }
   }

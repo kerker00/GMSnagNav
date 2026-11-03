@@ -21,3 +21,18 @@
 
 /* The accessibility label of an outline in sidebar style on macOS. */
 "Sidebar" = "Seitenleiste";
+
+/* The root destination of an explicit move or copy menu. */
+"Top Level" = "Oberste Ebene";
+
+/* Move selected elements into this submenu's container. */
+"Move Here" = "Hierher verschieben";
+
+/* Copy selected elements into this submenu's container. */
+"Copy Here" = "Hierher kopieren";
+
+/* Move one row into the immediately preceding sibling container. */
+"Move One Level Deeper" = "Eine Ebene tiefer verschieben";
+
+/* Move one row out, directly after its current parent. */
+"Move One Level Up" = "Eine Ebene höher verschieben";

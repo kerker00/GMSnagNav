@@ -38,7 +38,7 @@ The project references the package in this repository as a **local** Swift packa
 ```swift
 // Package.swift
 dependencies: [
-  .package(url: "https://github.com/kerker00/GMSnagNav.git", from: "0.4.1")
+  .package(url: "https://github.com/kerker00/GMSnagNav.git", from: "0.5.0")
 ],
 targets: [
   .target(name: "MyApp", dependencies: ["GMSnagNav"])
@@ -54,6 +54,7 @@ Then `import GMSnagNav` wherever you build your sidebar.
 | Host-owned tree model | [`Model/LibraryItem.swift`](SnagNavDemo/Model/LibraryItem.swift) | ✅ |
 | Host-owned mutations: move with insertion index, cycle protection, rename, delete | [`Model/Library.swift`](SnagNavDemo/Model/Library.swift) | ✅ |
 | Menu-based "Move to" fallback for keyboard and accessibility users | [`Sidebar/ItemActions.swift`](SnagNavDemo/Sidebar/ItemActions.swift) | ✅ |
+| Shared hierarchical Move-to/Copy-to menus in sidebar and detail, including iPhone detail without the sidebar | `OutlineActions`, `OutlineMenuItems` and [`ContentView.swift`](SnagNavDemo/ContentView.swift) | ✅ Revalidates live data and pins; copying preserves originals |
 | `SnagOutline` with selection and expansion bindings, expand/collapse all, revealing new items | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ Native `NSOutlineView` on macOS, `UICollectionView` on iOS |
 | "Show in Sidebar" from the detail: clear search, show the sidebar, reveal the current item and transfer keyboard focus | [`ContentView.swift`](SnagNavDemo/ContentView.swift) and `outlineNavigation(_:onCompletion:)` | ✅ On a collapsed iPhone split view, the existing return-to-sidebar behavior clears selection |
 | Drag and drop onto items, between rows and into the root, validated by the host | [`Model/Library.swift`](SnagNavDemo/Model/Library.swift) | ✅ Cycles are rejected, drops onto documents are redirected next to them |
@@ -62,6 +63,8 @@ Then `import GMSnagNav` wherever you build your sidebar.
 | Primary action: double-click, Command-O or Command-Down toggles folders and "opens" documents (macOS); Return starts renaming | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
 | Hardware-keyboard navigation: up/down, hierarchy arrows and Space; mirrored arrows in RTL layouts (iPad) | built in | ✅ |
 | Reorder one row among its siblings using Command-Option-Up/Down or VoiceOver; disabled while searching | `outlineReorderable(_:)` and the shared drop callbacks | ✅ |
+| Move into the immediate previous sibling container or out after the parent | `outlineHierarchyMovable(keyboardShortcuts:_:)` | ✅ Command-Option-Forward/Backward and VoiceOver; RTL mirrored; search, section and pin boundaries protected |
+| Pin Leading Rows: pin the first root and its first child (initially Work and Clients), prevent dragging/reordering and redirect insertions behind them | `outlinePinned(_:)` and the host's move validation | ✅ Toggle in Outline options or the macOS View menu; pin icons identify fixed rows |
 | Counts, text, status symbols, dots and progress; edit Status in the detail view or toggle Show Badges | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
 | Style, indentation and the AppKit configuration escape hatch (Outline menu) | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
 | Native context menu built from `OutlineMenuItem`s — submenu with disabled targets, destructive delete, add at the root level on empty space; on iOS it shares the long press with dragging | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |

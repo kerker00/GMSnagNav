@@ -220,6 +220,42 @@ host rules. Copy results and redirects that change the parent or the requested s
 are rejected: Move Up / Move Down always means one sibling step. Matching redirects are allowed.
 The host's performer reports success or failure as with a drop.
 
+## Pinned rows
+
+Keep fixed entries at the beginning of a sibling list with ``SnagOutline/outlinePinned(_:)``:
+
+```swift
+.outlinePinned { item in item.isFixed }
+.outlineDraggable()
+.outlineReorderable()
+```
+
+Use these modifiers alongside your existing ``SnagOutline/onOutlineDrop(validate:perform:)``
+callbacks. Put fixed elements first in the host's data, at the root or inside a container. The outline never
+sorts or changes your data. Pinning reserves the span through the last pinned sibling: drops
+before or between those rows insert after them. The host validates this adjusted proposal, and
+the drop indicator and performer use that destination. Move indices still account for source
+removal; copies use the target's unadjusted child index as usual.
+
+Pinned elements are excluded from drags, including multiple selections, and have no keyboard or
+VoiceOver reorder actions. Normal siblings cannot be reordered across the protected span. Modifier
+order does not change these rules. If a host redirect points into the protected span, the outline
+adjusts it and asks the validator again; a rejection or conflicting second redirect rejects the
+drop instead of bypassing host rules.
+
+Pinning fixes a position among siblings, not on screen: rows scroll normally. Moving or copying an
+ancestor carries its pinned descendants with it. Drops onto a pinned container remain under the
+host's control, as do leaf drops, selection, expansion, renaming and deletion. Pinning does not
+affect model mutations from other parts of your app: apply the same protections to move menus and
+other host actions. The demo's **Pin Leading Rows** option pins the first root and its first child
+(Work and Clients in the initial sample) and protects them in its move menus too.
+Changes to observable host pin state update the outline without replacing the host's tree.
+
+Favorites remain a host-owned model. A Favorites section can use reference rows with identifiers
+such as `.favorite(originalID)`, distinct from the original element's identifier elsewhere in the
+tree. Store references and ordering in your app, validate drops into that section yourself, and
+use pinning only for entries whose positions should stay fixed.
+
 ## See Also
 
 - <doc:PlatformDifferences>

@@ -19,7 +19,12 @@
       var primaryAction: ((Set<String>) -> Void)?
       var appearance = OutlineAppearance()
       var canDrag: ((TestItem) -> Bool)?
+      var isPinned: ((TestItem) -> Bool)?
       var canReorder: ((TestItem) -> Bool)?
+      var canMoveHierarchy: ((TestItem) -> Bool)?
+      var actionTree: (@MainActor () -> OutlineTree<TestItem>)?
+      var hierarchyKeyboardShortcuts = true
+      var layoutDirection: LayoutDirection?
       var drop: OutlineDropHandler<String>?
       var springLoading = SpringLoadingBehavior.automatic
       var reportedDuplicates: [Set<String>] = []
@@ -53,7 +58,11 @@
       behavior.isSelectable = host.isSelectable
       behavior.primaryAction = host.primaryAction
       behavior.canDrag = host.canDrag
+      behavior.isPinned = host.isPinned
       behavior.canReorder = host.canReorder
+      behavior.canMoveHierarchy = host.canMoveHierarchy
+      behavior.actionTree = host.actionTree
+      behavior.hierarchyKeyboardShortcuts = host.hierarchyKeyboardShortcuts
       behavior.drop = host.drop
       behavior.duplicateIDs = { host.reportedDuplicates.append($0) }
       behavior.typeSelectText = host.typeSelectText
@@ -90,7 +99,7 @@
           behavior: behavior,
           appearance: host.appearance,
           springLoading: host.springLoading,
-          rowContent: { Text($0.id) }))
+          rowContent: { Text($0.id) }), layoutDirection: host.layoutDirection)
     }
 
     private var visibleIDs: [String] {
@@ -263,6 +272,152 @@
       }
       #expect(!outlineView.performKeyEquivalent(with: down))
       #expect(!called)
+    }
+
+    @Test func hierarchyEligibilityUsesTheSnapshotButExecutionReadsTheLiveTree() {
+      host.canMoveHierarchy = { _ in true }
+      host.single = "c"
+      var reads = 0
+      var performed = false
+      host.actionTree = { [host] in
+        reads += 1
+        return OutlineTree(host.roots, children: \.children)
+      }
+      host.drop = OutlineDropHandler(
+        validate: { _ in .accept(.move) },
+        perform: { _, _ in
+          performed = true
+          return true
+        })
+      update()
+      #expect(coordinator.canMoveHierarchy("c", direction: .indent))
+      #expect(reads == 0)
+      // The renderer still shows an empty container; the current host model no longer has one.
+      host.roots[1] = .leaf("b")
+      #expect(!coordinator.moveHierarchy("c", direction: .indent))
+      #expect(reads == 1)
+      #expect(!performed)
+    }
+
+    @Test func hierarchyKeysMoveRevealAndKeepFocusWithTheSameSelection() async throws {
+      host.canMoveHierarchy = { _ in true }
+      host.single = "c"
+      host.expansion = ["a", "a2"]
+      host.drop = OutlineDropHandler(
+        validate: { _ in .accept(.move) },
+        perform: { [host] proposal, _ in
+          if proposal.target.parent == "b" {
+            host.roots.removeLast()
+            host.roots[1].children = [.leaf("c")]
+          } else {
+            host.roots[1].children = []
+            host.roots.append(.leaf("c"))
+          }
+          return true
+        })
+      update()
+      let window = NSWindow(
+        contentRect: CGRect(x: 0, y: 0, width: 320, height: 480), styleMask: [.titled],
+        backing: .buffered, defer: false)
+      window.isReleasedWhenClosed = false
+      defer { window.close() }
+      window.contentView = outlineView
+      #expect(window.makeFirstResponder(outlineView))
+      let right = try #require(
+        NSEvent.keyEvent(
+          with: .keyDown, location: .zero, modifierFlags: [.command, .option], timestamp: 0,
+          windowNumber: window.windowNumber, context: nil, characters: "\u{F703}",
+          charactersIgnoringModifiers: "\u{F703}", isARepeat: false, keyCode: 124))
+      #expect(window.performKeyEquivalent(with: right))
+      update()
+      await coordinator.hierarchySettled()
+      #expect(host.single == "c")
+      #expect(host.expansion == ["a", "a2", "b"])
+      #expect(visibleIDs.last == "c")
+      #expect(window.firstResponder === outlineView)
+      #expect(coordinator.moveHierarchy("c", direction: .outdent))
+      update()
+      await coordinator.hierarchySettled()
+      #expect(host.roots.last?.id == "c")
+      #expect(host.single == "c")
+      // A host-enforced RTL environment reverses the physical key.
+      host.layoutDirection = .rightToLeft
+      update()
+      let left = try #require(
+        NSEvent.keyEvent(
+          with: .keyDown, location: .zero, modifierFlags: [.command, .option], timestamp: 0,
+          windowNumber: window.windowNumber, context: nil, characters: "\u{F702}",
+          charactersIgnoringModifiers: "\u{F702}", isARepeat: false, keyCode: 123))
+      #expect(window.performKeyEquivalent(with: left))
+      #expect(host.roots[1].children?.map(\.id) == ["c"])
+      coordinator.detach()
+      #expect(!coordinator.moveHierarchy("c", direction: .outdent))
+    }
+
+    @Test func hierarchyShortcutsPreserveEditorsAndRejectHiddenMultipleSelection() throws {
+      host.canMoveHierarchy = { _ in true }
+      var performed = false
+      host.drop = OutlineDropHandler(
+        validate: { _ in .accept(.move) },
+        perform: { _, _ in
+          performed = true
+          return true
+        })
+      host.multiple = ["c", "a1"]
+      update(multipleSelection: true)
+      #expect(coordinator.handleHierarchyShortcut(.indent))
+      #expect(!performed)
+      host.hierarchyKeyboardShortcuts = false
+      update(multipleSelection: true)
+      #expect(!coordinator.handleHierarchyShortcut(.indent))
+      // AX still targets its own row and does not replace the selection.
+      #expect(coordinator.canMoveHierarchy("c", direction: .indent))
+      #expect(coordinator.moveHierarchy("c", direction: .indent))
+      #expect(host.multiple == ["c", "a1"])
+      let window = NSWindow(
+        contentRect: CGRect(x: 0, y: 0, width: 320, height: 480), styleMask: [.titled],
+        backing: .buffered, defer: false)
+      window.isReleasedWhenClosed = false
+      defer { window.close() }
+      window.contentView = outlineView
+      let field = NSTextField(string: "Editing")
+      outlineView.addSubview(field)
+      #expect(window.makeFirstResponder(field))
+      var intercepted = false
+      outlineView.onHierarchyMove = { _ in
+        intercepted = true
+        return true
+      }
+      let key = try #require(
+        NSEvent.keyEvent(
+          with: .keyDown, location: .zero, modifierFlags: [.command, .option], timestamp: 0,
+          windowNumber: window.windowNumber, context: nil, characters: "\u{F703}",
+          charactersIgnoringModifiers: "\u{F703}", isARepeat: false, keyCode: 124))
+      _ = outlineView.performKeyEquivalent(with: key)
+      #expect(!intercepted)
+    }
+
+    @Test func hierarchyFailureAndAnInterveningSelectionLeaveExpansionAlone() async {
+      host.canMoveHierarchy = { _ in true }
+      host.single = "c"
+      host.drop = OutlineDropHandler(validate: { _ in .accept(.move) }, perform: { _, _ in false })
+      update()
+      #expect(!coordinator.moveHierarchy("c", direction: .indent))
+      #expect(host.expansion.isEmpty)
+      host.drop = OutlineDropHandler(
+        validate: { _ in .accept(.move) },
+        perform: { [host] _, _ in
+          host.roots.removeLast()
+          host.roots[1].children = [.leaf("c")]
+          return true
+        })
+      update()
+      #expect(coordinator.moveHierarchy("c", direction: .indent))
+      host.single = "b"
+      update()
+      await coordinator.hierarchySettled()
+      #expect(!host.expansion.contains("b"))
+      #expect(host.single == "b")
     }
 
     private func pressArrow(right: Bool) {
@@ -913,6 +1068,34 @@
       update()
       #expect(writer(for: "a") != nil)
       #expect(writer(for: "b") == nil)
+    }
+
+    @Test func pinnedRowsProtectDragAndDropWithoutChangingSelectionOrExpansion() {
+      host.canDrag = { _ in true }
+      host.canReorder = { _ in true }
+      host.isPinned = { ["a", "a1"].contains($0.id) }
+      host.single = "a1"
+      host.expansion = ["a"]
+      var performed: OutlineDropProposal<String>?
+      host.drop = acceptAll { proposal, _ in performed = proposal }
+      update()
+      #expect(writer(for: "a") == nil)
+      #expect(writer(for: "a1") == nil)
+      #expect(writer(for: "c") != nil)
+      #expect(coordinator.performDrop(of: ["c"], onto: item("a"), childIndex: 0))
+      #expect(performed?.target == .insert(into: "a", at: 1))
+      #expect(host.single == "a1")
+      #expect(host.expansion == ["a"])
+      #expect(
+        coordinator.resolveDrop(of: ["c"], onto: nil, childIndex: 0)?.proposal.target
+          == .insert(into: nil, at: 1))
+      // A new host policy must invalidate the earlier cached destination.
+      host.isPinned = nil
+      update()
+      #expect(writer(for: "a") != nil)
+      #expect(
+        coordinator.resolveDrop(of: ["c"], onto: nil, childIndex: 0)?.proposal.target
+          == .insert(into: nil, at: 0))
     }
 
     @Test func resolvesDraggedElementsFromTokensOnThePasteboard() {

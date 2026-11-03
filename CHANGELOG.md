@@ -7,6 +7,41 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-03
+
+Organize outline items with pinned rows, reusable Move-to/Copy-to destination menus, and
+keyboard and VoiceOver commands for moving between hierarchy levels.
+
+### Added
+
+- `OutlineActions` generates reusable hierarchical Move-to and Copy-to menus from live host
+  data. `OutlineMenuItems` displays the same entries in a SwiftUI menu outside the outline,
+  including an iPhone detail without a mounted sidebar. Explicit actions revalidate all sources,
+  pins, destinations and requested operations and report their result without partial transfers.
+- `outlineHierarchyMovable(keyboardShortcuts:_:)` adds Command-Option-Forward/Backward and
+  localized VoiceOver actions to move one row into its previous sibling container or out after
+  its parent. The exact move uses the existing drop callbacks, preserves selection and reveals
+  the moved row after the host update. Section and pin boundaries remain protected.
+- Demo: shared Move-to/Copy-to menus in sidebar and detail, with the same host mutation adapter;
+  hierarchy movement is enabled outside search.
+- `outlinePinned(_:)` protects fixed rows at the beginning of each sibling list. Pinned rows
+  cannot be dragged or reordered with the keyboard or VoiceOver; insertions before or between
+  them land after the pinned span. Copying and host redirects use the same rules, and the host
+  validates adjusted destinations before performing changes.
+- Demo: "Pin Leading Rows" pins the first root and its first child, with pin icons and matching
+  protection in the host's move menus.
+
+### Fixed
+
+- A further structural update cancels a scheduled hierarchy reveal even when the moved row
+  still has the expected parent. Ordinary updates with unchanged structure retain the reveal.
+- Hierarchy action availability reuses the displayed tree instead of rebuilding live host trees
+  per row. Disabled hierarchy behavior does not query the action source; execution still
+  validates against the current host model.
+- On macOS, the sidebar's accessibility name and sibling-movement action names follow an
+  explicit host locale override, consistently with destination menus and hierarchy actions.
+- Submenus without any enabled actions are disabled instead of opening an unusable branch.
+
 ## [0.4.1] - 2026-10-08
 
 Fixes for selection, section headers, context menus, badges and keyboard navigation, mostly on
@@ -211,7 +246,8 @@ It requires macOS 26 or iOS 26 and Swift 6.2.
 - English and German texts for what VoiceOver reads on iOS. They follow the host app's language.
 - `SnagNavDemo`, a multiplatform demo app in `Examples/`.
 
-[Unreleased]: https://github.com/kerker00/GMSnagNav/compare/0.4.1...HEAD
+[Unreleased]: https://github.com/kerker00/GMSnagNav/compare/0.5.0...HEAD
+[0.5.0]: https://github.com/kerker00/GMSnagNav/compare/0.4.1...0.5.0
 [0.4.1]: https://github.com/kerker00/GMSnagNav/compare/0.4.0...0.4.1
 [0.4.0]: https://github.com/kerker00/GMSnagNav/compare/0.3.0...0.4.0
 [0.3.0]: https://github.com/kerker00/GMSnagNav/releases/tag/0.3.0

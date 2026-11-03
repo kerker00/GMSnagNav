@@ -14,6 +14,7 @@ final class Library {
     case targetIsNotAFolder
     case wouldCreateCycle
     case sectionsStayAtTopLevel
+    case itemIsPinned
 
     var errorDescription: String? {
       switch self {
@@ -21,11 +22,25 @@ final class Library {
       case .targetIsNotAFolder: "Items can only be moved into folders."
       case .wouldCreateCycle: "A folder cannot be moved into itself or one of its subfolders."
       case .sectionsStayAtTopLevel: "Sections can only be at the top level."
+      case .itemIsPinned: "Unpin leading rows before moving this item."
       }
     }
   }
 
   private(set) var roots: [LibraryItem]
+  private(set) var pinnedIDs: Set<LibraryItem.ID> = []
+
+  /// Demonstrates pinning at two levels without giving the package a second ordering model.
+  var pinsLeadingRows: Bool {
+    get { !pinnedIDs.isEmpty }
+    set {
+      pinnedIDs =
+        newValue
+        ? Set([roots.first?.id, roots.first?.children?.first?.id].compactMap { $0 }) : []
+    }
+  }
+
+  func isPinned(_ id: LibraryItem.ID) -> Bool { pinnedIDs.contains(id) }
 
   init(roots: [LibraryItem] = Library.sample) {
     self.roots = roots
@@ -81,11 +96,6 @@ final class Library {
     }
     visit(roots, depth: 0)
     return result
-  }
-
-  /// Returns whether `id` may be moved into `folder` (`nil` meaning the root level).
-  func canMove(_ id: LibraryItem.ID, into folder: LibraryItem.ID?) -> Bool {
-    (try? validateMove(id, into: folder)) != nil
   }
 
   // MARK: Mutations
@@ -209,6 +219,8 @@ final class Library {
 
   private func validateMove(_ id: LibraryItem.ID, into folder: LibraryItem.ID?) throws {
     guard let moved = item(id) else { throw MoveError.itemNotFound }
+    // Menu actions mutate the model directly, so the host protects pinned sources there too.
+    guard !isPinned(id) else { throw MoveError.itemIsPinned }
     guard let folder else { return }
     if moved.isSection { throw MoveError.sectionsStayAtTopLevel }
     guard let target = item(folder) else { throw MoveError.itemNotFound }

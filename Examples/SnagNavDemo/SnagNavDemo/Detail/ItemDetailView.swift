@@ -1,8 +1,13 @@
+import GMSnagNav
 import SwiftUI
 
 struct ItemDetailView: View {
   @Environment(Library.self) private var library
   let itemID: LibraryItem.ID
+  let outlineActions: OutlineActions<LibraryItem>
+  let expanded: () -> Set<LibraryItem.ID>
+  let menuAvailability: () -> Bool
+  let onActionResult: (OutlineActionResult<LibraryItem.ID>) -> Void
   let onError: (Error) -> Void
   let onShowInSidebar: () -> Void
 
@@ -66,7 +71,7 @@ struct ItemDetailView: View {
           LabeledContent("Organize:") {
             EqualWidthStack(spacing: 6) {
               showInSidebarButton
-              ItemActions(itemID: itemID, onError: onError)
+              itemActions
             }
           }
           // A separate group: 8 points on top of the 6 between stacked controls.
@@ -94,7 +99,7 @@ struct ItemDetailView: View {
         }
         Section {
           showInSidebarButton
-          ItemActions(itemID: itemID, onError: onError)
+          itemActions
         }
       }
       .formStyle(.grouped)
@@ -104,6 +109,12 @@ struct ItemDetailView: View {
   private var showInSidebarButton: some View {
     Button("Show in Sidebar", systemImage: "sidebar.left", action: onShowInSidebar)
       .accessibilityIdentifier("detail-show-in-sidebar")
+  }
+
+  private var itemActions: some View {
+    ItemActions(
+      itemID: itemID, outlineActions: outlineActions, expanded: expanded,
+      isAvailable: menuAvailability, onActionResult: onActionResult, onError: onError)
   }
 
   private var statusPicker: some View {

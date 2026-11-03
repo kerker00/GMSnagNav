@@ -157,12 +157,150 @@ final class SidebarUITests: XCTestCase {
       predicate: NSPredicate { [self] _, _ in
         let a = row(first)
         let b = row(second)
-        return a.exists && b.exists && a.frame.minY.isFinite && b.frame.minY.isFinite
-          && a.frame.minY < b.frame.minY
+        guard a.exists && b.exists else { return false }
+        // Each frame access queries accessibility; reuse the result on a busy test host.
+        let firstY = a.frame.minY
+        let secondY = b.frame.minY
+        return firstY.isFinite && secondY.isFinite && firstY < secondY
       }, object: nil)
     XCTAssertEqual(
-      XCTWaiter.wait(for: [expected], timeout: 5), .completed,
+      XCTWaiter.wait(for: [expected], timeout: 10), .completed,
       "Expected \(first) before \(second)", file: file, line: line)
+  }
+
+  func testPinnedRowsKeepTheirPositionsAtRootAndNestedLevels() throws {
+    try requireSidebarBesideDetail()
+    app.terminate()
+    app.launchArguments.append("-pin-leading-rows")
+    app.launch()
+    select("Work")
+    app.typeKey(.downArrow, modifierFlags: [.command, .option])
+    assertRow("Work", appearsBefore: "Personal")
+    assertDetailLocation("Work")
+    select("Personal")
+    app.typeKey(.upArrow, modifierFlags: [.command, .option])
+    assertRow("Work", appearsBefore: "Personal")
+    assertDetailLocation("Personal")
+    select("Clients")
+    app.typeKey(.downArrow, modifierFlags: [.command, .option])
+    assertRow("Clients", appearsBefore: "Internal")
+    assertDetailLocation("Work › Clients")
+    select("Internal")
+    app.typeKey(.upArrow, modifierFlags: [.command, .option])
+    assertRow("Clients", appearsBefore: "Internal")
+    assertDetailLocation("Work › Internal")
+    // Ordinary rows still reorder below the protected prefix.
+    select("Inbox")
+    app.typeKey(.downArrow, modifierFlags: [.command, .option])
+    assertRow("Ideas", appearsBefore: "Inbox")
+    assertDetailLocation("Inbox")
+  }
+
+  private func chooseDetailDestination(_ operation: String, destination: String) {
+    let identifier = operation == "Move to" ? "detail-move-menu" : "detail-copy-menu"
+    let button = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+    XCTAssertTrue(button.waitForExistence(timeout: 5), app.debugDescription)
+    #if os(macOS)
+      button.click()
+      let target = app.menuItems[destination].firstMatch
+      XCTAssertTrue(target.waitForExistence(timeout: 5))
+      target.click()
+    #else
+      // Form exposes a full-width accessibility wrapper around the menu's actual button.
+      let menuButton = button.buttons.firstMatch
+      (menuButton.exists ? menuButton : button).tap()
+      let target = app.buttons[destination].firstMatch
+      XCTAssertTrue(target.waitForExistence(timeout: 5))
+      target.tap()
+    #endif
+  }
+
+  func testDetailMoveMenuUsesTheSharedDestinationRules() {
+    select("Inbox")
+    chooseDetailDestination("Move to", destination: "Archive")
+    assertDetailLocation("Archive › Inbox")
+  }
+
+  func testDetailMoveMenuRemainsAvailableWhileTheSidebarIsSearching() {
+    search("Inbox")
+    select("Inbox")
+    chooseDetailDestination("Move to", destination: "Archive")
+    assertDetailLocation("Archive › Inbox")
+  }
+
+  func testDetailCopyMenuPreservesTheOriginalIncludingOnIPhone() {
+    select("Inbox")
+    chooseDetailDestination("Copy to", destination: "Archive")
+    assertDetailLocation("Inbox")
+    #if os(macOS)
+      app.buttons["detail-show-in-sidebar"].click()
+      let copies = app.outlineRows.containing(.any, identifier: "sidebar-row-Inbox")
+    #else
+      app.buttons["detail-show-in-sidebar"].tap()
+      let copies = app.cells.containing(.any, identifier: "sidebar-row-Inbox")
+    #endif
+    let twoCopies = XCTNSPredicateExpectation(
+      predicate: NSPredicate { _, _ in copies.count == 2 }, object: nil)
+    XCTAssertEqual(XCTWaiter.wait(for: [twoCopies], timeout: 5), .completed)
+  }
+
+  func testHierarchyArrowsMoveIntoArchiveAndBackWithoutChangingSelection() throws {
+    try requireSidebarBesideDetail()
+    select("Inbox")
+    app.typeKey(.rightArrow, modifierFlags: [.command, .option])
+    assertDetailLocation("Archive › Inbox")
+    XCTAssertTrue(row("Inbox").waitForExistence(timeout: 5))
+    app.typeKey(.leftArrow, modifierFlags: [.command, .option])
+    assertDetailLocation("Inbox")
+    assertRow("Archive", appearsBefore: "Inbox")
+    assertRow("Inbox", appearsBefore: "Ideas")
+  }
+
+  func testHierarchyMovementPreservesAnExpandedSubtreeAndKeyboardFocus() throws {
+    try requireSidebarBesideDetail()
+    select("Personal")
+    app.typeKey(.rightArrow, modifierFlags: [.command, .option])
+    assertDetailLocation("Work › Personal")
+    XCTAssertTrue(row("Recipes").waitForExistence(timeout: 5))
+    app.typeKey(.downArrow, modifierFlags: [])
+    assertDetailLocation("Work › Personal › Travel")
+  }
+
+  func testHierarchyMovementIsDisabledDuringSearch() throws {
+    try requireSidebarBesideDetail()
+    search("i")
+    select("Inbox")
+    app.typeKey(.rightArrow, modifierFlags: [.command, .option])
+    assertDetailLocation("Inbox")
+  }
+
+  func testHierarchyMovementRespectsPinsAndSectionBoundaries() throws {
+    try requireSidebarBesideDetail()
+    app.terminate()
+    app.launchArguments.append("-pin-leading-rows")
+    app.launch()
+    select("Clients")
+    app.typeKey(.leftArrow, modifierFlags: [.command, .option])
+    assertDetailLocation("Work › Clients")
+    app.terminate()
+    app.launchArguments.removeAll { $0 == "-pin-leading-rows" }
+    app.launchArguments.append("-sample-section")
+    app.launch()
+    select("Favorite Note")
+    app.typeKey(.leftArrow, modifierFlags: [.command, .option])
+    assertDetailLocation("Favorites › Favorite Note")
+  }
+
+  func testHierarchyModifiedArrowsMirrorInRightToLeftLayouts() throws {
+    try requireSidebarBesideDetail()
+    app.terminate()
+    app.launchArguments.append("-right-to-left")
+    app.launch()
+    select("Inbox")
+    app.typeKey(.leftArrow, modifierFlags: [.command, .option])
+    assertDetailLocation("Archive › Inbox")
+    app.typeKey(.rightArrow, modifierFlags: [.command, .option])
+    assertDetailLocation("Inbox")
   }
 
   func testModifiedArrowsReorderSiblingsAndKeepSelection() throws {

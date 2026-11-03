@@ -60,6 +60,9 @@ one SwiftUI API for arbitrarily deep trees with selection, expansion and real dr
 - Spring-loaded expansion while dragging
 - Keyboard navigation with the arrow keys on macOS and with a hardware keyboard on iPad
 - Reordering siblings without dragging: Command-Option-Up/Down and VoiceOver actions
+- Moving between hierarchy levels: Command-Option-Forward/Backward and VoiceOver actions
+- Reusable host-validated Move-to/Copy-to destination menus, including outside the sidebar
+- Pinned rows that protect a fixed prefix at the root or inside containers
 - Row badges for counts, short text, status symbols, dots and progress
 - VoiceOver support and right-to-left layouts on both platforms
 - Context menus, swipe actions, primary action (double-click / Return / tap) and non-selectable
@@ -85,7 +88,7 @@ Add the package with Swift Package Manager:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/kerker00/GMSnagNav.git", from: "0.4.1")
+    .package(url: "https://github.com/kerker00/GMSnagNav.git", from: "0.5.0")
 ]
 ```
 
@@ -196,6 +199,31 @@ whose order differs from the model:
 See [Drag and drop](Sources/GMSnagNav/GMSnagNav.docc/DragAndDrop.md) for boundaries, redirects
 and host-owned execution.
 
+## Destination menus and hierarchy movement
+
+`OutlineActions` reads live host data and reuses the drop validator and performer to generate
+hierarchical Move-to/Copy-to menus. Use `.onOutlineDrop(actions)` in the outline, and display
+`actions.destinationItems(...)` in its context menu or through `OutlineMenuItems` in a normal
+SwiftUI menu. No mounted outline is needed for a detail menu. Copy actions must be explicitly
+accepted as copies; stale sources or destinations cannot turn into partial or different actions.
+See [Destination menus](Sources/GMSnagNav/GMSnagNav.docc/DestinationMenus.md).
+
+Apply `.outlineHierarchyMovable { _ in !isSearching }` for Command-Option-Forward/Backward and
+VoiceOver actions. A row moves into its immediate previous sibling container or directly after
+its parent. Selection stays with the row and the outline reveals it after the host update.
+Use `keyboardShortcuts: false` to retain your own keyboard bindings. See
+[Hierarchy movement](Sources/GMSnagNav/GMSnagNav.docc/HierarchyMovement.md) for section/pin
+boundaries, RTL, editor focus and validation.
+
+## Pinned rows
+
+Keep fixed entries first in your data and apply `.outlinePinned { $0.isFixed }`. Pinned rows
+cannot be dragged or reordered, and insertions before or between them land after the pinned
+span. The host validates the adjusted destination; selection and expansion work as usual.
+The demo's **Pin Leading Rows** option shows this at the root and inside Work. See
+[Drag and drop](Sources/GMSnagNav/GMSnagNav.docc/DragAndDrop.md#pinned-rows) for redirects,
+copies and host-owned move actions.
+
 ## Show an element in the sidebar
 
 Keep a request in state and bind it to the outline:
@@ -221,15 +249,25 @@ The host controls search filters and split-view visibility. See
 
 ## Roadmap
 
-Ideas for versions after `0.4.1`, all planned to be backward compatible:
+The latest release is `0.5.0`. The following milestones are proposed scope, not release dates
+or guarantees. Features may move between milestones as integration and measurements reveal needs.
 
-- Reusable move/copy destination menus and navigation between hierarchy levels
-- Pinned rows with consistent drag-and-drop rules
-- Large-tree benchmarks, followed by update optimizations and lazy loading where measurements
-  show a need; include mostly collapsed trees and large sibling lists
-- Custom drag previews
-- Drops from other apps, such as file URLs
-- Loading children asynchronously
+| Milestone | Proposed focus |
+| --- | --- |
+| **0.5.0** | Pinned rows, shared hierarchical Move-to/Copy-to menus, and keyboard/VoiceOver hierarchy movement. |
+| **0.6.0** | Host-defined drag previews and drag-session lifecycle callbacks, with native fallbacks. |
+| **0.7.0** | iOS editing mode: selection, deletion and reordering integrated with the host's `EditMode`. |
+| **0.8.0** | Transfers between views and apps, including incoming and outgoing host-defined payloads. |
+| **0.9.x** | Large-tree benchmarks and measured optimizations, integration hardening, documentation and API review. Evaluate host-owned asynchronous loading after the benchmarks. |
+| **1.0.0** | A stable public API, documented platform behavior and limits, verified accessibility and keyboard workflows, and a proven host integration. |
+
+Before 1.0, measure trees with 1,000, 10,000 and 50,000 elements, both mostly collapsed and
+fully expanded. Publish the tested limits rather than promising a tree size without evidence.
+Loading, persistence, undo and domain-specific actions remain owned by the host app.
+
+1.0 means committing to compatibility of the public API; it does not require every roadmap
+feature to ship. Deferred features can follow as additive releases. Any necessary incompatible
+changes before 1.0 will be documented with migration guidance.
 
 ## Contributing
 

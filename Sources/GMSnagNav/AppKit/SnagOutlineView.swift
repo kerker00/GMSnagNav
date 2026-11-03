@@ -8,6 +8,8 @@
     /// Opens the selection without starting renaming, as in the Finder.
     var onPrimaryAction: (() -> Bool)?
     var onReorder: ((OutlineReorderDirection) -> Bool)?
+    var onHierarchyMove: ((OutlineHierarchyDirection) -> Bool)?
+    var outlineLayoutDirection: NSUserInterfaceLayoutDirection?
     /// Called for the forward and backward arrows without modifiers; returns whether the key
     /// press was handled. Forward is Right, or Left in a right-to-left interface.
     var onHorizontalArrow: ((_ forward: Bool) -> Bool)?
@@ -22,6 +24,11 @@
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
+      if ownsKeyboardFocus, let direction = hierarchyDirection(event),
+        onHierarchyMove?(direction) == true
+      {
+        return true
+      }
       if ownsKeyboardFocus, let direction = reorderingDirection(event),
         onReorder?(direction) == true
       {
@@ -44,6 +51,7 @@
       }
       let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         .subtracting([.numericPad, .function, .capsLock])
+      if let direction = hierarchyDirection(event), onHierarchyMove?(direction) == true { return }
       if let direction = reorderingDirection(event), onReorder?(direction) == true { return }
       if isPrimaryAction(event), onPrimaryAction?() == true {
         return
@@ -52,7 +60,9 @@
       if isReturn, modifiers.isEmpty, onReturn?() == true { return }
       if modifiers.isEmpty, event.keyCode == 123 || event.keyCode == 124 {
         let isRight = event.keyCode == 124
-        let forward = userInterfaceLayoutDirection == .rightToLeft ? !isRight : isRight
+        let forward =
+          (outlineLayoutDirection ?? userInterfaceLayoutDirection) == .rightToLeft
+          ? !isRight : isRight
         if onHorizontalArrow?(forward) == true { return }
       }
       super.keyDown(with: event)
@@ -97,6 +107,17 @@
       case 125: return .down
       default: return nil
       }
+    }
+
+    private func hierarchyDirection(_ event: NSEvent) -> OutlineHierarchyDirection? {
+      let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        .subtracting([.numericPad, .function, .capsLock])
+      guard modifiers == [.command, .option], event.keyCode == 123 || event.keyCode == 124
+      else { return nil }
+      let forward =
+        (event.keyCode == 124)
+        != ((outlineLayoutDirection ?? userInterfaceLayoutDirection) == .rightToLeft)
+      return forward ? .indent : .outdent
     }
   }
 

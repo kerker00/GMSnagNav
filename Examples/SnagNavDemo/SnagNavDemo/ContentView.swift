@@ -45,8 +45,7 @@ struct ContentView: View {
   private var menuAvailability: () -> Bool {
     let generation = menuGeneration
     return {
-      menuActive && menuGeneration == generation && renamingID == nil
-        && searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+      menuActive && menuGeneration == generation
     }
   }
 

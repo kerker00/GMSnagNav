@@ -218,6 +218,13 @@ final class SidebarUITests: XCTestCase {
     assertDetailLocation("Archive › Inbox")
   }
 
+  func testDetailMoveMenuRemainsAvailableWhileTheSidebarIsSearching() {
+    search("Inbox")
+    select("Inbox")
+    chooseDetailDestination("Move to", destination: "Archive")
+    assertDetailLocation("Archive › Inbox")
+  }
+
   func testDetailCopyMenuPreservesTheOriginalIncludingOnIPhone() {
     select("Inbox")
     chooseDetailDestination("Copy to", destination: "Archive")

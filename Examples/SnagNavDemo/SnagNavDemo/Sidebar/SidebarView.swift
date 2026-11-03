@@ -211,12 +211,12 @@ struct SidebarView: View {
   #endif
 
   private var isSearching: Bool {
-    !searchText.trimmingCharacters(in: .whitespaces).isEmpty
+    !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
   }
 
   /// The items whose names match the search, and the folders that lead to them.
   private var matchingIDs: Set<LibraryItem.ID> {
-    let query = searchText.trimmingCharacters(in: .whitespaces)
+    let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
     var result: Set<LibraryItem.ID> = []
     func visit(_ items: [LibraryItem]) -> Bool {
       var found = false
@@ -356,7 +356,8 @@ struct SidebarView: View {
         systemImage: operation == .move ? "folder" : "doc.on.doc",
         children: outlineActions.destinationItems(
           for: ids, operation: operation, expanded: { expansion },
-          isAvailable: menuAvailability, locale: locale, onCompletion: onActionResult
+          isAvailable: { menuAvailability() && !isSearching && renamingID == nil },
+          locale: locale, onCompletion: onActionResult
         ) { $0.name })
     }
   }

@@ -7,6 +7,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-03
+
+Organize outline items with pinned rows, reusable Move-to/Copy-to destination menus, and
+keyboard and VoiceOver commands for moving between hierarchy levels.
+
 ### Added
 
 - `OutlineActions` generates reusable hierarchical Move-to and Copy-to menus from live host
@@ -236,7 +241,8 @@ It requires macOS 26 or iOS 26 and Swift 6.2.
 - English and German texts for what VoiceOver reads on iOS. They follow the host app's language.
 - `SnagNavDemo`, a multiplatform demo app in `Examples/`.
 
-[Unreleased]: https://github.com/kerker00/GMSnagNav/compare/0.4.1...HEAD
+[Unreleased]: https://github.com/kerker00/GMSnagNav/compare/0.5.0...HEAD
+[0.5.0]: https://github.com/kerker00/GMSnagNav/compare/0.4.1...0.5.0
 [0.4.1]: https://github.com/kerker00/GMSnagNav/compare/0.4.0...0.4.1
 [0.4.0]: https://github.com/kerker00/GMSnagNav/compare/0.3.0...0.4.0
 [0.3.0]: https://github.com/kerker00/GMSnagNav/releases/tag/0.3.0

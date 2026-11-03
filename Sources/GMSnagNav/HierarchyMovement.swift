@@ -96,6 +96,12 @@ final class OutlineHierarchyReveal<ID: Hashable & Sendable> {
       cancel()
       return
     }
+    // The expected host update may schedule a reveal. A later structural update supersedes it,
+    // even if the source still has the expected parent when the deferred task eventually runs.
+    if task != nil, !tree.hasSameStructure(as: previous) {
+      cancel()
+      return
+    }
     guard tree.parent(of: request.source) == request.parent else {
       if !tree.hasSameStructure(as: previous) { cancel() }
       return

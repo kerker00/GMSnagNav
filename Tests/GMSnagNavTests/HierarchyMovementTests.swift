@@ -113,6 +113,33 @@ import Testing
     #expect(reads == 0)
   }
 
+  @Test(arguments: [false, true])
+  func subsequentUpdatesCancelScheduledRevealOnlyWhenStructureChanges(structuralChange: Bool) async
+  {
+    let driver = OutlineHierarchyReveal<String>()
+    let before = OutlineTree<TestItem>(
+      [.group("a", [.leaf("x")]), .group("b"), .leaf("c")], children: \.children)
+    let moved = OutlineTree<TestItem>(
+      [.group("a", [.leaf("x")]), .group("b", [.leaf("c")])], children: \.children)
+    let anotherMove = OutlineTree<TestItem>(
+      [.group("a"), .group("b", [.leaf("c"), .leaf("x")])], children: \.children)
+    driver.record(
+      OutlineDropProposal(draggedIDs: ["c"], target: .insert(into: "b", at: 0)),
+      selection: ["c"], focused: true)
+    var reveals = 0
+    driver.update(tree: moved, previous: before, selection: ["c"], navigationPending: false) { _ in
+      reveals += 1
+    }
+    driver.update(
+      tree: structuralChange ? anotherMove : moved, previous: moved, selection: ["c"],
+      navigationPending: false
+    ) {
+      _ in reveals += 1
+    }
+    await driver.settled()
+    #expect(reveals == (structuralChange ? 0 : 1))
+  }
+
   @Test func requiresItsOwnOptInButNotDraggingReorderingOrSelectionEligibility() {
     var behavior = behavior()
     #expect(behavior.canDrag == nil)

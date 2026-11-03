@@ -64,7 +64,9 @@ This is a separate one-time reveal because automatic selection reveal does not r
 unchanged selection ID. Expansion of the moved subtree is retained.
 
 New selection, explicit host navigation, a different structural move or detachment cancels an
-outdated reveal. A newly active text editor is never overridden to reclaim keyboard focus.
+outdated reveal, including a structural update after the reveal was already scheduled. Updates
+with unchanged structure retain the pending reveal. A newly active text editor is never
+overridden to reclaim keyboard focus.
 Rejected and failed actions do not change package-owned expansion, scrolling or focus. The host
 must perform mutations atomically; the package cannot undo a partial host operation.
 

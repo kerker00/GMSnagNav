@@ -256,7 +256,7 @@ or guarantees. Features may move between milestones as integration and measureme
 | --- | --- |
 | **0.5.0** | Pinned rows, shared hierarchical Move-to/Copy-to menus, and keyboard/VoiceOver hierarchy movement. |
 | **0.6.0** | Host-defined drag previews and drag-session lifecycle callbacks, with native fallbacks. |
-| **0.7.0** | iOS editing mode: selection, deletion and reordering integrated with the host's `EditMode`. |
+| **0.7.0** | iOS editing mode: selection, deletion and reordering integrated with the host's `EditMode`, plus pull to refresh on iOS and iPadOS through SwiftUI's `refreshable` action, with the host performing the reload. |
 | **0.8.0** | Transfers between views and apps, including incoming and outgoing host-defined payloads. |
 | **0.9.x** | Large-tree benchmarks and measured optimizations, integration hardening, documentation and API review. Evaluate host-owned asynchronous loading after the benchmarks. |
 | **1.0.0** | A stable public API, documented platform behavior and limits, verified accessibility and keyboard workflows, and a proven host integration. |

@@ -43,7 +43,7 @@ private struct DiffState<Element: Identifiable> {
 
   let old: OutlineTree<Element>
   let new: OutlineTree<Element>
-  let oldLoaded: Set<ID>
+  var oldLoaded: Set<ID> = []
 
   /// The displayed children of every loaded parent; the key `nil` is the root level.
   var displayed: [ID?: [ID]] = [:]
@@ -58,30 +58,37 @@ private struct DiffState<Element: Identifiable> {
   init(old: OutlineTree<Element>, new: OutlineTree<Element>, loaded: Set<ID>) {
     self.old = old
     self.new = new
-    // A parent's children are displayed only if all its ancestors are loaded, too.
-    self.oldLoaded = loaded.filter { id in
-      old.contains(id) && old.ancestors(of: id).allSatisfy(loaded.contains)
-    }
-    load(parent: nil)
+    load(loaded)
   }
 
-  /// Records the displayed children of `parent` and, recursively, of its loaded children.
-  private mutating func load(parent: ID?) {
-    let children = old.children(of: parent)
-    displayed[parent] = children
-    for child in children {
-      parentOf[child] = parent
-      if oldLoaded.contains(child) { load(parent: child) }
+  /// Visits only loaded levels, so every reached child's ancestors are already known to be loaded.
+  private mutating func load(_ loaded: Set<ID>) {
+    var pending: [ID?] = [nil]
+    while let parent = pending.popLast() {
+      let children = old.children(of: parent)
+      displayed[parent] = children
+      for child in children {
+        parentOf[child] = parent
+        if loaded.contains(child) {
+          oldLoaded.insert(child)
+          pending.append(child)
+        }
+      }
     }
   }
 
   // MARK: Removal
 
-  /// Whether `parent`'s children can be displayed in the new snapshot without first expanding it.
-  private func canStayLoaded(_ parent: ID?) -> Bool {
-    guard let parent else { return true }
-    return oldLoaded.contains(parent) && new.contains(parent) && parentOf[parent] != nil
-      && canStayLoaded(new.parent(of: parent))
+  /// Finds loaded parents top-down without repeatedly walking their new ancestor chains.
+  private func survivingLoadedParents() -> Set<ID> {
+    var result: Set<ID> = []
+    var pending = new.roots
+    while let id = pending.popLast() {
+      guard oldLoaded.contains(id), parentOf[id] != nil else { continue }
+      result.insert(id)
+      pending.append(contentsOf: new.children(of: id))
+    }
+    return result
   }
 
   /// Removes displayed elements that no longer exist or whose new parent is not loaded.
@@ -90,17 +97,24 @@ private struct DiffState<Element: Identifiable> {
   /// with it. Descendants that survive elsewhere are inserted again later.
   mutating func removeElementsThatLeaveTheDisplay() {
     var removals: [(parent: ID?, index: Int, id: ID)] = []
-    func visit(_ parent: ID?) {
-      for (index, id) in (displayed[parent] ?? []).enumerated() {
-        let survives = new.contains(id) && canStayLoaded(new.parent(of: id))
-        if survives {
-          if displayed[id] != nil { visit(id) }
-        } else {
-          removals.append((parent, index, id))
-        }
+    let loaded = survivingLoadedParents()
+    var pending: [(parent: ID?, index: Int)] = [(nil, 0)]
+    while let top = pending.indices.last {
+      let (parent, index) = pending[top]
+      let children = displayed[parent] ?? []
+      guard index < children.count else {
+        pending.removeLast()
+        continue
+      }
+      pending[top].index += 1
+      let id = children[index]
+      let survives = new.contains(id) && (new.parent(of: id).map(loaded.contains) ?? true)
+      if survives {
+        if displayed[id] != nil { pending.append((id, 0)) }
+      } else {
+        removals.append((parent, index, id))
       }
     }
-    visit(nil)
 
     // Remove from the back of each level so earlier indices stay valid.
     for removal in removals.sorted(by: { $0.index > $1.index }) {
@@ -109,14 +123,17 @@ private struct DiffState<Element: Identifiable> {
       forget(removal.id)
     }
 
-    newLoaded = oldLoaded.filter { parentOf[$0] != nil && canStayLoaded($0) }
+    // Removing an old ancestor can also forget a parent that survives in a new location. Its
+    // newly inserted row starts collapsed, so recompute reachability after forgetting subtrees.
+    newLoaded = survivingLoadedParents()
   }
 
   /// Drops an element and its displayed subtree from the simulation.
   private mutating func forget(_ id: ID) {
-    parentOf[id] = nil
-    for child in displayed.removeValue(forKey: id) ?? [] {
-      forget(child)
+    var pending = [id]
+    while let child = pending.popLast() {
+      parentOf[child] = nil
+      pending.append(contentsOf: displayed.removeValue(forKey: child) ?? [])
     }
   }
 
@@ -160,18 +177,24 @@ private struct DiffState<Element: Identifiable> {
 
   /// Reloads displayed elements whose children changed where the outline view cannot see it.
   mutating func reloadChangedCollapsedElements() {
-    let reloads = parentOf.keys.filter { id in
-      guard !inserted.contains(id) else { return false }
-      let before = old.children(of: id)
-      let after = new.children(of: id)
-      guard before != after else { return false }
-      // Loaded levels were updated above; they only need a reload when the disclosure triangle
-      // appears or disappears.
-      return !newLoaded.contains(id) || before.isEmpty != after.isEmpty
+    var reloads = Set(
+      parentOf.keys.filter { id in
+        guard !inserted.contains(id) else { return false }
+        let before = old.children(of: id)
+        let after = new.children(of: id)
+        guard before != after else { return false }
+        // Loaded levels were updated above; they only need a reload when the disclosure triangle
+        // appears or disappears.
+        return !newLoaded.contains(id) || before.isEmpty != after.isEmpty
+      })
+    guard !reloads.isEmpty else { return }
+    // Pre-order is the same order as lexicographically sorted index paths, without allocating
+    // and comparing a depth-sized path for every reload in a long chain.
+    var pending = Array(new.roots.reversed())
+    while let id = pending.popLast() {
+      if reloads.remove(id) != nil { changes.append(.reload(id)) }
+      if reloads.isEmpty { return }
+      pending.append(contentsOf: new.children(of: id).reversed())
     }
-    let ordered = reloads.sorted {
-      new.indexPath(of: $0).lexicographicallyPrecedes(new.indexPath(of: $1))
-    }
-    changes.append(contentsOf: ordered.map(OutlineChange.reload))
   }
 }

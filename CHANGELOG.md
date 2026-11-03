@@ -9,6 +9,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Deep outline diffs use iterative traversal and reuse loaded-ancestry results instead of
+  overflowing the debug stack or repeatedly walking long ancestor chains.
 - Automatic selection reveal cancels obsolete expansion and scrolling after a newer selection,
   disabled revealing, target removal or outline detachment.
 - Sibling keyboard and VoiceOver moves recheck live source pinning and the destination's

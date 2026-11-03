@@ -238,6 +238,7 @@ struct OutlineBehavior<Element: Identifiable> where Element.ID: Sendable {
   var canDrag: ((Element) -> Bool)?
   var canReorder: ((Element) -> Bool)?
   var isPinned: ((Element) -> Bool)?
+  var actionTree: (@MainActor () -> OutlineTree<Element>)?
   var drop: OutlineDropHandler<Element.ID>?
   var duplicateIDs: ((Set<Element.ID>) -> Void)?
   var leadingSwipeActions: OutlineSwipeActions<Element.ID>?

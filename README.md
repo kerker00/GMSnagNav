@@ -60,6 +60,7 @@ one SwiftUI API for arbitrarily deep trees with selection, expansion and real dr
 - Spring-loaded expansion while dragging
 - Keyboard navigation with the arrow keys on macOS and with a hardware keyboard on iPad
 - Reordering siblings without dragging: Command-Option-Up/Down and VoiceOver actions
+- Reusable host-validated Move-to/Copy-to destination menus, including outside the sidebar
 - Pinned rows that protect a fixed prefix at the root or inside containers
 - Row badges for counts, short text, status symbols, dots and progress
 - VoiceOver support and right-to-left layouts on both platforms
@@ -197,6 +198,15 @@ whose order differs from the model:
 See [Drag and drop](Sources/GMSnagNav/GMSnagNav.docc/DragAndDrop.md) for boundaries, redirects
 and host-owned execution.
 
+## Destination menus
+
+`OutlineActions` reads live host data and reuses the drop validator and performer to generate
+hierarchical Move-to/Copy-to menus. Use `.onOutlineDrop(actions)` in the outline, and display
+`actions.destinationItems(...)` in its context menu or through `OutlineMenuItems` in a normal
+SwiftUI menu. No mounted outline is needed for a detail menu. Copy actions must be explicitly
+accepted as copies; stale sources or destinations cannot turn into partial or different actions.
+See [Destination menus](Sources/GMSnagNav/GMSnagNav.docc/DestinationMenus.md).
+
 ## Pinned rows
 
 Keep fixed entries first in your data and apply `.outlinePinned { $0.isFixed }`. Pinned rows
@@ -233,7 +243,7 @@ The host controls search filters and split-view visibility. See
 
 Ideas for versions after `0.4.1`, all planned to be backward compatible:
 
-- Reusable move/copy destination menus and navigation between hierarchy levels
+- Navigation between hierarchy levels
 - Large-tree benchmarks, followed by update optimizations and lazy loading where measurements
   show a need; include mostly collapsed trees and large sibling lists
 - Custom drag previews

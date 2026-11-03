@@ -9,6 +9,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `OutlineActions` generates reusable hierarchical Move-to and Copy-to menus from live host
+  data. `OutlineMenuItems` displays the same entries in a SwiftUI menu outside the outline,
+  including an iPhone detail without a mounted sidebar. Explicit actions revalidate all sources,
+  pins, destinations and requested operations and report their result without partial transfers.
 - `outlinePinned(_:)` protects fixed rows at the beginning of each sibling list. Pinned rows
   cannot be dragged or reordered with the keyboard or VoiceOver; insertions before or between
   them land after the pinned span. Copying and host redirects use the same rules, and the host

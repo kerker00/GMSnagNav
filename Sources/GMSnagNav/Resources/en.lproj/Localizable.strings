@@ -21,3 +21,12 @@
 
 /* The accessibility label of an outline in sidebar style on macOS. */
 "Sidebar" = "Sidebar";
+
+/* The root destination of an explicit move or copy menu. */
+"Top Level" = "Top Level";
+
+/* Move selected elements into this submenu's container. */
+"Move Here" = "Move Here";
+
+/* Copy selected elements into this submenu's container. */
+"Copy Here" = "Copy Here";

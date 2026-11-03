@@ -95,6 +95,17 @@ extension SnagOutline {
   }
 }
 
+/// Displays the same outline menu items in a normal SwiftUI `Menu` or other host view.
+public struct OutlineMenuItems: View {
+  private let items: [OutlineMenuItem]
+
+  /// Creates menu content from items, including disabled actions and submenus.
+  public init(_ items: [OutlineMenuItem]) { self.items = items }
+
+  /// The buttons, submenus and dividers represented by the items.
+  public var body: some View { OutlineMenuItemsView(items: items) }
+}
+
 /// Shows menu items as SwiftUI menu content: buttons, submenus and dividers.
 struct OutlineMenuItemsView: View {
   let items: [OutlineMenuItem]

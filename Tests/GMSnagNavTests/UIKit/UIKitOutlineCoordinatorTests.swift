@@ -891,6 +891,28 @@
       #expect((sections[1].children.first as? UIAction)?.attributes.contains(.destructive) == true)
     }
 
+    @Test func generatedDestinationsRevalidateThroughARealUIKitAction() throws {
+      var roots = sampleRoots
+      var count = 0
+      let actions = OutlineActions(
+        data: { roots }, children: \.children,
+        perform: { _, _ in
+          count += 1
+          return true
+        })
+      let items = actions.destinationItems(for: ["c"], operation: .move) { $0.id }
+      let elements = UIKitOutlineCoordinator<TestItem, Text>.menuElements(for: items)
+      let section = try #require(elements.first as? UIMenu)
+      let action = try #require(section.children.first as? UIAction)
+      let control = UIButton(type: .system)
+      control.addAction(action, for: .primaryActionTriggered)
+      control.sendActions(for: .primaryActionTriggered)
+      #expect(count == 1)
+      roots.removeLast()
+      control.sendActions(for: .primaryActionTriggered)
+      #expect(count == 1)
+    }
+
     @Test func keepsMenusWithoutDividersFlat() {
       typealias Coordinator = UIKitOutlineCoordinator<TestItem, Text>
       let elements = Coordinator.menuElements(for: [.action("A") {}, .action("B") {}])

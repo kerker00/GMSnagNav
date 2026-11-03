@@ -65,6 +65,10 @@ rows to their new place.
 
 ### Context menus
 
+- <doc:DestinationMenus>
+- ``OutlineActions``
+- ``OutlineActionResult``
+- ``OutlineMenuItems``
 - ``SnagOutline/outlineContextMenuItems(_:)``
 - ``SnagOutline/outlineContextMenu(_:)``
 - ``OutlineMenuItem``
@@ -76,6 +80,7 @@ rows to their new place.
 - ``SnagOutline/outlineReorderable(_:)``
 - ``SnagOutline/outlinePinned(_:)``
 - ``SnagOutline/onOutlineDrop(validate:perform:)``
+- ``SnagOutline/onOutlineDrop(_:)``
 - ``OutlineDropProposal``
 - ``OutlineDropTarget``
 - ``OutlineDropResult``

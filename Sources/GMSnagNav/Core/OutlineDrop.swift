@@ -110,7 +110,8 @@ public struct OutlineDropProposal<ID: Hashable & Sendable>: Hashable, Sendable {
   ///
   /// On macOS, this is the case while the user holds the Option key during the drag, as in the
   /// Finder; the outline asks again whenever the key changes. iOS and iPadOS offer no such gesture
-  /// within an app, so it is always `false` there. Accept such a drop with
+  /// within an app, so pointer drags report `false` there. Explicit Copy-to menu actions also
+  /// set this flag, on every platform. Accept such a drop with
   /// ``OutlineDropOperation/copy`` to show the copy cursor; the default validation ignores the
   /// request and moves. For a copy, the originals stay in place, so insert at
   /// ``OutlineDropTarget/childIndex`` rather than ``insertionIndexAfterRemoval``.
@@ -144,12 +145,7 @@ extension OutlineDropProposal {
     draggedIDs: [ID], target: OutlineDropTarget<ID>, tree: OutlineTree<Element>,
     expanded: Set<ID>, isCopyRequested: Bool = false
   ) where Element.ID == ID {
-    let known = Set(draggedIDs.filter(tree.contains))
-    // An element dragged along with one of its ancestors moves with that ancestor's subtree.
-    let topLevel = known.filter { id in !tree.ancestors(of: id).contains(where: known.contains) }
-    let dragged = topLevel.sorted {
-      tree.indexPath(of: $0).lexicographicallyPrecedes(tree.indexPath(of: $1))
-    }
+    let dragged = tree.normalizedSources(draggedIDs)
 
     let intoOwnSubtree: Bool
     if let parent = target.parent {
@@ -174,5 +170,15 @@ extension OutlineDropProposal {
       isDroppingIntoOwnSubtree: intoOwnSubtree,
       insertionIndexAfterRemoval: adjustedIndex,
       isCopyRequested: isCopyRequested)
+  }
+}
+
+extension OutlineTree {
+  /// Top-level known sources in model order, shared by drags and explicit actions.
+  func normalizedSources(_ ids: [ID]) -> [ID] {
+    let known = Set(ids.filter(contains))
+    return known.filter { !ancestors(of: $0).contains(where: known.contains) }.sorted {
+      indexPath(of: $0).lexicographicallyPrecedes(indexPath(of: $1))
+    }
   }
 }

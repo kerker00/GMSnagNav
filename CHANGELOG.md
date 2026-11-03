@@ -9,6 +9,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- An old rename editor may commit its draft without clearing a newer rename session or taking
+  its focus, including repeated sessions for the same element.
 - Deep outline diffs use iterative traversal and reuse loaded-ancestry results instead of
   overflowing the debug stack or repeatedly walking long ancestor chains.
 - Automatic selection reveal cancels obsolete expansion and scrolling after a newer selection,

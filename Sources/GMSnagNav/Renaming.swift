@@ -51,10 +51,30 @@ enum OutlineRenameStart: Equatable {
 }
 
 /// The host's renaming state and callbacks.
+@MainActor
 struct OutlineRenameHandler<Element: Identifiable> where Element.ID: Sendable {
   let renaming: Binding<Element.ID?>
   let canRename: (Element) -> Bool
   let onRename: (Element.ID, String) -> Void
+  var ownership = OutlineRenameOwnership<Element.ID>()
+}
+
+/// Distinguishes a new editor from a refresh of the same editor, including same-ID restarts.
+@MainActor
+final class OutlineRenameOwnership<ID: Hashable> {
+  private var target: ID?
+  private(set) var generation = UUID()
+
+  func update(_ target: ID?) {
+    guard self.target != target else { return }
+    self.target = target
+    generation = UUID()
+  }
+
+  func invalidate() {
+    target = nil
+    generation = UUID()
+  }
 }
 
 extension OutlineBehavior {
@@ -62,16 +82,24 @@ extension OutlineBehavior {
   ///
   /// - Parameter returnFocus: Called when the user ends renaming with the keyboard, so the
   ///   outline can take the keyboard focus back from the disappearing text field.
-  func renameSession(
+  @MainActor func renameSession(
     for id: Element.ID, in tree: OutlineTree<Element>, returnFocus: @escaping () -> Void = {}
   ) -> OutlineRenameSession? {
-    guard let renaming, renaming.renaming.wrappedValue == id, let element = tree.element(id),
+    guard let renaming else { return nil }
+    let ownership = renaming.ownership
+    ownership.update(renaming.renaming.wrappedValue)
+    guard renaming.renaming.wrappedValue == id, let element = tree.element(id),
       renaming.canRename(element)
     else { return nil }
+    let generation = ownership.generation
     return OutlineRenameSession { original, name, returnsFocus in
       if let name, name != original { renaming.onRename(id, name) }
+      // Disappearing editors still commit their draft, but only the current session may clear
+      // the host's target or take focus back from a newer editor.
+      guard ownership.generation == generation, renaming.renaming.wrappedValue == id else { return }
+      ownership.update(nil)
       renaming.renaming.wrappedValue = nil
-      if returnsFocus { returnFocus() }
+      if returnsFocus, renaming.renaming.wrappedValue == nil { returnFocus() }
     }
   }
 
@@ -89,6 +117,7 @@ extension OutlineBehavior {
       return .refused
     }
     let binding = renaming.renaming
+    renaming.ownership.invalidate()
     if binding.wrappedValue == id {
       binding.wrappedValue = nil
       return .restarting
@@ -103,7 +132,7 @@ struct OutlineRenameSession {
   /// Ends renaming. `original` is the name the row showed before, `name` the typed name to keep,
   /// or `nil` to cancel. `returnsFocus` is `true` when the user ended renaming with the keyboard
   /// rather than by moving the focus elsewhere.
-  let end: (_ original: String, _ name: String?, _ returnsFocus: Bool) -> Void
+  let end: @MainActor (_ original: String, _ name: String?, _ returnsFocus: Bool) -> Void
 }
 
 extension EnvironmentValues {

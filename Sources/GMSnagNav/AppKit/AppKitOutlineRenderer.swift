@@ -13,7 +13,7 @@
     let tree: OutlineTree<Element>
     let selection: OutlineSelection<ID>
     @Binding var expansion: Set<ID>
-    let behavior: OutlineBehavior<Element>
+    var behavior: OutlineBehavior<Element>
     let appearance: OutlineAppearance
     var springLoading = SpringLoadingBehavior.automatic
     let rowContent: (Element) -> RowContent
@@ -73,6 +73,7 @@
 
     private(set) weak var outlineView: NSOutlineView?
     private var renderer: Renderer?
+    private let renameOwnership = OutlineRenameOwnership<ID>()
     private var tree = OutlineTree<Element>([], children: { _ in nil })
     private var boxes: [ID: NodeBox<ID>] = [:]
     /// The private pasteboard type of rows dragged within the outline.
@@ -159,6 +160,9 @@
     func update(
       with renderer: Renderer, locale: Locale = .current, layoutDirection: LayoutDirection? = nil
     ) {
+      var renderer = renderer
+      renderer.behavior.renaming?.ownership = renameOwnership
+      renameOwnership.update(renderer.behavior.renaming?.renaming.wrappedValue)
       self.renderer = renderer
       self.locale = locale
       let oldTree = tree
@@ -222,6 +226,7 @@
 
     func detach() {
       reveal.cancel()
+      renameOwnership.invalidate()
       hierarchyReveal.cancel()
       navigation.cancel()
       springLoadTask?.cancel()

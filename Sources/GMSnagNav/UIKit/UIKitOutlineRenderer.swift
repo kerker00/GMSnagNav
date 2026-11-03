@@ -15,7 +15,7 @@
     let tree: OutlineTree<Element>
     let selection: OutlineSelection<ID>
     @Binding var expansion: Set<ID>
-    let behavior: OutlineBehavior<Element>
+    var behavior: OutlineBehavior<Element>
     let appearance: OutlineAppearance
     var springLoading = SpringLoadingBehavior.automatic
     let rowContent: (Element) -> RowContent
@@ -62,6 +62,7 @@
     private(set) weak var collectionView: UICollectionView?
     private var dataSource: UICollectionViewDiffableDataSource<Int, ID>?
     private var renderer: Renderer?
+    private let renameOwnership = OutlineRenameOwnership<ID>()
     private var tree = OutlineTree<Element>([], children: { _ in nil })
     private var appliedStyle: SnagOutlineStyle?
     private var hasLoaded = false
@@ -137,6 +138,9 @@
       with renderer: Renderer, layoutDirection: LayoutDirection = .leftToRight,
       dynamicTypeSize: DynamicTypeSize = .large, locale: Locale = .current
     ) {
+      var renderer = renderer
+      renderer.behavior.renaming?.ownership = renameOwnership
+      renameOwnership.update(renderer.behavior.renaming?.renaming.wrappedValue)
       let oldTree = tree
       self.renderer = renderer
       self.layoutDirection = layoutDirection
@@ -225,6 +229,7 @@
 
     func detach() {
       reveal.cancel()
+      renameOwnership.invalidate()
       hierarchyReveal.cancel()
       navigation.cancel()
       springLoadTask?.cancel()

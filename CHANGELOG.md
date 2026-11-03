@@ -21,6 +21,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Demo: "Pin Leading Rows" pins the first root and its first child, with pin icons and matching
   protection in the host's move menus.
 
+### Fixed
+
+- On macOS, the sidebar's accessibility name and sibling-movement action names follow an
+  explicit host locale override, consistently with destination menus and hierarchy actions.
+- Submenus without any enabled actions are disabled instead of opening an unusable branch.
+
 ## [0.4.1] - 2026-10-08
 
 Fixes for selection, section headers, context menus, badges and keyboard navigation, mostly on

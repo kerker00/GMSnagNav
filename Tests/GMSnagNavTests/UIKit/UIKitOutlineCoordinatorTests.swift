@@ -874,7 +874,10 @@
       typealias Coordinator = UIKitOutlineCoordinator<TestItem, Text>
       let elements = Coordinator.menuElements(for: [
         .action("Rename", systemImage: "pencil") {},
-        .menu("Move to", children: [.action("Top Level", isDisabled: true) {}]),
+        .menu(
+          "Move to", children: [
+            .action("Top Level", isDisabled: true) {}, .action("Archive") {},
+          ]),
         .divider,
         .action("Delete", role: .destructive) {},
       ])
@@ -888,6 +891,7 @@
       let submenu = first[1] as? UIMenu
       #expect(submenu?.title == "Move to")
       #expect((submenu?.children.first as? UIAction)?.attributes.contains(.disabled) == true)
+      #expect((submenu?.children.last as? UIAction)?.attributes.contains(.disabled) == false)
       #expect((sections[1].children.first as? UIAction)?.attributes.contains(.destructive) == true)
     }
 
@@ -918,6 +922,16 @@
       let elements = Coordinator.menuElements(for: [.action("A") {}, .action("B") {}])
       #expect(elements.count == 2)
       #expect(elements.allSatisfy { $0 is UIAction })
+    }
+
+    @Test func aDisabledSubmenuCannotOpenAnEmptyBranch() throws {
+      let items = [
+        OutlineMenuItem.menu("Unavailable", children: [.action("No", isDisabled: true) {}])
+      ]
+      let elements = UIKitOutlineCoordinator<TestItem, Text>.menuElements(for: items)
+      let disabled = try #require(elements.first as? UIAction)
+      #expect(disabled.title == "Unavailable")
+      #expect(disabled.attributes.contains(.disabled))
     }
   }
 #endif

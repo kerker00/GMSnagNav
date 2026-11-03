@@ -319,6 +319,18 @@
       #expect(host.hostedLocales == ["de_DE"])
     }
 
+    @Test func accessibilityNamesFollowTheHostLocaleOverride() throws {
+      let window = render(
+        outline(sampleRoots).outlineReorderable()
+          .onOutlineDrop { _, _ in true }
+          .environment(\.locale, Locale(identifier: "de_DE")))
+      defer { window.close() }
+      let view = try #require(window.contentView?.firstDescendant(of: NSOutlineView.self))
+      #expect(view.accessibilityLabel() == "Seitenleiste")
+      let cell = try #require(view.view(atColumn: 0, row: 4, makeIfNecessary: true))
+      #expect(cell.accessibilityCustomActions()?.map(\.name) == ["Nach oben verschieben"])
+    }
+
     @Test(arguments: [
       OutlineBadge.count(4), .text("New"),
       .symbol(systemImage: "checkmark.circle", accessibilityLabel: "Synced"),

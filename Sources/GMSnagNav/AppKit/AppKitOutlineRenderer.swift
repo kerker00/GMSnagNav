@@ -382,7 +382,7 @@
       // VoiceOver names a sidebar like SwiftUI's sidebar lists, instead of only "outline". Set
       // before the host's configuration, which may name it differently.
       outlineView.setAccessibilityLabel(
-        style == .sourceList ? String(localized: "Sidebar", bundle: .module, locale: locale) : nil)
+        style == .sourceList ? outlineLocalized("Sidebar", locale: locale) : nil)
       appearance.appKitConfiguration?(outlineView)
       // After the host's configuration: AppKit resets the indentation when the row size changes.
       guard outlineView.indentationPerLevel != appearance.indentation else { return false }
@@ -751,8 +751,8 @@
         guard canReorder(id, direction: direction) else { return nil }
         let name =
           direction == .up
-          ? String(localized: "Move Up", bundle: .module, locale: locale)
-          : String(localized: "Move Down", bundle: .module, locale: locale)
+          ? outlineLocalized("Move Up", locale: locale)
+          : outlineLocalized("Move Down", locale: locale)
         return NSAccessibilityCustomAction(name: name) { [weak self] in
           self?.reorder(id, direction: direction) ?? false
         }

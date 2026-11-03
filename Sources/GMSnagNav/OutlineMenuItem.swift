@@ -48,7 +48,7 @@ public struct OutlineMenuItem {
       isDestructive: role == .destructive, isDisabled: isDisabled)
   }
 
-  /// A submenu with its own items.
+  /// A submenu with its own items, disabled when none of its descendants can be chosen.
   ///
   /// - Parameters:
   ///   - title: The title of the submenu.
@@ -57,9 +57,13 @@ public struct OutlineMenuItem {
   public static func menu(
     _ title: String, systemImage: String? = nil, children: [OutlineMenuItem]
   ) -> Self {
-    Self(
+    let hasEnabledItem = children.contains { item in
+      if case .divider = item.kind { return false }
+      return !item.isDisabled
+    }
+    return Self(
       kind: .menu(children), title: title, systemImage: systemImage, isDestructive: false,
-      isDisabled: false)
+      isDisabled: !hasEnabledItem)
   }
 
   /// A separator between groups of items.
@@ -125,6 +129,7 @@ struct OutlineMenuItemsView: View {
         } label: {
           label(for: item)
         }
+        .disabled(item.isDisabled)
       case .divider:
         Divider()
       }

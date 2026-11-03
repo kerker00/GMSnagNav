@@ -186,6 +186,17 @@ import Testing
     #expect(actions.destinationItems(for: ["c"], operation: .copy) { $0.id }[0].isDisabled)
   }
 
+  @Test func aBranchWithNoAvailableDestinationIsDisabled() {
+    host.result = .reject
+    let items = host.items()
+    #expect(items[2].isDisabled)
+    #if os(macOS)
+      #expect(!OutlineMenuItem.nativeItems(for: items)[2].isEnabled)
+    #endif
+    host.result = nil
+    #expect(!host.items()[2].isDisabled)
+  }
+
   @Test func menuConstructionChecksSourcePinsOnceAndValidatesEachDestinationOnce() {
     let roots = (0..<1_000).map { TestItem.group("folder-\($0)") } + [.leaf("source")]
     var pinReads = 0

@@ -241,6 +241,65 @@ final class SidebarUITests: XCTestCase {
     XCTAssertEqual(XCTWaiter.wait(for: [twoCopies], timeout: 5), .completed)
   }
 
+  func testHierarchyArrowsMoveIntoArchiveAndBackWithoutChangingSelection() throws {
+    try requireSidebarBesideDetail()
+    select("Inbox")
+    app.typeKey(.rightArrow, modifierFlags: [.command, .option])
+    assertDetailLocation("Archive › Inbox")
+    XCTAssertTrue(row("Inbox").waitForExistence(timeout: 5))
+    app.typeKey(.leftArrow, modifierFlags: [.command, .option])
+    assertDetailLocation("Inbox")
+    assertRow("Archive", appearsBefore: "Inbox")
+    assertRow("Inbox", appearsBefore: "Ideas")
+  }
+
+  func testHierarchyMovementPreservesAnExpandedSubtreeAndKeyboardFocus() throws {
+    try requireSidebarBesideDetail()
+    select("Personal")
+    app.typeKey(.rightArrow, modifierFlags: [.command, .option])
+    assertDetailLocation("Work › Personal")
+    XCTAssertTrue(row("Recipes").waitForExistence(timeout: 5))
+    app.typeKey(.downArrow, modifierFlags: [])
+    assertDetailLocation("Work › Personal › Travel")
+  }
+
+  func testHierarchyMovementIsDisabledDuringSearch() throws {
+    try requireSidebarBesideDetail()
+    search("i")
+    select("Inbox")
+    app.typeKey(.rightArrow, modifierFlags: [.command, .option])
+    assertDetailLocation("Inbox")
+  }
+
+  func testHierarchyMovementRespectsPinsAndSectionBoundaries() throws {
+    try requireSidebarBesideDetail()
+    app.terminate()
+    app.launchArguments.append("-pin-leading-rows")
+    app.launch()
+    select("Clients")
+    app.typeKey(.leftArrow, modifierFlags: [.command, .option])
+    assertDetailLocation("Work › Clients")
+    app.terminate()
+    app.launchArguments.removeAll { $0 == "-pin-leading-rows" }
+    app.launchArguments.append("-sample-section")
+    app.launch()
+    select("Favorite Note")
+    app.typeKey(.leftArrow, modifierFlags: [.command, .option])
+    assertDetailLocation("Favorites › Favorite Note")
+  }
+
+  func testHierarchyModifiedArrowsMirrorInRightToLeftLayouts() throws {
+    try requireSidebarBesideDetail()
+    app.terminate()
+    app.launchArguments.append("-right-to-left")
+    app.launch()
+    select("Inbox")
+    app.typeKey(.leftArrow, modifierFlags: [.command, .option])
+    assertDetailLocation("Archive › Inbox")
+    app.typeKey(.rightArrow, modifierFlags: [.command, .option])
+    assertDetailLocation("Inbox")
+  }
+
   func testModifiedArrowsReorderSiblingsAndKeepSelection() throws {
     try requireSidebarBesideDetail()
     select("Inbox")

@@ -44,12 +44,22 @@
       scrollView.borderType = .noBorder
 
       context.coordinator.attach(to: outlineView)
-      context.coordinator.update(with: self, locale: context.environment.locale)
+      context.coordinator.update(
+        with: self, locale: context.environment.locale,
+        layoutDirection: context.environment.layoutDirection)
       return scrollView
     }
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
-      context.coordinator.update(with: self, locale: context.environment.locale)
+      context.coordinator.update(
+        with: self, locale: context.environment.locale,
+        layoutDirection: context.environment.layoutDirection)
+    }
+
+    static func dismantleNSView(
+      _ view: NSScrollView, coordinator: OutlineCoordinator<Element, RowContent>
+    ) {
+      coordinator.detach()
     }
   }
 
@@ -132,6 +142,9 @@
       (outlineView as? SnagOutlineView)?.onReorder = { [weak self] direction in
         self?.handleReorderShortcut(direction) ?? false
       }
+      (outlineView as? SnagOutlineView)?.onHierarchyMove = { [weak self] direction in
+        self?.handleHierarchyShortcut(direction) ?? false
+      }
       (outlineView as? SnagOutlineView)?.onHorizontalArrow = { [weak self] forward in
         self?.handleHorizontalArrow(forward: forward) ?? false
       }
@@ -143,7 +156,9 @@
     // MARK: Updates
 
     /// Applies a new snapshot, expansion and selection to the outline.
-    func update(with renderer: Renderer, locale: Locale = .current) {
+    func update(
+      with renderer: Renderer, locale: Locale = .current, layoutDirection: LayoutDirection? = nil
+    ) {
       self.renderer = renderer
       self.locale = locale
       let oldTree = tree
@@ -153,6 +168,9 @@
       guard let outlineView else {
         boxes = boxes.filter { tree.contains($0.key) }
         return
+      }
+      (outlineView as? SnagOutlineView)?.outlineLayoutDirection = layoutDirection.map {
+        $0 == .rightToLeft ? .rightToLeft : .leftToRight
       }
 
       let restoresKeyboardFocus = (outlineView as? SnagOutlineView)?.ownsKeyboardFocus == true
@@ -182,6 +200,10 @@
       navigation.update(renderer.behavior.navigation) { [weak self] request in
         self?.navigate(request) ?? .outlineUnavailable
       }
+      hierarchyReveal.update(
+        tree: tree, previous: oldTree, selection: selected,
+        navigationPending: renderer.behavior.navigation?.request.wrappedValue != nil
+      ) { [weak self] request in self?.revealHierarchy(request) }
       // Replacing hosted rows can move AppKit's first responder to the surrounding SwiftUI
       // view. Keep keyboard navigation in the outline, except when starting inline renaming.
       if restoresKeyboardFocus, renderer.behavior.renaming?.renaming.wrappedValue == nil {
@@ -192,8 +214,39 @@
     /// Reveals elements the host selects; see `outlineRevealsSelection(_:)`.
     private var reveal = SelectionReveal<ID>()
     private let navigation = OutlineNavigationDriver<ID>()
+    private let hierarchyReveal = OutlineHierarchyReveal<ID>()
 
     func navigationSettled() async { await navigation.settled() }
+    func hierarchySettled() async { await hierarchyReveal.settled() }
+
+    func detach() {
+      hierarchyReveal.cancel()
+      navigation.cancel()
+      springLoadTask?.cancel()
+      pendingToggle?.cancel()
+      renderer = nil
+      outlineView = nil
+    }
+
+    private func revealHierarchy(_ request: OutlineHierarchyReveal<ID>.Request) {
+      guard let renderer, let outlineView,
+        renderer.behavior.navigation?.request.wrappedValue == nil,
+        renderer.behavior.renaming?.renaming.wrappedValue == nil,
+        selectedIDs(in: renderer.selection) == request.selection,
+        tree.contains(request.source), tree.parent(of: request.source) == request.parent
+      else { return }
+      let keepsFocus =
+        request.preservesKeyboardFocus
+        && (outlineView as? SnagOutlineView)?.ownsKeyboardFocus == true
+      isApplyingUpdate = true
+      defer { isApplyingUpdate = false }
+      renderer.expansion.formUnion(tree.ancestors(of: request.source))
+      applyExpansion(renderer.expansion)
+      applySelection(request.selection)
+      let row = outlineView.row(forItem: box(for: request.source))
+      if row >= 0 { outlineView.scrollRowToVisible(row) }
+      if keepsFocus { outlineView.window?.makeFirstResponder(outlineView) }
+    }
 
     private func navigate(_ request: OutlineNavigationRequest<ID>) -> OutlineNavigationResult {
       guard let renderer, let outlineView else { return .outlineUnavailable }
@@ -689,6 +742,7 @@
 
     func outlineViewSelectionDidChange(_ notification: Notification) {
       guard !isApplyingUpdate, let renderer, let outlineView else { return }
+      hierarchyReveal.cancel()
       let ids = outlineView.selectedRowIndexes.compactMap { id(of: outlineView.item(atRow: $0)) }
       // Collapsing a container deselects the rows it hides. Those elements stay selected, as on
       // iOS, and their rows appear selected again once the container opens.
@@ -712,6 +766,7 @@
     }
 
     func outlineViewItemDidExpand(_ notification: Notification) {
+      if !isApplyingUpdate && !isSpringLoading { hierarchyReveal.cancel() }
       guard let renderer, let outlineView, let id = expandedOrCollapsedID(in: notification)
       else { return }
       if !isApplyingUpdate, !isSpringLoading, !renderer.expansion.contains(id) {
@@ -729,6 +784,7 @@
     }
 
     func outlineViewItemDidCollapse(_ notification: Notification) {
+      if !isApplyingUpdate && !isSpringLoading { hierarchyReveal.cancel() }
       guard !isApplyingUpdate, !isSpringLoading, let renderer,
         let id = expandedOrCollapsedID(in: notification)
       else { return }
@@ -747,7 +803,8 @@
 
     /// Attach actions to the native cell, which owns AppKit's row accessibility representation.
     private func reorderingActions(for id: ID) -> [NSAccessibilityCustomAction] {
-      [OutlineReorderDirection.up, .down].compactMap { direction in
+      let siblingActions = [OutlineReorderDirection.up, .down].compactMap {
+        direction -> NSAccessibilityCustomAction? in
         guard canReorder(id, direction: direction) else { return nil }
         let name =
           direction == .up
@@ -757,6 +814,47 @@
           self?.reorder(id, direction: direction) ?? false
         }
       }
+      let hierarchyActions = OutlineHierarchyDirection.allCases.compactMap {
+        direction -> NSAccessibilityCustomAction? in
+        guard canMoveHierarchy(id, direction: direction) else { return nil }
+        return NSAccessibilityCustomAction(
+          name: outlineLocalized(direction.titleKey, locale: locale)
+        ) { [weak self] in
+          self?.moveHierarchy(id, direction: direction) ?? false
+        }
+      }
+      return siblingActions + hierarchyActions
+    }
+
+    func canMoveHierarchy(_ id: ID, direction: OutlineHierarchyDirection) -> Bool {
+      guard let renderer else { return false }
+      return renderer.behavior.hierarchyProposal(
+        for: id, direction: direction, tree: tree, expanded: renderer.expansion) != nil
+    }
+
+    @discardableResult func moveHierarchy(_ id: ID, direction: OutlineHierarchyDirection) -> Bool {
+      guard let renderer, let outlineView, let drop = renderer.behavior.drop,
+        let proposal = renderer.behavior.hierarchyProposal(
+          for: id, direction: direction, tree: tree, expanded: renderer.expansion)
+      else { return false }
+      let selected = selectedIDs(in: renderer.selection)
+      let focused = (outlineView as? SnagOutlineView)?.ownsKeyboardFocus == true
+      guard drop.perform(proposal, .move) else { return false }
+      hierarchyReveal.record(proposal, selection: selected, focused: focused)
+      return true
+    }
+
+    func handleHierarchyShortcut(_ direction: OutlineHierarchyDirection) -> Bool {
+      guard let renderer, renderer.behavior.canMoveHierarchy != nil,
+        renderer.behavior.hierarchyKeyboardShortcuts
+      else { return false }
+      let selected = selectedIDs(in: renderer.selection)
+      if selected.count == 1, let id = selected.first, let outlineView,
+        outlineView.row(forItem: box(for: id)) >= 0
+      {
+        _ = moveHierarchy(id, direction: direction)
+      }
+      return true
     }
 
     @discardableResult func reorder(_ id: ID, direction: OutlineReorderDirection) -> Bool {
@@ -777,6 +875,7 @@
     /// A disabled move must not fall through to AppKit's different modified-arrow navigation.
     func handleReorderShortcut(_ direction: OutlineReorderDirection) -> Bool {
       guard renderer?.behavior.canReorder != nil else { return false }
+      hierarchyReveal.cancel()
       _ = reorderSelection(direction)
       return true
     }
@@ -785,6 +884,7 @@
     /// the parent of a collapsed row or leaf with the backward arrow, as on iPad. Expanding and
     /// collapsing stay with AppKit, so the behavior doesn't depend on the macOS version.
     func handleHorizontalArrow(forward: Bool) -> Bool {
+      hierarchyReveal.cancel()
       guard let renderer, let outlineView, outlineView.selectedRowIndexes.count == 1,
         let id = id(of: outlineView.item(atRow: outlineView.selectedRow))
       else { return false }
@@ -825,6 +925,7 @@
     /// - Parameter location: The click in the outline's coordinates, if known; clicks on the
     ///   disclosure triangle are left to AppKit.
     func handleClick(onRow row: Int, at location: NSPoint?) {
+      hierarchyReveal.cancel()
       guard let renderer, let outlineView else { return }
       guard row >= 0, let id = id(of: outlineView.item(atRow: row)) else { return }
       if renderer.behavior.renaming?.renaming.wrappedValue != id {
@@ -879,6 +980,7 @@
     /// Renames the selected row, as in the Finder, or runs the primary action for the selection;
     /// returns whether it handled the key press.
     func handleReturn() -> Bool {
+      hierarchyReveal.cancel()
       guard let renderer else { return false }
       let selected = selectedIDs(in: renderer.selection)
       if selected.count == 1, let id = selected.first {
@@ -913,6 +1015,7 @@
 
     /// Runs the primary action independently of the Return-to-rename behavior.
     func handlePrimaryAction() -> Bool {
+      hierarchyReveal.cancel()
       guard let renderer else { return false }
       // Removed elements can stay selected; the action applies to the ones that remain.
       let selected = selectedIDs(in: renderer.selection).filter(tree.contains)

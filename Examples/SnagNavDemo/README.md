@@ -63,6 +63,7 @@ Then `import GMSnagNav` wherever you build your sidebar.
 | Primary action: double-click, Command-O or Command-Down toggles folders and "opens" documents (macOS); Return starts renaming | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
 | Hardware-keyboard navigation: up/down, hierarchy arrows and Space; mirrored arrows in RTL layouts (iPad) | built in | ✅ |
 | Reorder one row among its siblings using Command-Option-Up/Down or VoiceOver; disabled while searching | `outlineReorderable(_:)` and the shared drop callbacks | ✅ |
+| Move into the immediate previous sibling container or out after the parent | `outlineHierarchyMovable(keyboardShortcuts:_:)` | ✅ Command-Option-Forward/Backward and VoiceOver; RTL mirrored; search, section and pin boundaries protected |
 | Pin Leading Rows: pin the first root and its first child (initially Work and Clients), prevent dragging/reordering and redirect insertions behind them | `outlinePinned(_:)` and the host's move validation | ✅ Toggle in Outline options or the macOS View menu; pin icons identify fixed rows |
 | Counts, text, status symbols, dots and progress; edit Status in the detail view or toggle Show Badges | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |
 | Style, indentation and the AppKit configuration escape hatch (Outline menu) | [`Sidebar/SidebarView.swift`](SnagNavDemo/Sidebar/SidebarView.swift) | ✅ |

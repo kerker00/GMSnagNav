@@ -60,6 +60,7 @@ one SwiftUI API for arbitrarily deep trees with selection, expansion and real dr
 - Spring-loaded expansion while dragging
 - Keyboard navigation with the arrow keys on macOS and with a hardware keyboard on iPad
 - Reordering siblings without dragging: Command-Option-Up/Down and VoiceOver actions
+- Moving between hierarchy levels: Command-Option-Forward/Backward and VoiceOver actions
 - Reusable host-validated Move-to/Copy-to destination menus, including outside the sidebar
 - Pinned rows that protect a fixed prefix at the root or inside containers
 - Row badges for counts, short text, status symbols, dots and progress
@@ -198,7 +199,7 @@ whose order differs from the model:
 See [Drag and drop](Sources/GMSnagNav/GMSnagNav.docc/DragAndDrop.md) for boundaries, redirects
 and host-owned execution.
 
-## Destination menus
+## Destination menus and hierarchy movement
 
 `OutlineActions` reads live host data and reuses the drop validator and performer to generate
 hierarchical Move-to/Copy-to menus. Use `.onOutlineDrop(actions)` in the outline, and display
@@ -206,6 +207,13 @@ hierarchical Move-to/Copy-to menus. Use `.onOutlineDrop(actions)` in the outline
 SwiftUI menu. No mounted outline is needed for a detail menu. Copy actions must be explicitly
 accepted as copies; stale sources or destinations cannot turn into partial or different actions.
 See [Destination menus](Sources/GMSnagNav/GMSnagNav.docc/DestinationMenus.md).
+
+Apply `.outlineHierarchyMovable { _ in !isSearching }` for Command-Option-Forward/Backward and
+VoiceOver actions. A row moves into its immediate previous sibling container or directly after
+its parent. Selection stays with the row and the outline reveals it after the host update.
+Use `keyboardShortcuts: false` to retain your own keyboard bindings. See
+[Hierarchy movement](Sources/GMSnagNav/GMSnagNav.docc/HierarchyMovement.md) for section/pin
+boundaries, RTL, editor focus and validation.
 
 ## Pinned rows
 
@@ -243,7 +251,6 @@ The host controls search filters and split-view visibility. See
 
 Ideas for versions after `0.4.1`, all planned to be backward compatible:
 
-- Navigation between hierarchy levels
 - Large-tree benchmarks, followed by update optimizations and lazy loading where measurements
   show a need; include mostly collapsed trees and large sibling lists
 - Custom drag previews

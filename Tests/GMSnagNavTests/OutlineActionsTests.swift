@@ -363,5 +363,7 @@ import Testing
     #expect(overridden.behavior.drop?.validate(proposal) == .reject)
     #expect(overridden.behavior.drop?.perform(proposal, .move) == false)
     #expect(host.performed.count == 1)
+    #expect(configured.behavior.actionTree?().count == 6)
+    #expect(overridden.behavior.actionTree == nil)
   }
 }

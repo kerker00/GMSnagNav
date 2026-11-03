@@ -82,6 +82,13 @@ final class OutlineNavigationDriver<ID: Hashable & Sendable> {
 
   func settled() async { await task?.value }
 
+  /// Detaching must leave a pending host request available for a later mounted outline.
+  func cancel() {
+    task?.cancel()
+    task = nil
+    scheduled = nil
+  }
+
   func update(
     _ handler: OutlineNavigationHandler<ID>?,
     perform: @escaping @MainActor (OutlineNavigationRequest<ID>) -> OutlineNavigationResult

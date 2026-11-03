@@ -34,6 +34,7 @@ extension OutlineBehavior {
       pending.append(contentsOf: tree.children(of: id))
     }
     var copy = self
+    copy.liveIsPinned = isPinned
     copy.isPinned = { pinned.contains($0.id) }
     return copy
   }

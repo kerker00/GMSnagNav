@@ -13,7 +13,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   data. `OutlineMenuItems` displays the same entries in a SwiftUI menu outside the outline,
   including an iPhone detail without a mounted sidebar. Explicit actions revalidate all sources,
   pins, destinations and requested operations and report their result without partial transfers.
-- Demo: shared Move-to/Copy-to menus in sidebar and detail, with the same host mutation adapter.
+- `outlineHierarchyMovable(keyboardShortcuts:_:)` adds Command-Option-Forward/Backward and
+  localized VoiceOver actions to move one row into its previous sibling container or out after
+  its parent. The exact move uses the existing drop callbacks, preserves selection and reveals
+  the moved row after the host update. Section and pin boundaries remain protected.
+- Demo: shared Move-to/Copy-to menus in sidebar and detail, with the same host mutation adapter;
+  hierarchy movement is enabled outside search.
 - `outlinePinned(_:)` protects fixed rows at the beginning of each sibling list. Pinned rows
   cannot be dragged or reordered with the keyboard or VoiceOver; insertions before or between
   them land after the pinned span. Copying and host redirects use the same rules, and the host

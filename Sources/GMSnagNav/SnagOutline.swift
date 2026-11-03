@@ -135,6 +135,7 @@ where Data.Element: Identifiable, Data.Element.ID: Sendable {
   public var body: some View {
     let tree = OutlineTree(data, children: children)
     let behavior = behavior.resolvingBadges(in: tree).resolvingPinnedRows(in: tree)
+      .observingHierarchy(in: tree)
     #if os(macOS)
       AppKitOutlineRenderer(
         tree: tree,
@@ -238,6 +239,10 @@ struct OutlineBehavior<Element: Identifiable> where Element.ID: Sendable {
   var canDrag: ((Element) -> Bool)?
   var canReorder: ((Element) -> Bool)?
   var isPinned: ((Element) -> Bool)?
+  var liveIsPinned: ((Element) -> Bool)?
+  var actionTree: (@MainActor () -> OutlineTree<Element>)?
+  var canMoveHierarchy: ((Element) -> Bool)?
+  var hierarchyKeyboardShortcuts = true
   var drop: OutlineDropHandler<Element.ID>?
   var duplicateIDs: ((Set<Element.ID>) -> Void)?
   var leadingSwipeActions: OutlineSwipeActions<Element.ID>?

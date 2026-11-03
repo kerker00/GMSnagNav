@@ -86,14 +86,17 @@ public struct OutlineActions<Element: Identifiable> where Element.ID: Sendable {
     let missingSources = sources.isEmpty || !sources.allSatisfy(tree.contains)
     let available = isAvailable()
     let expansion = expanded()
+    let preparation = OutlineActionPreparation(
+      sources: captured, tree: tree, expanded: expansion, isPinned: isPinned)
 
     func action(_ label: String, at target: OutlineDropTarget<ID>) -> OutlineMenuItem {
-      let resolution = handler.resolveAction(
-        sources: captured, target: target, operation: operation, tree: tree,
-        expanded: expansion, isPinned: isPinned)
       let enabled: Bool
-      if case .success = resolution {
-        enabled = available && !missingSources
+      if available && !missingSources,
+        case .success = handler.resolveAction(
+          sources: captured, target: target, operation: operation, tree: tree,
+          expanded: expansion, isPinned: isPinned, preparation: preparation)
+      {
+        enabled = true
       } else {
         enabled = false
       }
@@ -175,7 +178,6 @@ extension OutlineActionFailure {
     switch self {
     case .sourceUnavailable: .sourceUnavailable
     case .targetUnavailable: .targetUnavailable
-    case .unavailable: .unavailable
     case .rejected: .rejected
     }
   }

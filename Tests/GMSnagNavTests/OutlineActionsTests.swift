@@ -186,6 +186,63 @@ import Testing
     #expect(actions.destinationItems(for: ["c"], operation: .copy) { $0.id }[0].isDisabled)
   }
 
+  @Test func menuConstructionChecksSourcePinsOnceAndValidatesEachDestinationOnce() {
+    let roots = (0..<1_000).map { TestItem.group("folder-\($0)") } + [.leaf("source")]
+    var pinReads = 0
+    var validations = 0
+    let actions = OutlineActions(
+      data: { roots }, children: \.children,
+      isPinned: { _ in
+        pinReads += 1
+        return false
+      },
+      validate: { _ in
+        validations += 1
+        return .accept(.move)
+      }, perform: { _, _ in true })
+    let items = actions.destinationItems(for: ["source"], operation: .move) { $0.id }
+    #expect(items.count == 1_002)
+    #expect(pinReads == 1)
+    #expect(validations == 1_001)
+    validations = 0
+    _ = actions.destinationItems(
+      for: ["source"], operation: .move, isAvailable: { false }, title: { $0.id })
+    #expect(validations == 0)
+  }
+
+  @Test func preparedMenusMatchFreshResolutionForPinsCyclesCopiesAndRedirects() {
+    let tree = OutlineTree(sampleRoots, children: \.children)
+    let targets: [OutlineDropTarget<String>] = [.root, .onto("a"), .onto("a2"), .onto("b")]
+    let answers: [OutlineDropResult<String>] = [
+      .reject, .accept(.move), .accept(.copy),
+      .redirect(to: .insert(into: nil, at: 0), operation: .move),
+      .redirect(to: .insert(into: "a", at: 0), operation: .copy),
+    ]
+    for selected in [["c"], ["a", "a1"], ["a1", "c"]] {
+      let sources = tree.normalizedSources(selected)
+      for pins: Set<String> in [[], ["a"], ["a1"], ["c"]] {
+        let isPinned: (TestItem) -> Bool = { pins.contains($0.id) }
+        let prepared = OutlineActionPreparation(
+          sources: sources, tree: tree, expanded: ["a"], isPinned: isPinned)
+        for answer in answers {
+          let handler = OutlineDropHandler<String>(
+            validate: { _ in answer }, perform: { _, _ in true })
+          for operation in [OutlineDropOperation.move, .copy] {
+            for target in targets {
+              let fresh = handler.resolveAction(
+                sources: sources, target: target, operation: operation, tree: tree,
+                expanded: ["a"], isPinned: isPinned)
+              let cached = handler.resolveAction(
+                sources: sources, target: target, operation: operation, tree: tree,
+                expanded: ["a"], isPinned: isPinned, preparation: prepared)
+              #expect(cached == fresh)
+            }
+          }
+        }
+      }
+    }
+  }
+
   @Test func redirectsStayInsideTheAdvertisedContainerAndKeepIndices() {
     let items = host.items(["a1"])
     host.result = .redirect(to: .insert(into: "b", at: 0), operation: .move)

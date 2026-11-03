@@ -87,11 +87,16 @@ The current parent is not automatically disabled; the host can append, prepend o
 All selected identifiers are retained, including descendants initially carried by selected roots.
 They are normalized in current model order again when chosen: a selected child moved out of its
 selected parent is still transferred. Every selected identifier must still exist; each current
-effective source must be unpinned. A missing or pinned source,
-or one captured root becoming a descendant of another, cancels the whole action. Mixed pinned
+effective source must be unpinned. A missing or pinned source, or one captured root becoming a
+descendant of another, cancels the whole action. Mixed pinned
 and movable sources are not partially transferred. This is intentionally stricter than dragging,
 which filters out rows that cannot be dragged. A movable ancestor still carries its subtree,
 including pinned descendants. Changing the selection does not replace captured source IDs.
+
+Source checks and subtree membership are prepared once per menu snapshot. Each destination
+still asks the host validator for its own answer; keep that callback inexpensive. An unavailable
+menu skips host validation, and a submenu with no enabled destination is disabled. These
+construction checks are not reused during execution, which reads current data and rules again.
 
 ## Revalidate the advertised operation
 

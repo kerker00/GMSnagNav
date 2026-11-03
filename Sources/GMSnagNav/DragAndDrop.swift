@@ -89,10 +89,23 @@ extension OutlineDropHandler {
       guard let element = tree.element(id) else { return false }
       return isPinned?(element) != true
     }
+    return resolve(target: target, tree: tree, isPinned: isPinned) { target in
+      OutlineDropProposal(
+        draggedIDs: draggedIDs, target: target, tree: tree, expanded: expanded,
+        isCopyRequested: isCopyRequested)
+    }
+  }
+
+  /// Shares validation and pin-adjusted redirects with prepared explicit menu proposals.
+  func resolve<Element: Identifiable>(
+    target: OutlineDropTarget<ID>, tree: OutlineTree<Element>,
+    isPinned: ((Element) -> Bool)?,
+    proposal makeProposal: (OutlineDropTarget<ID>) -> OutlineDropProposal<ID>
+  ) -> (proposal: OutlineDropProposal<ID>, operation: OutlineDropOperation)?
+  where Element.ID == ID {
+    guard tree.isValidDropTarget(target) else { return nil }
     let target = tree.targetAfterPinnedRows(target, isPinned: isPinned)
-    let proposal = OutlineDropProposal(
-      draggedIDs: draggedIDs, target: target, tree: tree, expanded: expanded,
-      isCopyRequested: isCopyRequested)
+    let proposal = makeProposal(target)
     guard !proposal.draggedIDs.isEmpty else { return nil }
 
     switch validate(proposal) {
@@ -103,9 +116,7 @@ extension OutlineDropHandler {
     case .redirect(let redirected, let operation):
       guard tree.isValidDropTarget(redirected) else { return nil }
       let adjusted = tree.targetAfterPinnedRows(redirected, isPinned: isPinned)
-      let proposal = OutlineDropProposal(
-        draggedIDs: draggedIDs, target: adjusted, tree: tree, expanded: expanded,
-        isCopyRequested: isCopyRequested)
+      let proposal = makeProposal(adjusted)
       if adjusted != redirected {
         // A redirect is permission for its exact target. Ask again when pinning changes it;
         // conflicting redirects must not silently bypass either the host or the pinned span.

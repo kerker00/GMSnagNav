@@ -7,6 +7,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Sibling keyboard and VoiceOver moves recheck live source pinning and the destination's
+  pinned prefix before performing, including changes since the last render.
+
 ## [0.5.0] - 2026-11-03
 
 Organize outline items with pinned rows, reusable Move-to/Copy-to destination menus, and

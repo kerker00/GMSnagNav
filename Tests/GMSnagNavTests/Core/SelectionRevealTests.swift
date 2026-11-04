@@ -46,4 +46,26 @@ import Testing
     #expect(reveal.hostSelected(["missing"], in: tree, expanded: []).isEmpty)
     #expect(reveal.pending == nil)
   }
+
+  @Test func userSelectionCancelsAPendingHostReveal() {
+    var reveal = SelectionReveal<String>()
+    _ = reveal.hostSelected(["a2x"], in: tree, expanded: [])
+    reveal.userSelected(["c"])
+    #expect(reveal.pending == nil)
+  }
+
+  @Test func clearingSelectionCancelsAPendingReveal() {
+    var reveal = SelectionReveal<String>()
+    _ = reveal.hostSelected(["a2x"], in: tree, expanded: [])
+    _ = reveal.hostSelected([], in: tree, expanded: [])
+    #expect(reveal.pending == nil)
+  }
+
+  @Test func removingTheTargetCancelsAnUnchangedSelection() {
+    var reveal = SelectionReveal<String>()
+    _ = reveal.hostSelected(["a2x"], in: tree, expanded: [])
+    _ = reveal.hostSelected(
+      ["a2x"], in: OutlineTree<TestItem>([], children: \.children), expanded: [])
+    #expect(reveal.pending == nil)
+  }
 }

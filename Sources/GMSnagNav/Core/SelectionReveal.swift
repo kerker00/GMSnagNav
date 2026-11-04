@@ -14,6 +14,7 @@ struct SelectionReveal<ID: Hashable> {
   /// Records a selection the user made in the outline; it is never revealed.
   mutating func userSelected(_ ids: Set<ID>) {
     known = ids
+    pending = nil
   }
 
   /// Compares the host's selection with the last known one.
@@ -26,9 +27,11 @@ struct SelectionReveal<ID: Hashable> {
   mutating func hostSelected<Element: Identifiable>(
     _ ids: Set<ID>, in tree: OutlineTree<Element>, expanded: Set<ID>
   ) -> [ID] where Element.ID == ID {
+    if let pending, !tree.contains(pending) { self.pending = nil }
     guard ids != known else { return [] }
     let added = known.map { ids.subtracting($0) } ?? ids
     known = ids
+    pending = nil
     guard
       let target = added.filter(tree.contains).min(by: {
         tree.indexPath(of: $0).lexicographicallyPrecedes(tree.indexPath(of: $1))

@@ -162,6 +162,24 @@
       #expect(host.navigation == nil)
     }
 
+    @Test func supersedingSelectionCancelsPendingAutomaticExpansion() async {
+      host.single = "a2x"
+      update()
+      host.single = "c"
+      update()
+      await coordinator.selectionRevealSettled()
+      #expect(host.expansion.isEmpty)
+      #expect(host.single == "c")
+    }
+
+    @Test func detachingCancelsPendingAutomaticExpansion() async {
+      host.single = "a2x"
+      update()
+      coordinator.detach()
+      await Task { @MainActor in }.value
+      #expect(host.expansion.isEmpty)
+    }
+
     @Test func explicitNavigationTakesPrecedenceOverAutomaticSelectionReveal() async {
       let window = NSWindow(
         contentRect: CGRect(x: 0, y: 0, width: 320, height: 480), styleMask: [],

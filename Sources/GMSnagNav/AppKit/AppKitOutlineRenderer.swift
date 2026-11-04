@@ -212,14 +212,16 @@
     }
 
     /// Reveals elements the host selects; see `outlineRevealsSelection(_:)`.
-    private var reveal = SelectionReveal<ID>()
+    private let reveal = OutlineSelectionReveal<ID>()
     private let navigation = OutlineNavigationDriver<ID>()
     private let hierarchyReveal = OutlineHierarchyReveal<ID>()
 
+    func selectionRevealSettled() async { await reveal.settled() }
     func navigationSettled() async { await navigation.settled() }
     func hierarchySettled() async { await hierarchyReveal.settled() }
 
     func detach() {
+      reveal.cancel()
       hierarchyReveal.cancel()
       navigation.cancel()
       springLoadTask?.cancel()

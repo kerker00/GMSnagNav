@@ -9,6 +9,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Automatic selection reveal cancels obsolete expansion and scrolling after a newer selection,
+  disabled revealing, target removal or outline detachment.
 - Sibling keyboard and VoiceOver moves recheck live source pinning and the destination's
   pinned prefix before performing, including changes since the last render.
 

@@ -117,14 +117,18 @@
         command.wantsPriorityOverSystemBehavior = true
         command.allowsAutomaticMirroring = false
         command.allowsAutomaticLocalization = false
-        command.discoverabilityTitle = String(
-          localized: input == UIKeyCommand.inputUpArrow ? "Move Up" : "Move Down", bundle: .module)
         return command
       }
 
     override var keyCommands: [UIKeyCommand]? {
       // Hosted rename fields keep their text input, including spaces and cursor movement.
       guard !containsActiveTextInput else { return super.keyCommands }
+      // Keep the registered commands, but refresh their labels from the current host locale.
+      for command in outlineCommands where command.modifierFlags == [.command, .alternate] {
+        command.discoverabilityTitle = outlineLocalized(
+          command.input == UIKeyCommand.inputUpArrow ? "Move Up" : "Move Down",
+          locale: outlineLocale)
+      }
       let hierarchyCommands: [UIKeyCommand] =
         handlesHierarchyShortcuts
         ? [UIKeyCommand.inputLeftArrow, UIKeyCommand.inputRightArrow].map { input in

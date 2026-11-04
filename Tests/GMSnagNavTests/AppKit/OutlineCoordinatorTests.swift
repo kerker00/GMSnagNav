@@ -162,6 +162,24 @@
       #expect(host.navigation == nil)
     }
 
+    @Test func supersedingSelectionCancelsPendingAutomaticExpansion() async {
+      host.single = "a2x"
+      update()
+      host.single = "c"
+      update()
+      await coordinator.selectionRevealSettled()
+      #expect(host.expansion.isEmpty)
+      #expect(host.single == "c")
+    }
+
+    @Test func detachingCancelsPendingAutomaticExpansion() async {
+      host.single = "a2x"
+      update()
+      coordinator.detach()
+      await Task { @MainActor in }.value
+      #expect(host.expansion.isEmpty)
+    }
+
     @Test func explicitNavigationTakesPrecedenceOverAutomaticSelectionReveal() async {
       let window = NSWindow(
         contentRect: CGRect(x: 0, y: 0, width: 320, height: 480), styleMask: [],
@@ -847,6 +865,101 @@
       #expect(host.renaming == "a")
     }
 
+    @Test func cancelsAQueuedRenameRestartAfterDetach() async {
+      host.canRename = { _ in true }
+      host.single = "c"
+      host.renaming = "c"
+      update()
+      #expect(coordinator.handleReturn())
+      update()
+      coordinator.detach()
+      // Both queued bodies run on the main actor, without a timer or a UI runner.
+      await Task { @MainActor in }.value
+      #expect(host.renaming == nil)
+    }
+
+    private enum RenameRestartInvalidation: CaseIterable {
+      case removedTarget, withdrawnPermission, removedModifier, changedSelection
+    }
+
+    @Test func rechecksRenamePermissionWhenTheRestartExecutes() async {
+      var allowed = true
+      host.canRename = { _ in allowed }
+      host.single = "c"
+      host.renaming = "c"
+      update()
+      #expect(coordinator.handleReturn())
+      update()
+      allowed = false
+      await coordinator.renameRestartSettled()
+      #expect(host.renaming == nil)
+      allowed = true
+      update()
+      await coordinator.renameRestartSettled()
+      #expect(host.renaming == nil)
+    }
+
+    @Test func keepsANewRenameThatStartsAfterTheRestartWasQueued() async {
+      host.canRename = { _ in true }
+      host.single = "c"
+      host.renaming = "c"
+      update()
+      #expect(coordinator.handleReturn())
+      update()
+      host.renaming = "a"
+      await coordinator.renameRestartSettled()
+      #expect(host.renaming == "a")
+    }
+
+    @Test func returnDoesNotStartAnEditorForAHiddenSelectedRow() {
+      host.canRename = { _ in true }
+      host.revealsSelection = false
+      host.single = "a1"
+      update()
+      #expect(!visibleIDs.contains("a1"))
+      #expect(!coordinator.handleReturn())
+      #expect(host.renaming == nil)
+      #expect(host.single == "a1")
+    }
+
+    @Test func collapsingTheTargetCancelsAQueuedRenameRestart() async {
+      host.canRename = { _ in true }
+      host.revealsSelection = false
+      host.expansion = ["a"]
+      host.single = "a1"
+      host.renaming = "a1"
+      update()
+      #expect(coordinator.handleReturn())
+      update()
+      host.expansion = []
+      update()
+      await coordinator.renameRestartSettled()
+      #expect(!visibleIDs.contains("a1"))
+      #expect(host.renaming == nil)
+      #expect(host.single == "a1")
+    }
+
+    @Test(arguments: RenameRestartInvalidation.allCases)
+    private func cancelsAnIneligibleQueuedRenameRestart(
+      _ reason: RenameRestartInvalidation
+    ) async {
+      host.canRename = { _ in true }
+      host.single = "c"
+      host.renaming = "c"
+      update()
+      #expect(coordinator.handleReturn())
+      update()
+      switch reason {
+      case .removedTarget: host.roots.removeAll { $0.id == "c" }
+      case .withdrawnPermission: host.canRename = { _ in false }
+      case .removedModifier: host.canRename = nil
+      case .changedSelection: host.single = "a"
+      }
+      update()
+      await Task { @MainActor in }.value
+      #expect(host.renaming == nil)
+    }
+
     @Test func runsThePrimaryActionOnReturnForSeveralSelectedRows() {
       var activated: Set<String>?
       host.primaryAction = { activated = $0 }
@@ -1253,6 +1366,48 @@
       #expect(isExpanded("a") && isExpanded("a2"))
     }
 
+    @Test func dropExpansionAndCacheFollowSpringLoading() async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      var validations = 0
+      host.drop = OutlineDropHandler(
+        validate: { _ in
+          validations += 1
+          return .accept(.move)
+        }, perform: { _, _ in true })
+      update()
+      #expect(
+        coordinator.resolveDrop(of: ["c"], onto: item("a"), childIndex: -1)?
+          .proposal.isTargetExpanded == false)
+      await hover(onto: "a")
+      #expect(isExpanded("a"))
+      #expect(
+        coordinator.resolveDrop(of: ["c"], onto: item("a"), childIndex: -1)?
+          .proposal.isTargetExpanded == true)
+      coordinator.endSpringLoading()
+      #expect(!isExpanded("a"))
+      #expect(
+        coordinator.resolveDrop(of: ["c"], onto: item("a"), childIndex: -1)?
+          .proposal.isTargetExpanded == false)
+      #expect(validations == 3)
+      #expect(host.expansion.isEmpty)
+    }
+
+    @Test func redirectedDropUsesTheSpringLoadedDestinationsExpansion() async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      host.drop = OutlineDropHandler(
+        validate: { _ in .redirect(to: .onto("a"), operation: .move) },
+        perform: { _, _ in true })
+      update()
+      #expect(
+        coordinator.resolveDrop(of: ["c"], onto: item("b"), childIndex: -1)?
+          .proposal.isTargetExpanded == false)
+      await hover(onto: "a")
+      let resolved = coordinator.resolveDrop(of: ["c"], onto: item("b"), childIndex: -1)
+      #expect(resolved?.proposal.target == .onto("a"))
+      #expect(resolved?.proposal.isTargetExpanded == true)
+      #expect(host.expansion.isEmpty)
+    }
+
     @Test func closesSpringLoadedElementsWhenThePointerLeaves() async {
       coordinator.springLoadingDelayOverride = .milliseconds(10)
       update()
@@ -1271,6 +1426,55 @@
       coordinator.endSpringLoading()
       #expect(isExpanded("a"))
       #expect(!isExpanded("a2"))
+    }
+
+    @Test func disablingSpringLoadingCancelsPendingHover() async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      update()
+      coordinator.updateSpringLoading(hovering: item("a"), childIndex: -1)
+      host.springLoading = .disabled
+      update()
+      await coordinator.springLoadingSettled()
+      #expect(!isExpanded("a"))
+      #expect(host.expansion.isEmpty)
+    }
+
+    @Test func enablingSpringLoadingResumesAStationaryHover() async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      host.springLoading = .disabled
+      update()
+      coordinator.updateSpringLoading(hovering: item("a"), childIndex: -1)
+      host.springLoading = .enabled
+      update()
+      await coordinator.springLoadingSettled()
+      #expect(isExpanded("a"))
+      #expect(host.expansion.isEmpty)
+    }
+
+    @Test(arguments: [false, true])
+    func disablingSpringLoadingRestoresHostOwnedExpansion(keepOpen: Bool) async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      update()
+      await hover(onto: "a")
+      if keepOpen { host.expansion.insert("a") }
+      host.springLoading = .disabled
+      update()
+      #expect(isExpanded("a") == keepOpen)
+      #expect(host.expansion == (keepOpen ? ["a"] : []))
+    }
+
+    @Test func aSystemPreferenceChangeCancelsThePendingOpen() async throws {
+      let name = "GMSnagNavTests.Hover.\(UUID())"
+      let defaults = try #require(UserDefaults(suiteName: name))
+      defer { defaults.removePersistentDomain(forName: name) }
+      coordinator.systemDefaults = defaults
+      defaults.set(true, forKey: "com.apple.springing.enabled")
+      defaults.set(0.01, forKey: "com.apple.springing.delay")
+      update()
+      coordinator.updateSpringLoading(hovering: item("a"), childIndex: -1)
+      defaults.set(false, forKey: "com.apple.springing.enabled")
+      await coordinator.springLoadingSettled()
+      #expect(!isExpanded("a"))
     }
 
     @Test func doesNotSpringLoadWhenDisabled() async {

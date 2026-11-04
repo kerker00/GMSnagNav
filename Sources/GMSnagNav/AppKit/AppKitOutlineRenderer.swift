@@ -13,7 +13,7 @@
     let tree: OutlineTree<Element>
     let selection: OutlineSelection<ID>
     @Binding var expansion: Set<ID>
-    let behavior: OutlineBehavior<Element>
+    var behavior: OutlineBehavior<Element>
     let appearance: OutlineAppearance
     var springLoading = SpringLoadingBehavior.automatic
     let rowContent: (Element) -> RowContent
@@ -73,6 +73,7 @@
 
     private(set) weak var outlineView: NSOutlineView?
     private var renderer: Renderer?
+    private let renameOwnership = OutlineRenameOwnership<ID>()
     private var tree = OutlineTree<Element>([], children: { _ in nil })
     private var boxes: [ID: NodeBox<ID>] = [:]
     /// The private pasteboard type of rows dragged within the outline.
@@ -91,6 +92,8 @@
     /// The element the pointer rests on during a drag, and the pending task that opens it.
     private var springLoadCandidate: ID?
     private var springLoadTask: Task<Void, Never>?
+    private var springLoadTarget: OutlineDropTarget<ID>?
+    private var scheduledSpringDelay: Duration?
     /// Finishes once the pending spring-loading has opened its element or was cancelled, for tests.
     func springLoadingSettled() async {
       await springLoadTask?.value
@@ -159,6 +162,9 @@
     func update(
       with renderer: Renderer, locale: Locale = .current, layoutDirection: LayoutDirection? = nil
     ) {
+      var renderer = renderer
+      renderer.behavior.renaming?.ownership = renameOwnership
+      renameOwnership.update(renderer.behavior.renaming?.renaming.wrappedValue)
       self.renderer = renderer
       self.locale = locale
       let oldTree = tree
@@ -190,6 +196,7 @@
       refreshVisibleRows()
       restartPendingRename()
       applyExpansion(renderer.expansion)
+      synchronizeSpringLoading()
       let selected = selectedIDs(in: renderer.selection)
       applySelection(selected)
       reveal.hostSelected(
@@ -212,17 +219,21 @@
     }
 
     /// Reveals elements the host selects; see `outlineRevealsSelection(_:)`.
-    private var reveal = SelectionReveal<ID>()
+    private let reveal = OutlineSelectionReveal<ID>()
     private let navigation = OutlineNavigationDriver<ID>()
     private let hierarchyReveal = OutlineHierarchyReveal<ID>()
 
+    func selectionRevealSettled() async { await reveal.settled() }
     func navigationSettled() async { await navigation.settled() }
     func hierarchySettled() async { await hierarchyReveal.settled() }
 
     func detach() {
+      reveal.cancel()
+      renameOwnership.invalidate()
+      cancelRenameRestart()
       hierarchyReveal.cancel()
       navigation.cancel()
-      springLoadTask?.cancel()
+      endSpringLoading()
       pendingToggle?.cancel()
       renderer = nil
       outlineView = nil
@@ -344,7 +355,7 @@
 
     /// Shows an element's content in a cell, laid out for the outline's style.
     private func configure(_ cell: HostingCellView, for id: ID, content: AnyView) {
-      cell.show(content)
+      cell.show(content, for: id)
       cell.setAccessibilityCustomActions(reorderingActions(for: id))
       let isSourceList = outlineView?.style == .sourceList
       // Plain rows reach the edge of the outline; keep accessories off it.
@@ -552,12 +563,25 @@
       return .seconds(delay > 0 ? delay : 0.5)
     }
 
+    private func synchronizeSpringLoading() {
+      guard let target = springLoadTarget else { return }
+      updateSpringLoading(
+        hovering: target.parent.map(box(for:)),
+        childIndex: target.childIndex ?? NSOutlineViewDropOnItemIndex)
+    }
+
     /// Opens collapsed elements the pointer rests on and closes the ones it has left.
     func updateSpringLoading(hovering item: Any?, childIndex: Int) {
       let target = target(item: item, childIndex: childIndex)
+      springLoadTarget = target
+      guard let delay = springLoadingDelay else {
+        endSpringLoading()
+        springLoadTarget = target
+        return
+      }
       for id in tree.springLoadedToClose(springLoaded, targetParent: target.parent) {
         springLoaded.removeAll { $0 == id }
-        setSpringLoaded(id, expanded: false)
+        if renderer?.expansion.contains(id) != true { setSpringLoaded(id, expanded: false) }
       }
 
       var candidate: ID?
@@ -566,14 +590,27 @@
       {
         candidate = id
       }
-      guard candidate != springLoadCandidate else { return }
+      guard
+        candidate != springLoadCandidate
+          || (candidate != nil && scheduledSpringDelay != delay)
+      else { return }
       springLoadTask?.cancel()
+      springLoadTask = nil
       springLoadCandidate = candidate
-      guard let candidate, let delay = springLoadingDelay else { return }
-
+      scheduledSpringDelay = nil
+      guard let candidate else { return }
+      scheduledSpringDelay = delay
       springLoadTask = Task { [weak self] in
         try? await Task.sleep(for: delay)
         guard !Task.isCancelled, let self, self.springLoadCandidate == candidate else { return }
+        self.springLoadTask = nil
+        self.springLoadCandidate = nil
+        self.scheduledSpringDelay = nil
+        guard self.springLoadingDelay == delay else {
+          self.synchronizeSpringLoading()
+          return
+        }
+        guard !self.tree.children(of: candidate).isEmpty else { return }
         self.springLoaded.append(candidate)
         self.setSpringLoaded(candidate, expanded: true)
       }
@@ -582,6 +619,8 @@
     /// Closes what spring-loading opened, unless the host expanded it in the meantime — for
     /// example to reveal the elements just dropped into it.
     func endSpringLoading() {
+      springLoadTarget = nil
+      scheduledSpringDelay = nil
       springLoadTask?.cancel()
       springLoadTask = nil
       springLoadCandidate = nil
@@ -596,6 +635,7 @@
     private func setSpringLoaded(_ id: ID, expanded: Bool) {
       // The host may have removed the element during the drag.
       guard let outlineView, tree.contains(id) else { return }
+      dropCache.removeAll()
       isSpringLoading = true
       defer { isSpringLoading = false }
       // Not through the animator: the expansion notifications must arrive while
@@ -656,8 +696,9 @@
       let target = target(item: item, childIndex: childIndex)
       return dropCache.resolution(for: ids, target: target, isCopyRequested: copying) {
         drop.resolve(
-          draggedIDs: ids, target: target, tree: tree, expanded: renderer.expansion,
-          isCopyRequested: copying, isPinned: renderer.behavior.isPinned)
+          draggedIDs: ids, target: target, tree: tree,
+          expanded: renderer.expansion.union(springLoaded), isCopyRequested: copying,
+          isPinned: renderer.behavior.isPinned)
       }
     }
 
@@ -754,6 +795,7 @@
         return
       }
       reveal.userSelected(Set(ids))
+      cancelRenameRestart()
       switch renderer.selection {
       case .none:
         break
@@ -973,7 +1015,9 @@
     private func takeFocusBack() {
       // After SwiftUI has removed the text field, which would otherwise keep the focus.
       Task { @MainActor [weak self] in
-        guard let outlineView = self?.outlineView else { return }
+        guard let self, let outlineView = self.outlineView,
+          self.renderer?.behavior.renaming?.renaming.wrappedValue == nil
+        else { return }
         outlineView.window?.makeFirstResponder(outlineView)
       }
     }
@@ -982,14 +1026,17 @@
     /// returns whether it handled the key press.
     func handleReturn() -> Bool {
       hierarchyReveal.cancel()
+      cancelRenameRestart()
       guard let renderer else { return false }
       let selected = selectedIDs(in: renderer.selection)
-      if selected.count == 1, let id = selected.first {
+      if selected.count == 1, let id = selected.first, let outlineView,
+        outlineView.row(forItem: box(for: id)) >= 0
+      {
         switch renderer.behavior.startRenaming(id, in: tree) {
         case .started:
           return true
         case .restarting:
-          pendingRenameRestart = id
+          pendingRenameRestart = RenameRestart(id: id)
           return true
         case .refused:
           break
@@ -999,24 +1046,60 @@
     }
 
     /// An element whose stuck rename starts over after the next update; see `handleReturn()`.
-    private var pendingRenameRestart: ID?
+    private struct RenameRestart {
+      let id: ID
+      let token = UUID()
+    }
+
+    private var pendingRenameRestart: RenameRestart?
+    private var renameRestartTask: Task<Void, Never>?
+
+    func renameRestartSettled() async { await renameRestartTask?.value }
+
+    private func cancelRenameRestart() {
+      pendingRenameRestart = nil
+      renameRestartTask?.cancel()
+      renameRestartTask = nil
+    }
+
+    private func canRestartRenaming(_ id: ID) -> Bool {
+      guard let renderer, let renaming = renderer.behavior.renaming,
+        renaming.renaming.wrappedValue == nil,
+        selectedIDs(in: renderer.selection) == [id], let element = tree.element(id),
+        let outlineView, outlineView.row(forItem: box(for: id)) >= 0
+      else { return false }
+      return renaming.canRename(element)
+    }
 
     /// Names the element of a restarted rename again, once an update has shown its row without
     /// the text field.
     private func restartPendingRename() {
-      guard let id = pendingRenameRestart else { return }
-      pendingRenameRestart = nil
-      guard let binding = renderer?.behavior.renaming?.renaming, binding.wrappedValue == nil
-      else { return }
+      guard let request = pendingRenameRestart else { return }
+      guard canRestartRenaming(request.id) else {
+        cancelRenameRestart()
+        return
+      }
+      guard renameRestartTask == nil else { return }
       // Not during this update: SwiftUI would not notice a change made while it updates.
-      Task { @MainActor in
-        if binding.wrappedValue == nil { binding.wrappedValue = id }
+      renameRestartTask = Task { @MainActor [weak self] in
+        guard !Task.isCancelled, let self,
+          self.pendingRenameRestart?.token == request.token
+        else { return }
+        guard self.canRestartRenaming(request.id) else {
+          self.cancelRenameRestart()
+          return
+        }
+        self.pendingRenameRestart = nil
+        self.renameRestartTask = nil
+        self.renameOwnership.invalidate()
+        self.renderer?.behavior.renaming?.renaming.wrappedValue = request.id
       }
     }
 
     /// Runs the primary action independently of the Return-to-rename behavior.
     func handlePrimaryAction() -> Bool {
       hierarchyReveal.cancel()
+      cancelRenameRestart()
       guard let renderer else { return false }
       // Removed elements can stay selected; the action applies to the ones that remain.
       let selected = selectedIDs(in: renderer.selection).filter(tree.contains)

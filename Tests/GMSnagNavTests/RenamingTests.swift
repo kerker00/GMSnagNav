@@ -72,6 +72,61 @@ import Testing
     #expect(host.renaming == nil)
   }
 
+  @Test func endingAnOldSessionPreservesTheNewTargetAndItsFocus() throws {
+    var returnedFocus = false
+    let behavior = behavior()
+    host.renaming = "a1"
+    let old = try #require(
+      behavior.renameSession(for: "a1", in: tree) { returnedFocus = true })
+    host.renaming = "c"
+    old.end("A1", "Edited A1", true)
+    #expect(host.renaming == "c")
+    #expect(!returnedFocus)
+    // Losing the old editor still commits its draft.
+    #expect(host.renamed.map(\.0) == ["a1"])
+    #expect(host.renamed.map(\.1) == ["Edited A1"])
+  }
+
+  @Test func anOldSessionCannotEndARestartForTheSameElement() throws {
+    var focusReturns = 0
+    let behavior = behavior()
+    host.renaming = "c"
+    let old = try #require(
+      behavior.renameSession(for: "c", in: tree) { focusReturns += 1 })
+    #expect(behavior.startRenaming("c", in: tree) == .restarting)
+    host.renaming = "c"
+    let restarted = try #require(
+      behavior.renameSession(for: "c", in: tree) { focusReturns += 1 })
+    old.end("C", nil, true)
+    #expect(host.renaming == "c")
+    #expect(focusReturns == 0)
+    restarted.end("C", nil, true)
+    #expect(host.renaming == nil)
+    #expect(focusReturns == 1)
+  }
+
+  @Test func refreshingTheSameSessionKeepsItsCompletionValid() throws {
+    let behavior = behavior()
+    host.renaming = "c"
+    let old = try #require(behavior.renameSession(for: "c", in: tree))
+    #expect(behavior.renameSession(for: "c", in: tree) != nil)
+    old.end("C", "Sea", false)
+    #expect(host.renaming == nil)
+    #expect(host.renamed.map(\.1) == ["Sea"])
+  }
+
+  @Test func aRenameCallbackCanStartANewSessionWithoutBeingCleared() throws {
+    host.renaming = "a1"
+    let host = host
+    var behavior = behavior()
+    behavior.renaming = OutlineRenameHandler(
+      renaming: Binding(get: { host.renaming }, set: { host.renaming = $0 }),
+      canRename: { _ in true }, onRename: { _, _ in host.renaming = "c" })
+    let old = try #require(behavior.renameSession(for: "a1", in: tree))
+    old.end("A1", "Edited A1", false)
+    #expect(host.renaming == "c")
+  }
+
   @Test func returnsTheFocusOnlyWhenEndedWithTheKeyboard() throws {
     var returns = 0
     host.renaming = "c"

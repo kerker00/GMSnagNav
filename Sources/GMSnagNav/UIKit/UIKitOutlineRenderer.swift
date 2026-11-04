@@ -15,7 +15,7 @@
     let tree: OutlineTree<Element>
     let selection: OutlineSelection<ID>
     @Binding var expansion: Set<ID>
-    let behavior: OutlineBehavior<Element>
+    var behavior: OutlineBehavior<Element>
     let appearance: OutlineAppearance
     var springLoading = SpringLoadingBehavior.automatic
     let rowContent: (Element) -> RowContent
@@ -62,6 +62,7 @@
     private(set) weak var collectionView: UICollectionView?
     private var dataSource: UICollectionViewDiffableDataSource<Int, ID>?
     private var renderer: Renderer?
+    private let renameOwnership = OutlineRenameOwnership<ID>()
     private var tree = OutlineTree<Element>([], children: { _ in nil })
     private var appliedStyle: SnagOutlineStyle?
     private var hasLoaded = false
@@ -137,6 +138,9 @@
       with renderer: Renderer, layoutDirection: LayoutDirection = .leftToRight,
       dynamicTypeSize: DynamicTypeSize = .large, locale: Locale = .current
     ) {
+      var renderer = renderer
+      renderer.behavior.renaming?.ownership = renameOwnership
+      renameOwnership.update(renderer.behavior.renaming?.renaming.wrappedValue)
       let oldTree = tree
       self.renderer = renderer
       self.layoutDirection = layoutDirection
@@ -193,6 +197,7 @@
           sectionSnapshot(expanded: expanded), to: 0, animatingDifferences: hasLoaded)
       }
       hasLoaded = true
+      synchronizeSpringLoading()
       refreshVisibleCells()
       let selected = selectedIDs(in: renderer.selection)
       if selected != lastAppliedSelection, selected.count == 1 {
@@ -215,17 +220,20 @@
     }
 
     /// Reveals elements the host selects; see `outlineRevealsSelection(_:)`.
-    private var reveal = SelectionReveal<ID>()
+    private let reveal = OutlineSelectionReveal<ID>()
     private let navigation = OutlineNavigationDriver<ID>()
     private let hierarchyReveal = OutlineHierarchyReveal<ID>()
 
+    func selectionRevealSettled() async { await reveal.settled() }
     func navigationSettled() async { await navigation.settled() }
     func hierarchySettled() async { await hierarchyReveal.settled() }
 
     func detach() {
+      reveal.cancel()
+      renameOwnership.invalidate()
       hierarchyReveal.cancel()
       navigation.cancel()
-      springLoadTask?.cancel()
+      endSpringLoading()
       renderer = nil
       collectionView = nil
     }
@@ -530,6 +538,11 @@
       return renderer.behavior.canSelect(id, in: tree)
     }
 
+    /// Keyboard movement and UIKit focus must agree on which rows can be entered.
+    private func canFocus(_ id: ID) -> Bool {
+      canSelect(id) || !tree.children(of: id).isEmpty
+    }
+
     private var keyboardItemID: ID? {
       if let focusedItemID, tree.contains(focusedItemID), displayedRowsContain(focusedItemID) {
         return focusedItemID
@@ -540,7 +553,7 @@
     func canHandleKeyboardAction(_ action: OutlineKeyboardAction) -> Bool {
       if action == .previous || action == .next {
         return tree.visibleRows(expanded: displayedExpansion).contains {
-          canSelect($0.id) || !tree.children(of: $0.id).isEmpty
+          canFocus($0.id)
         }
       }
       guard let id = keyboardItemID else { return false }
@@ -573,7 +586,7 @@
       if action != .indent && action != .outdent { hierarchyReveal.cancel() }
       if keyboardItemID == nil, action == .previous || action == .next {
         let candidates = tree.visibleRows(expanded: displayedExpansion).filter {
-          canSelect($0.id) || !tree.children(of: $0.id).isEmpty
+          canFocus($0.id)
         }
         if let row = action == .next ? candidates.first : candidates.last { focus(row.id) }
         return
@@ -592,7 +605,7 @@
         var next = index + step
         while rows.indices.contains(next) {
           let candidate = rows[next].id
-          if canSelect(candidate) || !tree.children(of: candidate).isEmpty {
+          if canFocus(candidate) {
             focus(candidate)
             return
           }
@@ -600,7 +613,7 @@
         }
       case .expand:
         if displayedExpansion.contains(id) {
-          if let child = children.first { focus(child) }
+          if let child = children.first(where: canFocus) { focus(child) }
         } else {
           userChangedExpansion(of: id, expanded: true)
         }
@@ -654,7 +667,8 @@
 
     private func focus(_ id: ID) {
       hierarchyReveal.cancel()
-      guard let collectionView, let indexPath = dataSource?.indexPath(for: id) else { return }
+      guard canFocus(id), let collectionView, let indexPath = dataSource?.indexPath(for: id)
+      else { return }
       focusedItemID = id
       if canSelect(id) {
         applySelection([id])
@@ -689,7 +703,7 @@
       _ collectionView: UICollectionView, canFocusItemAt indexPath: IndexPath
     ) -> Bool {
       guard let id = dataSource?.itemIdentifier(for: indexPath) else { return false }
-      return canSelect(id) || !tree.children(of: id).isEmpty
+      return canFocus(id)
     }
 
     func collectionView(
@@ -893,7 +907,7 @@
       guard let renderer, let drop = renderer.behavior.drop, !ids.isEmpty else { return nil }
       return dropCache.resolution(for: ids, target: target) {
         drop.resolve(
-          draggedIDs: ids, target: target, tree: tree, expanded: renderer.expansion,
+          draggedIDs: ids, target: target, tree: tree, expanded: displayedExpansion,
           isPinned: renderer.behavior.isPinned)
       }
     }
@@ -917,7 +931,11 @@
     func collectionView(
       _ collectionView: UICollectionView, dropSessionDidExit session: UIDropSession
     ) {
+      pendingTarget = nil
+      dragRowFrames = nil
       dropIndicator = nil
+      dropCache.removeAll()
+      endSpringLoading()
     }
 
     func collectionView(
@@ -938,6 +956,8 @@
     /// The element the finger rests on, and the pending task that opens it.
     private var springLoadCandidate: ID?
     private var springLoadTask: Task<Void, Never>?
+    private var springLoadTarget: OutlineDropTarget<ID>?
+    private var scheduledSpringDelay: Duration?
     /// Finishes once the pending spring-loading has opened its element or was cancelled, for tests.
     func springLoadingSettled() async {
       await springLoadTask?.value
@@ -950,8 +970,18 @@
       return springLoadingDelayOverride ?? .milliseconds(600)
     }
 
+    private func synchronizeSpringLoading() {
+      if let target = springLoadTarget { updateSpringLoading(for: target) }
+    }
+
     /// Opens collapsed elements the finger rests on and closes the ones it has left.
     func updateSpringLoading(for target: OutlineDropTarget<ID>) {
+      springLoadTarget = target
+      guard let delay = springLoadingDelay else {
+        endSpringLoading()
+        springLoadTarget = target
+        return
+      }
       let toClose = tree.springLoadedToClose(springLoaded, targetParent: target.parent)
       if !toClose.isEmpty {
         springLoaded.removeAll { toClose.contains($0) }
@@ -964,15 +994,27 @@
       {
         candidate = id
       }
-      guard candidate != springLoadCandidate else { return }
+      guard
+        candidate != springLoadCandidate
+          || (candidate != nil && scheduledSpringDelay != delay)
+      else { return }
       springLoadTask?.cancel()
+      springLoadTask = nil
       springLoadCandidate = candidate
-      guard let candidate, let delay = springLoadingDelay else { return }
-
+      scheduledSpringDelay = nil
+      guard let candidate else { return }
+      scheduledSpringDelay = delay
       springLoadTask = Task { [weak self] in
         try? await Task.sleep(for: delay)
         guard !Task.isCancelled, let self, self.springLoadCandidate == candidate else { return }
+        self.springLoadTask = nil
         self.springLoadCandidate = nil
+        self.scheduledSpringDelay = nil
+        guard self.springLoadingDelay == delay else {
+          self.synchronizeSpringLoading()
+          return
+        }
+        guard !self.tree.children(of: candidate).isEmpty else { return }
         self.springLoaded.append(candidate)
         self.applySpringLoadedExpansion()
       }
@@ -981,6 +1023,8 @@
     /// Closes what spring-loading opened, unless the host expanded it in the meantime — for
     /// example to reveal the elements just dropped into it.
     func endSpringLoading() {
+      springLoadTarget = nil
+      scheduledSpringDelay = nil
       springLoadTask?.cancel()
       springLoadTask = nil
       springLoadCandidate = nil
@@ -991,6 +1035,7 @@
 
     /// Shows the current expansion; the row frames recorded for the drag are captured anew.
     private func applySpringLoadedExpansion() {
+      dropCache.removeAll()
       guard let dataSource else { return }
       dataSource.apply(
         sectionSnapshot(expanded: displayedExpansion), to: 0, animatingDifferences: true)

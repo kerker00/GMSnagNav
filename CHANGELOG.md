@@ -7,6 +7,41 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-04
+
+Harden outline updates and interaction lifetimes after the 0.5.0 library review. Fixes include
+all twelve original findings and an additional rescued-parent diff case, with maintained
+regressions for each. No new public API is introduced.
+
+### Fixed
+
+- Rows moved under a rescued, freshly reinserted collapsed parent no longer remain incorrectly
+  visible at their old location after another ancestor is removed.
+- Leaving an iOS drop target cancels pending hover work and closes temporary folders while
+  preserving host-owned expansion and the source drag session for re-entry.
+- Changing spring-loading policy cancels pending openings and restores temporary expansion.
+  Re-enabling it over a stationary target schedules a fresh opening; delayed work rechecks policy.
+- Pointer-drop proposals report temporary spring-loaded expansion, including redirected targets,
+  and invalidate cached validation when temporary folders open or close.
+- Reused macOS cells reset SwiftUI row state for a different element while preserving state
+  and rename drafts when the same element refreshes.
+- iPad forward-arrow navigation skips excluded leaf rows and uses the same focusability rules
+  as vertical navigation and native focus, including RTL hierarchy entry.
+- iPad sibling shortcut titles follow live host-locale changes without replacing registered
+  command objects.
+- Return on macOS starts inline renaming only for a visible selected row; collapsing a target
+  also prevents an already queued rename restart.
+- Queued macOS rename restarts are cancelled when the outline disappears or the target,
+  selection, permission or rename configuration no longer matches.
+- An old rename editor may commit its draft without clearing a newer rename session or taking
+  its focus, including repeated sessions for the same element.
+- Deep outline diffs use iterative traversal and reuse loaded-ancestry results instead of
+  overflowing the debug stack or repeatedly walking long ancestor chains.
+- Automatic selection reveal cancels obsolete expansion and scrolling after a newer selection,
+  disabled revealing, target removal or outline detachment.
+- Sibling keyboard and VoiceOver moves recheck live source pinning and the destination's
+  pinned prefix before performing, including changes since the last render.
+
 ## [0.5.0] - 2026-11-03
 
 Organize outline items with pinned rows, reusable Move-to/Copy-to destination menus, and
@@ -246,7 +281,8 @@ It requires macOS 26 or iOS 26 and Swift 6.2.
 - English and German texts for what VoiceOver reads on iOS. They follow the host app's language.
 - `SnagNavDemo`, a multiplatform demo app in `Examples/`.
 
-[Unreleased]: https://github.com/kerker00/GMSnagNav/compare/0.5.0...HEAD
+[Unreleased]: https://github.com/kerker00/GMSnagNav/compare/0.5.1...HEAD
+[0.5.1]: https://github.com/kerker00/GMSnagNav/compare/0.5.0...0.5.1
 [0.5.0]: https://github.com/kerker00/GMSnagNav/compare/0.4.1...0.5.0
 [0.4.1]: https://github.com/kerker00/GMSnagNav/compare/0.4.0...0.4.1
 [0.4.0]: https://github.com/kerker00/GMSnagNav/compare/0.3.0...0.4.0

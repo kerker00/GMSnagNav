@@ -128,4 +128,36 @@ import Testing
       renaming: .constant("a1"), canRename: { _ in true }, onRename: { _, _ in })
     #expect(!behavior.reorder("b", direction: .up, tree: tree, expanded: []))
   }
+
+  @Test(arguments: [false, true])
+  func executionRechecksTheSourcesLivePinState(initiallyPinned: Bool) {
+    var pinned = initiallyPinned
+    var performed = 0
+    let rendered = SnagOutline(sampleRoots, children: \.children) { Text($0.id) }
+      .outlineReorderable()
+      .outlinePinned { $0.id == "c" && pinned }
+      .onOutlineDrop { _, _ in
+        performed += 1
+        return true
+      }.behavior.resolvingPinnedRows(in: tree)
+    pinned.toggle()
+    #expect(rendered.reorder("c", direction: .up, tree: tree, expanded: []) == initiallyPinned)
+    #expect(performed == (initiallyPinned ? 1 : 0))
+  }
+
+  @Test func executionRechecksTheDestinationsLivePinnedPrefix() {
+    var pinned = false
+    var performed = false
+    let rendered = SnagOutline(sampleRoots, children: \.children) { Text($0.id) }
+      .outlineReorderable()
+      .outlinePinned { $0.id == "b" && pinned }
+      .onOutlineDrop { _, _ in
+        performed = true
+        return true
+      }.behavior.resolvingPinnedRows(in: tree)
+    #expect(rendered.reorderingProposal(for: "c", direction: .up, tree: tree, expanded: []) != nil)
+    pinned = true
+    #expect(!rendered.reorder("c", direction: .up, tree: tree, expanded: []))
+    #expect(!performed)
+  }
 }

@@ -1366,6 +1366,48 @@
       #expect(isExpanded("a") && isExpanded("a2"))
     }
 
+    @Test func dropExpansionAndCacheFollowSpringLoading() async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      var validations = 0
+      host.drop = OutlineDropHandler(
+        validate: { _ in
+          validations += 1
+          return .accept(.move)
+        }, perform: { _, _ in true })
+      update()
+      #expect(
+        coordinator.resolveDrop(of: ["c"], onto: item("a"), childIndex: -1)?
+          .proposal.isTargetExpanded == false)
+      await hover(onto: "a")
+      #expect(isExpanded("a"))
+      #expect(
+        coordinator.resolveDrop(of: ["c"], onto: item("a"), childIndex: -1)?
+          .proposal.isTargetExpanded == true)
+      coordinator.endSpringLoading()
+      #expect(!isExpanded("a"))
+      #expect(
+        coordinator.resolveDrop(of: ["c"], onto: item("a"), childIndex: -1)?
+          .proposal.isTargetExpanded == false)
+      #expect(validations == 3)
+      #expect(host.expansion.isEmpty)
+    }
+
+    @Test func redirectedDropUsesTheSpringLoadedDestinationsExpansion() async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      host.drop = OutlineDropHandler(
+        validate: { _ in .redirect(to: .onto("a"), operation: .move) },
+        perform: { _, _ in true })
+      update()
+      #expect(
+        coordinator.resolveDrop(of: ["c"], onto: item("b"), childIndex: -1)?
+          .proposal.isTargetExpanded == false)
+      await hover(onto: "a")
+      let resolved = coordinator.resolveDrop(of: ["c"], onto: item("b"), childIndex: -1)
+      #expect(resolved?.proposal.target == .onto("a"))
+      #expect(resolved?.proposal.isTargetExpanded == true)
+      #expect(host.expansion.isEmpty)
+    }
+
     @Test func closesSpringLoadedElementsWhenThePointerLeaves() async {
       coordinator.springLoadingDelayOverride = .milliseconds(10)
       update()

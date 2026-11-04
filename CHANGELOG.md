@@ -9,6 +9,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Pointer-drop proposals report temporary spring-loaded expansion, including redirected targets,
+  and invalidate cached validation when temporary folders open or close.
 - Reused macOS cells reset SwiftUI row state for a different element while preserving state
   and rename drafts when the same element refreshes.
 - iPad forward-arrow navigation skips excluded leaf rows and uses the same focusability rules

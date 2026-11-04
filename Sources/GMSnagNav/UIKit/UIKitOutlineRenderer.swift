@@ -906,7 +906,7 @@
       guard let renderer, let drop = renderer.behavior.drop, !ids.isEmpty else { return nil }
       return dropCache.resolution(for: ids, target: target) {
         drop.resolve(
-          draggedIDs: ids, target: target, tree: tree, expanded: renderer.expansion,
+          draggedIDs: ids, target: target, tree: tree, expanded: displayedExpansion,
           isPinned: renderer.behavior.isPinned)
       }
     }
@@ -1004,6 +1004,7 @@
 
     /// Shows the current expansion; the row frames recorded for the drag are captured anew.
     private func applySpringLoadedExpansion() {
+      dropCache.removeAll()
       guard let dataSource else { return }
       dataSource.apply(
         sectionSnapshot(expanded: displayedExpansion), to: 0, animatingDifferences: true)

@@ -604,6 +604,7 @@
     private func setSpringLoaded(_ id: ID, expanded: Bool) {
       // The host may have removed the element during the drag.
       guard let outlineView, tree.contains(id) else { return }
+      dropCache.removeAll()
       isSpringLoading = true
       defer { isSpringLoading = false }
       // Not through the animator: the expansion notifications must arrive while
@@ -664,8 +665,9 @@
       let target = target(item: item, childIndex: childIndex)
       return dropCache.resolution(for: ids, target: target, isCopyRequested: copying) {
         drop.resolve(
-          draggedIDs: ids, target: target, tree: tree, expanded: renderer.expansion,
-          isCopyRequested: copying, isPinned: renderer.behavior.isPinned)
+          draggedIDs: ids, target: target, tree: tree,
+          expanded: renderer.expansion.union(springLoaded), isCopyRequested: copying,
+          isPinned: renderer.behavior.isPinned)
       }
     }
 

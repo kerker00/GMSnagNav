@@ -6,16 +6,19 @@ Reviewed on **2026-11-03** against published tag **0.5.0**, commit
 Source links below are pinned to that commit; line numbers refer to the release, not a future fix.
 
 This register covers the shared model and action logic, both native renderers, hosted row
-content, public API contracts, documentation and test workflows. It records **12 confirmed
-issues**, followed by architecture decisions and checks that still need evidence. Findings
+content, public API contracts, documentation and test workflows. The original review recorded
+**12 confirmed issues**. One additional diff defect, BUG-013, was confirmed during remediation.
+Architecture decisions and checks that still need evidence remain separate. Findings
 were independently reviewed across Core, AppKit and UIKit, then checked with focused probes.
-No library implementation was changed during this review.
+The original review changed no implementation. **All thirteen confirmed issues are now fixed
+on the local `fix/0.5.1` branch**, as recorded in the resolution history below. These fixes are
+not yet a published release. Remediation status: **2026-11-04**.
 
-The host-owned model and shared drop-resolution layer remain useful foundations. The main
-correctness gap is ownership of transient work: old editors, queued binding writes, hover
-timers and native cell reuse can outlive the intent or element that created them. Address these
-before extending drag-session APIs in 0.6. The deep-tree failure also needs an explicit
-regression test; iterative indexing alone does not make the complete update path depth-safe.
+The host-owned model and shared drop-resolution layer remain useful foundations. The review's
+main correctness gap was ownership of transient work: old editors, queued binding writes,
+hover timers and native cell reuse could outlive the intent or element that created them.
+The fixes add ownership/cancellation in the affected paths, stable row identity and deep-diff
+regressions. The broader lifecycle decisions for 0.6 remain listed below.
 
 ## Evidence and limits
 
@@ -43,27 +46,33 @@ is stated. Proposed fixes and unexecuted acceptance cases are not claimed as ver
 - **Open:** confirmed and not fixed in the reviewed release. **Decision needed** and **Needs validation** are not confirmed bugs.
 
 Suggested patch target is the next **0.5.x** release; this is a triage proposal, not a committed
-release scope. IDs remain stable. When fixing an item, add its regression to the maintained
-suite, record the fix commit/PR and verification below, and only then change its status to
-Resolved. Keep the reproduction and resolution history. Local implementation scheduling stays
-in `PLAN.md`; this file is the versioned review register.
+release scope. The current user-authorized remediation target is **0.5.1**. IDs remain stable.
+When fixing an item, add its regression to the maintained suite, record the fix commit/PR and
+verification below, and only then change its status to Resolved. Resolved means fixed and
+checked on the named branch; it does not mean released. Keep the reproduction and resolution
+history. Local implementation scheduling stays in `PLAN.md`; this file is the versioned
+review register.
 
 | ID | Priority | Area | Status | Suggested target |
 | --- | --- | --- | --- | --- |
-| [BUG-001](#bug-001--deep-diff-recursion-can-exhaust-the-stack) | P2 | Shared diff / macOS update path | Open | 0.5.x |
-| [BUG-002](#bug-002--an-old-rename-completion-clears-a-new-session) | P2 | Shared renaming | Open | 0.5.x |
-| [BUG-003](#bug-003--a-queued-rename-restart-writes-after-detach) | P2 | AppKit renaming | Open | 0.5.x |
-| [BUG-004](#bug-004--return-starts-renaming-an-invisible-selected-row) | P2 | AppKit keyboard | Open | 0.5.x |
-| [BUG-005](#bug-005--automatic-selection-reveal-outlives-the-selection) | P2 | Shared reveal | Open | 0.5.x |
-| [BUG-006](#bug-006--sibling-reordering-uses-stale-pin-state) | P2 | Shared reordering | Open | 0.5.x |
-| [BUG-007](#bug-007--reused-mac-cells-retain-another-elements-swiftui-state) | P2 | AppKit hosting | Open | 0.5.x |
-| [BUG-008](#bug-008--drop-proposals-ignore-temporary-visible-expansion) | P2 | Both drop renderers | Open | 0.5.x |
-| [BUG-009](#bug-009--spring-loading-policy-changes-do-not-reconcile-pending-work) | P2 | Both hover timers | Open | 0.5.x |
-| [BUG-010](#bug-010--leaving-the-uikit-drop-target-keeps-spring-loading-alive) | P2 | UIKit drag exit | Open | 0.5.x |
-| [BUG-011](#bug-011--forward-arrow-enters-a-row-that-native-focus-rejects) | P2 | UIKit keyboard | Open | 0.5.x |
-| [BUG-012](#bug-012--uikit-sibling-shortcut-titles-ignore-the-host-locale) | P3 | UIKit localization | Open | 0.5.x |
+| [BUG-001](#bug-001--deep-diff-recursion-can-exhaust-the-stack) | P2 | Shared diff / macOS update path | Resolved | 0.5.1 |
+| [BUG-002](#bug-002--an-old-rename-completion-clears-a-new-session) | P2 | Shared renaming | Resolved | 0.5.1 |
+| [BUG-003](#bug-003--a-queued-rename-restart-writes-after-detach) | P2 | AppKit renaming | Resolved | 0.5.1 |
+| [BUG-004](#bug-004--return-starts-renaming-an-invisible-selected-row) | P2 | AppKit keyboard | Resolved | 0.5.1 |
+| [BUG-005](#bug-005--automatic-selection-reveal-outlives-the-selection) | P2 | Shared reveal | Resolved | 0.5.1 |
+| [BUG-006](#bug-006--sibling-reordering-uses-stale-pin-state) | P2 | Shared reordering | Resolved | 0.5.1 |
+| [BUG-007](#bug-007--reused-mac-cells-retain-another-elements-swiftui-state) | P2 | AppKit hosting | Resolved | 0.5.1 |
+| [BUG-008](#bug-008--drop-proposals-ignore-temporary-visible-expansion) | P2 | Both drop renderers | Resolved | 0.5.1 |
+| [BUG-009](#bug-009--spring-loading-policy-changes-do-not-reconcile-pending-work) | P2 | Both hover timers | Resolved | 0.5.1 |
+| [BUG-010](#bug-010--leaving-the-uikit-drop-target-keeps-spring-loading-alive) | P2 | UIKit drag exit | Resolved | 0.5.1 |
+| [BUG-011](#bug-011--forward-arrow-enters-a-row-that-native-focus-rejects) | P2 | UIKit keyboard | Resolved | 0.5.1 |
+| [BUG-012](#bug-012--uikit-sibling-shortcut-titles-ignore-the-host-locale) | P3 | UIKit localization | Resolved | 0.5.1 |
+| [BUG-013](#bug-013--rows-remain-visible-below-a-reinserted-collapsed-parent) | P2 | Shared diff / macOS update path | Resolved | 0.5.1 |
 
 ## Confirmed issues
+
+The original reproductions and suggested fixes describe the reviewed 0.5.0 source. Current
+resolution and maintained-test evidence are in the resolution history.
 
 ### BUG-001 — Deep diff recursion can exhaust the stack
 
@@ -323,6 +332,28 @@ preserving command registration, routing and editor priority.
 alongside hierarchy command titles; shortcut behavior stays stable.
 Probe: `siblingShortcutTitlesFollowLiveHostLocale`.
 
+
+### BUG-013 — Rows remain visible below a reinserted collapsed parent
+
+**Added during remediation, 2026-11-04. Source:** [OutlineDiff removal][diff-visit] and
+loaded-parent reachability. This is a pre-existing 0.5.0 defect, separately reproduced after
+BUG-001's depth changes; it is not a new feature or a consequence of the iterative traversal.
+
+**Reproduction:** Start with root containers `removed(rescued())` and `z(leaf)`, with
+`removed`, `rescued` and `z` loaded. Change the tree to `rescued(z(leaf))`, removing `removed`.
+The old diff removes the first root and inserts `rescued`, but never removes `z` from the
+root. A freshly reinserted `rescued` row starts collapsed, so `z` should leave the display.
+The maintained native-state simulator reports an invalid final display on the old code.
+
+**Fix:** Compute retained loaded parents as a set, then propagate lost ancestry through both
+old and new parent relationships. Losing an old ancestor removes its native subtree; rescued
+rows and their new descendants cannot keep the removed subtree's loaded state.
+
+**Verification:** `removesRowsMovedBelowAReinsertedCollapsedParent` failed before the fix and
+passes afterward. Its expected steps remove both old roots before inserting the collapsed
+rescued root. Existing 500-seed diff checks, 10,000-level debug/optimized subprocesses and the
+full macOS suite pass. Fixed separately in `7c11bbd`.
+
 ## Architecture decisions for the roadmap
 
 These are design work, not additional confirmed bugs. Milestones follow the
@@ -330,7 +361,7 @@ These are design work, not additional confirmed bugs. Milestones follow the
 
 | ID | Status | Decision and required outcome | Milestone |
 | --- | --- | --- | --- |
-| ARCH-001 | Decision needed | Give deferred native effects explicit owners, generations and cancellation rules. Reuse the stronger navigation/hierarchy-driver pattern for rename restart and automatic reveal; define valid cleanup of old drafts separately from new-session writes. Include detach, removed targets, policy changes and superseding intent. Test effects through deterministic settlement hooks. | Fix foundations in 0.5.x; before 0.6 API work |
+| ARCH-001 | Partly addressed; decision needed | Give deferred native effects explicit owners, generations and cancellation rules. Reuse the stronger navigation/hierarchy-driver pattern for rename restart and automatic reveal; define valid cleanup of old drafts separately from new-session writes. Include detach, removed targets, policy changes and superseding intent. Test effects through deterministic settlement hooks. | Fix foundations in 0.5.x; before 0.6 API work |
 | ARCH-002 | Decision needed | Model drag source sessions and destination hover state explicitly. Tokens, dragged IDs, pending target, cache, captured row frames and temporary expansion currently have independent cleanup. Define begin/update/final outcome and idempotent teardown across native and hosted-menu drag paths. A destination exit ends hover, not necessarily the source drag. Exactly one terminal lifecycle notification must correspond to each started session. | Before 0.6 previews/lifecycle callbacks |
 | ARCH-003 | Decision needed | Centralize EditMode selection and activation policy. Decide whether the next visible tap preserves hidden selected IDs: collapse retains them today, but UIKit rebuilds multiple selection from native visible rows on the next write. Specify selection vs primary actions, deletion, sections, keyboard focus, rename/drag interaction and external model changes while editing. | Before 0.7 |
 | ARCH-004 | Decision needed | Keep local synchronous proposals separate from asynchronous incoming/outgoing payload handling. Specify payload types/versioning, origin/session identity, decode progress/errors, cancellation, host validation and commit ownership. Define partial decode/import policy and move acknowledgement. The current synchronous `Bool` performer and coordinator-local IDs cannot describe cross-app transfer completion by themselves. | Before 0.8 |
@@ -338,11 +369,12 @@ These are design work, not additional confirmed bugs. Milestones follow the
 | ARCH-006 | Decision needed | For asynchronous children, distinguish leaf, unloaded, loading, loaded-empty and failed/retry. Define whether an unloaded container discloses, who starts/cancels loading, how stale results are rejected, and what reveal/search/drop mean before descendants are known. The current `nil`/array children contract cannot express all of these states. Keep loading/persistence in the host. | Evaluate after benchmarks, as the roadmap states |
 | ARCH-007 | Decision needed | Before API stability, document callback isolation/reentrancy, live vs snapshot eligibility, pointer-cache invalidation, hidden selection/focus, rename ownership, pin protection, effect cancellation, failure results and supported size/depth evidence. Add host integration examples for atomic moves/copies, undo and error reporting. Define a support/compatibility matrix and migration guidance. | 1.0 gate |
 
-**Refresh proposal:** A separate roadmap draft (`docs/roadmap-pull-to-refresh`, `07ded52`)
-proposes pull-to-refresh for 0.7; it is not part of the reviewed release's roadmap.
-If adopted, forward the host's refresh
-action into the native control and define overlap, cancellation, errors/retry and late-result
-handling. Keep selection/expansion stable and avoid a second mutable data source.
+**Refresh roadmap update:** The pull-to-refresh roadmap addition (`07ded52`) was merged
+into `dev` by PR #66 (`1e575c3`) after the reviewed release. The fix branch includes that
+roadmap update, not a refresh implementation. For its planned 0.7 implementation, forward
+the host's refresh action into the native control and define overlap, cancellation,
+errors/retry and late-result handling. Keep selection/expansion stable and avoid a second
+mutable data source.
 
 ### Performance work that needs measurements
 
@@ -399,9 +431,11 @@ the entire test runner. Do not present a timeout as a completed timing measureme
 - Cross-view/external transfers and asynchronous child loading are future scope, not missing
   behavior contrary to the current same-outline synchronous contract.
 
-## Suggested work packages
+## Work packages and remaining acceptance
 
-Keep fixes independently reviewable; add the relevant failing regression before each fix.
+The original fix packages 1–7 are now implemented as separate commits with maintained
+regressions. Package 8 still includes manual/native UI acceptance and future design work;
+package tests and demo builds do not replace hardware workflows.
 
 | Order | Package | Issues | Completion gate |
 | --- | --- | --- | --- |
@@ -492,8 +526,53 @@ stack configuration when comparing results.
 
 ## Resolution history
 
-No fixes are included in this review. For each completed issue, append the fix commit/PR,
-regression names, tested configurations and remaining limitations, then update the register.
+**Branch:** `fix/0.5.1`, based on `origin/dev` at `1e575c3`. Product version remains 0.5.0
+until a separately authorized release step; fixes are listed under Unreleased in the changelog.
+Each row below corresponds to one fix commit. The review baseline is a separate docs commit.
+
+| Issue | Fix commit | Maintained regression / verification |
+| --- | --- | --- |
+| BUG-001 | `01d887a` | `DeepOutlineDiffTests.updatesDeepLoadedTreesWithoutExhaustingTheStack`: bounded 10,000-level debug/optimized child processes, plus existing randomized diffs. |
+| BUG-002 | `212afe4` | Old/new target, same-ID restart, same-session refresh and reentrant rename completion in `RenamingTests`; native renderers share coordinator-owned generations. |
+| BUG-003 | `bf8f44b` | Queued restart cancellation after detach, target removal, changed selection, withdrawn permission/configuration; existing Return restart still passes. |
+| BUG-004 | `83860d8` | Hidden selected row does not start rename; collapse cancels a queued restart; visible selection behavior remains covered. |
+| BUG-005 | `91b7796` | `SelectionRevealTests`, `SelectionRevealDriverTests` and both native adapters cover supersession, clearing, disable, removal, detach, unchanged refresh and changed ancestors. |
+| BUG-006 | `a5d3148` | `ReorderingTests` cover live pin/unpin and destination-prefix changes between render and execution. |
+| BUG-007 | `a6185cf` | `HostingCellIdentityTests.rowStateFollowsElementIdentity` covers A→B reset and A→A preservation; existing rename draft/focus rendering checks pass. |
+| BUG-008 | `1e9d5ee` | Both adapters test same-target cached resolution before/after spring open/close, redirected targets and unchanged host expansion. |
+| BUG-009 | `d608728` | Both adapters cover pending disable, stationary re-enable and host-owned expansion; AppKit also checks changed system preference at execution. |
+| BUG-010 | `31fe131` | UIKit exit before opening and exit after opening, host-owned expansion, source drag retention, re-entry and repeated session end. |
+| BUG-011 | `a7a4fb1` | UIKit excluded first leaf, all-excluded children, nonselectable container and LTR/RTL physical-arrow entry. A nested container is explicitly nonselectable; only root rows can be section headers. |
+| BUG-012 | `1e929fe` | `UIKitKeyboardLocalizationTests` verifies English→German→English for both sibling titles, stable command identity/routing and hierarchy-title consistency. |
+| BUG-013 | `7c11bbd` | Named rescued-parent diff regression, randomized diffs and depth-safe child-process checks. |
+
+**Final package checks, 2026-11-04:** 332 macOS tests in 25 suites passed; 55 targeted iOS
+tests in 6 suites passed in the iPad simulator. Strict recursive formatting and whitespace
+checks passed. The iOS run used selected suites/methods for these fixes, including parameterized
+RTL and host-owned-expansion cases; the full iOS suite was deliberately not run, as requested.
+Both macOS and iOS demo builds and the macOS DocC build also passed without launching the demo.
+
+The first targeted iOS run exposed a mistaken new fixture: it treated a nested container as
+a section header, although section headers apply only at the root. The fixture now explicitly
+marks that container nonselectable; its test and the final targeted run pass. The correction
+is included in BUG-011's commit. The original failed run is retained as diagnostic history,
+not represented as a pass.
+
+Final logs and artifacts:
+
+- `/private/tmp/GMSnagNav-fix-051-macos-final.log`
+- `/private/tmp/GMSnagNav-fix-051-ios-targeted-final.log`
+- `/private/tmp/GMSnagNav-fix-051-ios-targeted-final.xcresult`
+- `/private/tmp/GMSnagNav-fix-051-format-final.log`
+- `/private/tmp/GMSnagNav-fix-051-demo-macos.log` and `-demo-ios.log`
+- `/private/tmp/GMSnagNav-fix-051-docs.log`
+- `/private/tmp/GMSnagNav-fix-051-run-targeted.py` records the exact iOS method selection.
+- `/private/tmp/GMSnagNav-fix-051-rescued-{red,green}.log` records BUG-013 before/after.
+
+No full demo UI suite, mouse automation, physical keyboard or hardware VoiceOver acceptance
+was run during remediation. QA-003–005 and the remaining roadmap decisions stay open;
+resolving these confirmed bugs does not close that broader validation backlog.
+
 
 [diff-ancestry]: https://github.com/kerker00/GMSnagNav/blob/199cc2b1e74b477951c13494b55a26479b3d489c/Sources/GMSnagNav/Core/OutlineDiff.swift#L81-L84
 [diff-load]: https://github.com/kerker00/GMSnagNav/blob/199cc2b1e74b477951c13494b55a26479b3d489c/Sources/GMSnagNav/Core/OutlineDiff.swift#L69-L75

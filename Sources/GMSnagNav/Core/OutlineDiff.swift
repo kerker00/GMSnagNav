@@ -79,13 +79,19 @@ private struct DiffState<Element: Identifiable> {
 
   // MARK: Removal
 
-  /// Finds loaded parents top-down without repeatedly walking their new ancestor chains.
+  /// Retains loaded parents only while their old and new ancestor levels both stay loaded.
   private func survivingLoadedParents() -> Set<ID> {
-    var result: Set<ID> = []
-    var pending = new.roots
+    var result = oldLoaded.filter { new.contains($0) && parentOf[$0] != nil }
+    var pending = Array(
+      result.filter { id in
+        (old.parent(of: id).map { !result.contains($0) } ?? false)
+          || (new.parent(of: id).map { !result.contains($0) } ?? false)
+      })
     while let id = pending.popLast() {
-      guard oldLoaded.contains(id), parentOf[id] != nil else { continue }
-      result.insert(id)
+      guard result.remove(id) != nil else { continue }
+      // Losing an old ancestor removes its native subtree. Rescued rows are reinserted
+      // collapsed, so their new descendants must leave the display too.
+      pending.append(contentsOf: old.children(of: id))
       pending.append(contentsOf: new.children(of: id))
     }
     return result

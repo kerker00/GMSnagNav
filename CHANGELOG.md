@@ -9,6 +9,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Rows moved under a rescued, freshly reinserted collapsed parent no longer remain incorrectly
+  visible at their old location after another ancestor is removed.
 - Leaving an iOS drop target cancels pending hover work and closes temporary folders while
   preserving host-owned expansion and the source drag session for re-entry.
 - Changing spring-loading policy cancels pending openings and restores temporary expansion.

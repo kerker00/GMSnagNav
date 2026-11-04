@@ -151,6 +151,22 @@ private struct OutlineSimulator {
     #expect(result.valid)
   }
 
+  @Test func removesRowsMovedBelowAReinsertedCollapsedParent() {
+    // Rescuing an element from a removed subtree inserts a fresh, collapsed row. An unrelated
+    // loaded root moved underneath it must leave the display rather than remain at the root.
+    let old: [TestItem] = [
+      .group("removed", [.group("rescued")]), .group("z", [.leaf("leaf")]),
+    ]
+    let new: [TestItem] = [.group("rescued", [.group("z", [.leaf("leaf")])])]
+    let result = diff(old, new, loaded: ["removed", "rescued", "z"])
+    #expect(result.valid)
+    #expect(
+      result.changes == [
+        .remove(parent: nil, index: 1), .remove(parent: nil, index: 0),
+        .insert(id: "rescued", parent: nil, index: 0),
+      ])
+  }
+
   @Test func swapsParentAndChild() {
     let old: [TestItem] = [.group("a", [.group("b", [.leaf("x")])])]
     let new: [TestItem] = [.group("b", [.group("a", [.leaf("x")])])]

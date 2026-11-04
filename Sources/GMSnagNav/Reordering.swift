@@ -59,8 +59,11 @@ extension OutlineBehavior {
     _ id: Element.ID, direction: OutlineReorderDirection, tree: OutlineTree<Element>,
     expanded: Set<Element.ID>
   ) -> Bool {
+    // Availability uses the rendered pin snapshot; execution must honor current host policy.
+    var current = self
+    current.isPinned = liveIsPinned ?? isPinned
     guard
-      let proposal = reorderingProposal(
+      let proposal = current.reorderingProposal(
         for: id, direction: direction, tree: tree, expanded: expanded), let drop
     else { return false }
     return drop.perform(proposal, .move)

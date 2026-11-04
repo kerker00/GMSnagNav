@@ -146,6 +146,24 @@
       #expect(host.navigation == nil)
     }
 
+    @Test func supersedingSelectionCancelsPendingAutomaticExpansion() async {
+      host.single = "a2x"
+      update()
+      host.single = "c"
+      update()
+      await coordinator.selectionRevealSettled()
+      #expect(host.expansion.isEmpty)
+      #expect(host.single == "c")
+    }
+
+    @Test func detachingCancelsPendingAutomaticExpansion() async {
+      host.single = "a2x"
+      update()
+      coordinator.detach()
+      await Task { @MainActor in }.value
+      #expect(host.expansion.isEmpty)
+    }
+
     @Test func explicitNavigationTakesPrecedenceOverAutomaticSelectionReveal() async {
       let window = UIWindow(frame: collectionView.frame)
       let controller = UIViewController()
@@ -556,6 +574,57 @@
       #expect(host.expansion.isEmpty)
     }
 
+    @Test(arguments: [false, true])
+    func forwardArrowSkipsExcludedLeaves(inRTL: Bool) {
+      host.roots = [.group("folder", [.leaf("excluded"), .leaf("allowed")])]
+      host.isSelectable = { $0.id != "excluded" }
+      host.expansion = ["folder"]
+      host.single = "folder"
+      update(layoutDirection: inRTL ? .rightToLeft : .leftToRight)
+      #expect(
+        !coordinator.collectionView(
+          collectionView, canFocusItemAt: IndexPath(item: 1, section: 0)))
+      let forward: UIKeyboardHIDUsage = inRTL ? .keyboardLeftArrow : .keyboardRightArrow
+      #expect(collectionView.handleDirectionalKey(forward))
+      #expect(coordinator.focusedItemID == "allowed")
+      #expect(host.single == "allowed")
+      coordinator.handleKeyboardAction(.previous)
+      #expect(coordinator.focusedItemID == "folder")
+      coordinator.handleKeyboardAction(.next)
+      #expect(coordinator.focusedItemID == "allowed")
+    }
+
+    @Test func forwardArrowKeepsParentWhenEveryChildIsExcluded() {
+      host.roots = [.group("folder", [.leaf("excluded")])]
+      host.isSelectable = { $0.id == "folder" }
+      host.expansion = ["folder"]
+      host.single = "folder"
+      update()
+      coordinator.handleKeyboardAction(.expand)
+      #expect(coordinator.focusedItemID == "folder")
+      #expect(host.single == "folder")
+      #expect(coordinator.selectedItemIDs == ["folder"])
+    }
+
+    @Test func forwardArrowCanEnterANonselectableContainer() {
+      host.roots = [
+        .group("folder", [.leaf("excluded"), .group("section", [.leaf("child")])])
+      ]
+      host.isSelectable = { !["excluded", "section"].contains($0.id) }
+      host.expansion = ["folder"]
+      host.single = "folder"
+      update()
+      #expect(
+        coordinator.collectionView(
+          collectionView, canFocusItemAt: IndexPath(item: 2, section: 0)))
+      coordinator.handleKeyboardAction(.expand)
+      #expect(coordinator.focusedItemID == "section")
+      #expect(host.single == "folder")
+      #expect(host.expansion == ["folder"])
+      coordinator.handleKeyboardAction(.activate)
+      #expect(host.expansion == ["folder", "section"])
+    }
+
     @Test func verticalArrowsMoveFromATouchedRowWithoutActivatingIt() {
       var activated = false
       host.primaryAction = { _ in activated = true }
@@ -888,6 +957,44 @@
       #expect(coordinator.springLoaded == ["a", "a2"])
     }
 
+    @Test func dropExpansionAndCacheFollowSpringLoading() async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      var validations = 0
+      host.drop = OutlineDropHandler(
+        validate: { _ in
+          validations += 1
+          return .accept(.move)
+        }, perform: { _, _ in true })
+      update()
+      #expect(
+        coordinator.resolveDrop(of: ["c"], at: .onto("a"))?.proposal.isTargetExpanded == false)
+      await restOn(.onto("a"))
+      #expect(coordinator.displayedExpansion.contains("a"))
+      #expect(
+        coordinator.resolveDrop(of: ["c"], at: .onto("a"))?.proposal.isTargetExpanded == true)
+      coordinator.endSpringLoading()
+      #expect(!coordinator.displayedExpansion.contains("a"))
+      #expect(
+        coordinator.resolveDrop(of: ["c"], at: .onto("a"))?.proposal.isTargetExpanded == false)
+      #expect(validations == 3)
+      #expect(host.expansion.isEmpty)
+    }
+
+    @Test func redirectedDropUsesTheSpringLoadedDestinationsExpansion() async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      host.drop = OutlineDropHandler(
+        validate: { _ in .redirect(to: .onto("a"), operation: .move) },
+        perform: { _, _ in true })
+      update()
+      #expect(
+        coordinator.resolveDrop(of: ["c"], at: .onto("b"))?.proposal.isTargetExpanded == false)
+      await restOn(.onto("a"))
+      let resolved = coordinator.resolveDrop(of: ["c"], at: .onto("b"))
+      #expect(resolved?.proposal.target == .onto("a"))
+      #expect(resolved?.proposal.isTargetExpanded == true)
+      #expect(host.expansion.isEmpty)
+    }
+
     @Test func forgetsSpringLoadedFoldersRemovedDuringTheDrag() async {
       coordinator.springLoadingDelayOverride = .milliseconds(10)
       update()
@@ -922,6 +1029,76 @@
       host.expansion.insert("a")
       coordinator.endSpringLoading()
       #expect(coordinator.displayedExpansion == ["a"])
+    }
+
+    @Test func disablingSpringLoadingCancelsPendingHover() async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      update()
+      coordinator.updateSpringLoading(for: .onto("a"))
+      host.springLoading = .disabled
+      update()
+      await coordinator.springLoadingSettled()
+      #expect(!coordinator.displayedExpansion.contains("a"))
+      #expect(host.expansion.isEmpty)
+    }
+
+    @Test func enablingSpringLoadingResumesAStationaryHover() async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      host.springLoading = .disabled
+      update()
+      coordinator.updateSpringLoading(for: .onto("a"))
+      host.springLoading = .enabled
+      update()
+      await coordinator.springLoadingSettled()
+      #expect(coordinator.displayedExpansion.contains("a"))
+      #expect(host.expansion.isEmpty)
+    }
+
+    @Test(arguments: [false, true])
+    func disablingSpringLoadingRestoresHostOwnedExpansion(keepOpen: Bool) async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      update()
+      await restOn(.onto("a"))
+      if keepOpen { host.expansion.insert("a") }
+      host.springLoading = .disabled
+      update()
+      #expect(coordinator.displayedExpansion.contains("a") == keepOpen)
+      #expect(host.expansion == (keepOpen ? ["a"] : []))
+    }
+
+    @Test func exitingDropTargetCancelsAPendingOpen() async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      update()
+      coordinator.updateSpringLoading(for: .onto("a"))
+      coordinator.collectionView(collectionView, dropSessionDidExit: OutlineTestDropSession())
+      await coordinator.springLoadingSettled()
+      #expect(coordinator.springLoaded.isEmpty)
+      #expect(!coordinator.displayedExpansion.contains("a"))
+      #expect(host.expansion.isEmpty)
+    }
+
+    @Test(arguments: [false, true])
+    func exitingDropTargetRestoresExpansionAndAllowsReentry(keepOpen: Bool) async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      host.canDrag = { _ in true }
+      update()
+      _ = coordinator.beginDrag(from: "c")
+      await restOn(.onto("a"))
+      if keepOpen { host.expansion.insert("a") }
+      let session = OutlineTestDropSession()
+      coordinator.collectionView(collectionView, dropSessionDidExit: session)
+      #expect(coordinator.springLoaded.isEmpty)
+      #expect(coordinator.displayedExpansion.contains("a") == keepOpen)
+      #expect(host.expansion == (keepOpen ? ["a"] : []))
+      #expect(coordinator.currentDragIDs == ["c"])
+      coordinator.collectionView(collectionView, dropSessionDidEnter: session)
+      await restOn(.onto("a"))
+      #expect(coordinator.displayedExpansion.contains("a"))
+      coordinator.collectionView(collectionView, dropSessionDidEnd: session)
+      coordinator.collectionView(collectionView, dropSessionDidEnd: session)
+      #expect(coordinator.springLoaded.isEmpty)
+      #expect(coordinator.currentDragIDs.isEmpty)
+      #expect(coordinator.displayedExpansion.contains("a") == keepOpen)
     }
 
     @Test func doesNotSpringLoadWhenDisabled() async {

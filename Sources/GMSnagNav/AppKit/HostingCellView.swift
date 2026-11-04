@@ -92,9 +92,9 @@
       }
     }
 
-    /// Shows new row content.
-    func show(_ content: AnyView) {
-      self.content = content
+    /// Preserves state for the same element and resets it when AppKit reuses the cell.
+    func show(_ content: AnyView, for id: AnyHashable) {
+      self.content = AnyView(content.id(id))
       render()
     }
 

@@ -7,6 +7,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-04
+
+Harden outline updates and interaction lifetimes after the 0.5.0 library review. Fixes include
+all twelve original findings and an additional rescued-parent diff case, with maintained
+regressions for each. No new public API is introduced.
+
 ### Fixed
 
 - Rows moved under a rescued, freshly reinserted collapsed parent no longer remain incorrectly
@@ -275,7 +281,8 @@ It requires macOS 26 or iOS 26 and Swift 6.2.
 - English and German texts for what VoiceOver reads on iOS. They follow the host app's language.
 - `SnagNavDemo`, a multiplatform demo app in `Examples/`.
 
-[Unreleased]: https://github.com/kerker00/GMSnagNav/compare/0.5.0...HEAD
+[Unreleased]: https://github.com/kerker00/GMSnagNav/compare/0.5.1...HEAD
+[0.5.1]: https://github.com/kerker00/GMSnagNav/compare/0.5.0...0.5.1
 [0.5.0]: https://github.com/kerker00/GMSnagNav/compare/0.4.1...0.5.0
 [0.4.1]: https://github.com/kerker00/GMSnagNav/compare/0.4.0...0.4.1
 [0.4.0]: https://github.com/kerker00/GMSnagNav/compare/0.3.0...0.4.0

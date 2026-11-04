@@ -9,6 +9,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Changing spring-loading policy cancels pending openings and restores temporary expansion.
+  Re-enabling it over a stationary target schedules a fresh opening; delayed work rechecks policy.
 - Pointer-drop proposals report temporary spring-loaded expansion, including redirected targets,
   and invalidate cached validation when temporary folders open or close.
 - Reused macOS cells reset SwiftUI row state for a different element while preserving state

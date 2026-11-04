@@ -1031,6 +1031,41 @@
       #expect(coordinator.displayedExpansion == ["a"])
     }
 
+    @Test func disablingSpringLoadingCancelsPendingHover() async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      update()
+      coordinator.updateSpringLoading(for: .onto("a"))
+      host.springLoading = .disabled
+      update()
+      await coordinator.springLoadingSettled()
+      #expect(!coordinator.displayedExpansion.contains("a"))
+      #expect(host.expansion.isEmpty)
+    }
+
+    @Test func enablingSpringLoadingResumesAStationaryHover() async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      host.springLoading = .disabled
+      update()
+      coordinator.updateSpringLoading(for: .onto("a"))
+      host.springLoading = .enabled
+      update()
+      await coordinator.springLoadingSettled()
+      #expect(coordinator.displayedExpansion.contains("a"))
+      #expect(host.expansion.isEmpty)
+    }
+
+    @Test(arguments: [false, true])
+    func disablingSpringLoadingRestoresHostOwnedExpansion(keepOpen: Bool) async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      update()
+      await restOn(.onto("a"))
+      if keepOpen { host.expansion.insert("a") }
+      host.springLoading = .disabled
+      update()
+      #expect(coordinator.displayedExpansion.contains("a") == keepOpen)
+      #expect(host.expansion == (keepOpen ? ["a"] : []))
+    }
+
     @Test func doesNotSpringLoadWhenDisabled() async {
       coordinator.springLoadingDelayOverride = .milliseconds(10)
       host.springLoading = .disabled

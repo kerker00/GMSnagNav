@@ -197,6 +197,7 @@
           sectionSnapshot(expanded: expanded), to: 0, animatingDifferences: hasLoaded)
       }
       hasLoaded = true
+      synchronizeSpringLoading()
       refreshVisibleCells()
       let selected = selectedIDs(in: renderer.selection)
       if selected != lastAppliedSelection, selected.count == 1 {
@@ -232,7 +233,7 @@
       renameOwnership.invalidate()
       hierarchyReveal.cancel()
       navigation.cancel()
-      springLoadTask?.cancel()
+      endSpringLoading()
       renderer = nil
       collectionView = nil
     }
@@ -951,6 +952,8 @@
     /// The element the finger rests on, and the pending task that opens it.
     private var springLoadCandidate: ID?
     private var springLoadTask: Task<Void, Never>?
+    private var springLoadTarget: OutlineDropTarget<ID>?
+    private var scheduledSpringDelay: Duration?
     /// Finishes once the pending spring-loading has opened its element or was cancelled, for tests.
     func springLoadingSettled() async {
       await springLoadTask?.value
@@ -963,8 +966,18 @@
       return springLoadingDelayOverride ?? .milliseconds(600)
     }
 
+    private func synchronizeSpringLoading() {
+      if let target = springLoadTarget { updateSpringLoading(for: target) }
+    }
+
     /// Opens collapsed elements the finger rests on and closes the ones it has left.
     func updateSpringLoading(for target: OutlineDropTarget<ID>) {
+      springLoadTarget = target
+      guard let delay = springLoadingDelay else {
+        endSpringLoading()
+        springLoadTarget = target
+        return
+      }
       let toClose = tree.springLoadedToClose(springLoaded, targetParent: target.parent)
       if !toClose.isEmpty {
         springLoaded.removeAll { toClose.contains($0) }
@@ -977,15 +990,27 @@
       {
         candidate = id
       }
-      guard candidate != springLoadCandidate else { return }
+      guard
+        candidate != springLoadCandidate
+          || (candidate != nil && scheduledSpringDelay != delay)
+      else { return }
       springLoadTask?.cancel()
+      springLoadTask = nil
       springLoadCandidate = candidate
-      guard let candidate, let delay = springLoadingDelay else { return }
-
+      scheduledSpringDelay = nil
+      guard let candidate else { return }
+      scheduledSpringDelay = delay
       springLoadTask = Task { [weak self] in
         try? await Task.sleep(for: delay)
         guard !Task.isCancelled, let self, self.springLoadCandidate == candidate else { return }
+        self.springLoadTask = nil
         self.springLoadCandidate = nil
+        self.scheduledSpringDelay = nil
+        guard self.springLoadingDelay == delay else {
+          self.synchronizeSpringLoading()
+          return
+        }
+        guard !self.tree.children(of: candidate).isEmpty else { return }
         self.springLoaded.append(candidate)
         self.applySpringLoadedExpansion()
       }
@@ -994,6 +1019,8 @@
     /// Closes what spring-loading opened, unless the host expanded it in the meantime — for
     /// example to reveal the elements just dropped into it.
     func endSpringLoading() {
+      springLoadTarget = nil
+      scheduledSpringDelay = nil
       springLoadTask?.cancel()
       springLoadTask = nil
       springLoadCandidate = nil

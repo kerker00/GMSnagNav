@@ -1066,6 +1066,41 @@
       #expect(host.expansion == (keepOpen ? ["a"] : []))
     }
 
+    @Test func exitingDropTargetCancelsAPendingOpen() async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      update()
+      coordinator.updateSpringLoading(for: .onto("a"))
+      coordinator.collectionView(collectionView, dropSessionDidExit: OutlineTestDropSession())
+      await coordinator.springLoadingSettled()
+      #expect(coordinator.springLoaded.isEmpty)
+      #expect(!coordinator.displayedExpansion.contains("a"))
+      #expect(host.expansion.isEmpty)
+    }
+
+    @Test(arguments: [false, true])
+    func exitingDropTargetRestoresExpansionAndAllowsReentry(keepOpen: Bool) async {
+      coordinator.springLoadingDelayOverride = .milliseconds(10)
+      host.canDrag = { _ in true }
+      update()
+      _ = coordinator.beginDrag(from: "c")
+      await restOn(.onto("a"))
+      if keepOpen { host.expansion.insert("a") }
+      let session = OutlineTestDropSession()
+      coordinator.collectionView(collectionView, dropSessionDidExit: session)
+      #expect(coordinator.springLoaded.isEmpty)
+      #expect(coordinator.displayedExpansion.contains("a") == keepOpen)
+      #expect(host.expansion == (keepOpen ? ["a"] : []))
+      #expect(coordinator.currentDragIDs == ["c"])
+      coordinator.collectionView(collectionView, dropSessionDidEnter: session)
+      await restOn(.onto("a"))
+      #expect(coordinator.displayedExpansion.contains("a"))
+      coordinator.collectionView(collectionView, dropSessionDidEnd: session)
+      coordinator.collectionView(collectionView, dropSessionDidEnd: session)
+      #expect(coordinator.springLoaded.isEmpty)
+      #expect(coordinator.currentDragIDs.isEmpty)
+      #expect(coordinator.displayedExpansion.contains("a") == keepOpen)
+    }
+
     @Test func doesNotSpringLoadWhenDisabled() async {
       coordinator.springLoadingDelayOverride = .milliseconds(10)
       host.springLoading = .disabled

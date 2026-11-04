@@ -931,7 +931,11 @@
     func collectionView(
       _ collectionView: UICollectionView, dropSessionDidExit session: UIDropSession
     ) {
+      pendingTarget = nil
+      dragRowFrames = nil
       dropIndicator = nil
+      dropCache.removeAll()
+      endSpringLoading()
     }
 
     func collectionView(

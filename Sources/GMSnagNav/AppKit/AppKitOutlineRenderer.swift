@@ -352,7 +352,7 @@
 
     /// Shows an element's content in a cell, laid out for the outline's style.
     private func configure(_ cell: HostingCellView, for id: ID, content: AnyView) {
-      cell.show(content)
+      cell.show(content, for: id)
       cell.setAccessibilityCustomActions(reorderingActions(for: id))
       let isSourceList = outlineView?.style == .sourceList
       // Plain rows reach the edge of the outline; keep accessories off it.

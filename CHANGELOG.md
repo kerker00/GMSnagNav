@@ -9,6 +9,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Reused macOS cells reset SwiftUI row state for a different element while preserving state
+  and rename drafts when the same element refreshes.
 - iPad forward-arrow navigation skips excluded leaf rows and uses the same focusability rules
   as vertical navigation and native focus, including RTL hierarchy entry.
 - iPad sibling shortcut titles follow live host-locale changes without replacing registered

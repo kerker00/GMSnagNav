@@ -249,18 +249,26 @@ The host controls search filters and split-view visibility. See
 
 ## Roadmap
 
-The latest release is `0.5.1`. The following milestones are proposed scope, not release dates
-or guarantees. Features may move between milestones as integration and measurements reveal needs.
+The latest published release is [0.5.1](https://github.com/kerker00/GMSnagNav/releases/tag/0.5.1),
+a maintenance patch for the 0.5.0 features. It fixes all thirteen confirmed review findings
+without adding public API. See the [changelog](CHANGELOG.md#051---2026-11-04) for the full list.
 
-| Milestone | Proposed focus |
-| --- | --- |
-| **0.5.0** | Pinned rows, shared hierarchical Move-to/Copy-to menus, and keyboard/VoiceOver hierarchy movement. |
-| **0.5.1** | Reliability fixes for deep-tree updates, rename/reveal ownership, pinned actions, native row reuse, spring loading and iPad keyboard behavior. |
-| **0.6.0** | Host-defined drag previews and drag-session lifecycle callbacks, with native fallbacks. |
-| **0.7.0** | iOS editing mode: selection, deletion and reordering integrated with the host's `EditMode`, plus pull to refresh on iOS and iPadOS through SwiftUI's `refreshable` action, with the host performing the reload. |
-| **0.8.0** | Transfers between views and apps, including incoming and outgoing host-defined payloads. |
-| **0.9.x** | Large-tree benchmarks and measured optimizations, integration hardening, documentation and API review. Evaluate host-owned asynchronous loading after the benchmarks. |
-| **1.0.0** | A stable public API, documented platform behavior and limits, verified accessibility and keyboard workflows, and a proven host integration. |
+Upcoming milestones are proposed scope, not release dates or guarantees. Features may move
+between milestones as integration and measurements reveal needs.
+
+| Milestone | Status | Scope |
+| --- | --- | --- |
+| **0.5.0** | Released | Pinned rows, shared hierarchical Move-to/Copy-to menus, and keyboard/VoiceOver hierarchy movement. |
+| **0.5.1** | Released | Reliability fixes for deep-tree updates, rename/reveal ownership, pinned actions, native row reuse, spring loading and iPad keyboard behavior. |
+| **0.6.0** | Next planned | Host-defined drag previews and drag-session lifecycle callbacks, with native fallbacks and defined cancellation/teardown behavior. |
+| **0.7.0** | Planned | iOS editing mode: selection, deletion and reordering integrated with the host's `EditMode`, plus pull to refresh on iOS and iPadOS through SwiftUI's `refreshable` action, with the host performing the reload. |
+| **0.8.0** | Planned | Transfers between views and apps, including incoming and outgoing host-defined payloads. |
+| **0.9.x** | Planned | Large-tree benchmarks and measured optimizations, integration hardening, documentation and API review. Evaluate host-owned asynchronous loading after the benchmarks. |
+| **1.0.0** | Readiness goal | A stable public API, documented platform behavior and limits, verified accessibility and keyboard workflows, and a proven host integration. |
+
+The [review register](Review.md) records the fixes shipped in 0.5.1 and the remaining
+architecture, accessibility and integration work for these milestones. Work on 0.6 starts
+with the drag-session lifecycle contract before exposing new preview or lifecycle hooks.
 
 Before 1.0, measure trees with 1,000, 10,000 and 50,000 elements, both mostly collapsed and
 fully expanded. Publish the tested limits rather than promising a tree size without evidence.

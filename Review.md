@@ -10,9 +10,10 @@ content, public API contracts, documentation and test workflows. The original re
 **12 confirmed issues**. One additional diff defect, BUG-013, was confirmed during remediation.
 Architecture decisions and checks that still need evidence remain separate. Findings
 were independently reviewed across Core, AppKit and UIKit, then checked with focused probes.
-The original review changed no implementation. **All thirteen confirmed issues are now fixed
-on the `fix/0.5.1` branch and included in `release/0.5.1`**, as recorded in the resolution
-history below. These fixes are not yet a published release. Remediation status: **2026-11-04**.
+The original review changed no implementation. **All thirteen confirmed issues were fixed
+and published in [0.5.1](https://github.com/kerker00/GMSnagNav/releases/tag/0.5.1)**, as recorded
+in the resolution history below. Publication status: **2026-11-04**. Architecture decisions
+and validation tasks retain their own status; they were not all closed by this patch.
 
 The host-owned model and shared drop-resolution layer remain useful foundations. The review's
 main correctness gap was ownership of transient work: old editors, queued binding writes,
@@ -526,10 +527,14 @@ stack configuration when comparing results.
 
 ## Resolution history
 
-**Implementation branch:** `fix/0.5.1`, based on `origin/dev` at `1e575c3`.
-**Release branch:** `release/0.5.1` contains these unchanged fix commits plus 0.5.1 version
-metadata and a dated changelog section, prepared on 2026-11-04. Publication follows the
-separate release-merge/tag workflow; preparing this branch does not publish the release.
+**Published release:** [GMSnagNav 0.5.1](https://github.com/kerker00/GMSnagNav/releases/tag/0.5.1),
+2026-11-04, annotated tag `0.5.1` at commit
+`b247f0acdad7ea8dd4d2d8de243b52cc39dec1d2`. The release is stable and marked Latest.
+
+**Implementation history:** The fix branch was based on `dev` at `1e575c3`. PR #67 merged
+all thirteen fix commits and the release metadata into `dev`; PR #68 merged that state into
+`main`. Both PRs passed lint and macOS/iOS package CI before the user merged them. Temporary
+fix/release branches were subsequently retired; the commits remain in the release history.
 Each row below corresponds to one fix commit. The review baseline is a separate docs commit.
 
 | Issue | Fix commit | Maintained regression / verification |
